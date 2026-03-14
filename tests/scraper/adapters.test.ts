@@ -464,11 +464,20 @@ describe("initializeAdapters", () => {
     initializeAdapters();
     const adapters = getRegisteredAdapters();
 
-    expect(adapters.length).toBe(3);
+    expect(adapters.length).toBe(8);
     const sourceIds = adapters.map((a) => a.sourceId);
+    // Permit adapters
     expect(sourceIds).toContain("austin-tx-permits");
     expect(sourceIds).toContain("dallas-tx-permits");
     expect(sourceIds).toContain("atlanta-ga-permits");
+    // Bid board adapters
+    expect(sourceIds).toContain("sam-gov-bids");
+    // News adapters
+    expect(sourceIds).toContain("enr-news");
+    expect(sourceIds).toContain("construction-dive-news");
+    expect(sourceIds).toContain("prnewswire-news");
+    // Deep web adapters
+    expect(sourceIds).toContain("google-dorking");
   });
 });
 
@@ -480,10 +489,10 @@ describe("Adapter pluggability", () => {
       "@/lib/scraper/adapters/index"
     );
 
-    // Register the 3 built-in adapters
+    // Register the 8 built-in adapters
     initializeAdapters();
 
-    // Create and register a custom 4th adapter
+    // Create and register a custom 9th adapter
     const customAdapter: ScraperAdapter = {
       sourceId: "houston-tx-permits",
       sourceName: "City of Houston Building Permits",
@@ -494,7 +503,7 @@ describe("Adapter pluggability", () => {
     registerAdapter(customAdapter);
 
     const adapters = getRegisteredAdapters();
-    expect(adapters.length).toBe(4);
+    expect(adapters.length).toBe(9);
     expect(adapters.map((a) => a.sourceId)).toContain("houston-tx-permits");
   });
 });
