@@ -1,4 +1,4 @@
-import type { ScraperAdapter, RawPermitData } from "./base-adapter";
+import type { ScraperAdapter, RawLeadData } from "./base-adapter";
 
 /**
  * Dallas TX building permits adapter.
@@ -15,12 +15,13 @@ import type { ScraperAdapter, RawPermitData } from "./base-adapter";
 export class DallasPermitsAdapter implements ScraperAdapter {
   readonly sourceId = "dallas-tx-permits";
   readonly sourceName = "City of Dallas Building Permits";
+  readonly sourceType = "permit" as const;
   readonly jurisdiction = "Dallas, TX";
 
   private readonly endpoint =
     "https://www.dallasopendata.com/resource/e7gq-4sah.json";
 
-  async scrape(): Promise<RawPermitData[]> {
+  async scrape(): Promise<RawLeadData[]> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const dateStr = thirtyDaysAgo.toISOString().split("T")[0];
@@ -53,6 +54,7 @@ export class DallasPermitsAdapter implements ScraperAdapter {
         ? new Date(record.issued_date as string)
         : undefined,
       sourceUrl: `${this.endpoint}?permit_number=${record.permit_number}`,
+      sourceType: "permit" as const,
       // Dallas does NOT include lat/lng -- these records will need geocoding
     }));
   }

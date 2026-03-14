@@ -1,4 +1,4 @@
-import type { ScraperAdapter, RawPermitData } from "./base-adapter";
+import type { ScraperAdapter, RawLeadData } from "./base-adapter";
 
 /**
  * Austin TX building permits adapter.
@@ -15,12 +15,13 @@ import type { ScraperAdapter, RawPermitData } from "./base-adapter";
 export class AustinPermitsAdapter implements ScraperAdapter {
   readonly sourceId = "austin-tx-permits";
   readonly sourceName = "City of Austin Issued Construction Permits";
+  readonly sourceType = "permit" as const;
   readonly jurisdiction = "Austin, TX";
 
   private readonly endpoint =
     "https://data.austintexas.gov/resource/3syk-w9eu.json";
 
-  async scrape(): Promise<RawPermitData[]> {
+  async scrape(): Promise<RawLeadData[]> {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const dateStr = thirtyDaysAgo.toISOString().split("T")[0];
@@ -49,6 +50,7 @@ export class AustinPermitsAdapter implements ScraperAdapter {
         ? new Date(record.issue_date as string)
         : undefined,
       sourceUrl: `${this.endpoint}?permit_number=${record.permit_number}`,
+      sourceType: "permit" as const,
       // Austin includes coordinates from source data -- pass through for geocoding skip
       lat: record.latitude ? parseFloat(record.latitude as string) : undefined,
       lng: record.longitude

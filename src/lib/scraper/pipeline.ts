@@ -1,9 +1,11 @@
-import type { ScraperAdapter, RawPermitData } from "./adapters/base-adapter";
-import { rawPermitSchema } from "./adapters/base-adapter";
+import type { ScraperAdapter, RawLeadData } from "./adapters/base-adapter";
+import { rawLeadSchema } from "./adapters/base-adapter";
 import type { PipelineResult, PipelineRunResult } from "./types";
 import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
+import { leadSources } from "@/lib/db/schema/lead-sources";
 import { geocodeAddress } from "@/lib/geocoding";
+import { eq, and } from "drizzle-orm";
 
 /** Default delay between geocoding requests to avoid rate limiting (ms) */
 const GEOCODE_THROTTLE_MS = 25;
@@ -15,7 +17,8 @@ const GEOCODE_THROTTLE_MS = 25;
  * the error is captured and the pipeline continues with remaining adapters.
  *
  * Records are validated with Zod, geocoded (if lat/lng not present),
- * and upserted into the leads table using sourceId+permitNumber for dedup.
+ * and upserted into the leads table. Lead source entries are created
+ * in the lead_sources junction table for multi-source tracking.
  */
 export async function runPipeline(
   adapters: ScraperAdapter[]
@@ -41,7 +44,7 @@ async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
     const rawRecords = await adapter.scrape();
     const { valid, invalidCount } = validateRecords(rawRecords);
 
-    const storedCount = await processRecords(
+    const { storedCount, newLeadIds } = await processRecords(
       adapter.sourceId,
       adapter.jurisdiction,
       valid
@@ -58,6 +61,7 @@ async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
       recordsScraped: rawRecords.length,
       recordsStored: storedCount,
       errors,
+      newLeadIds,
     };
   } catch (error) {
     const message =
@@ -76,18 +80,18 @@ async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
 }
 
 /**
- * Validate raw records against the Zod schema.
+ * Validate raw records against the generalized Zod schema.
  * Invalid records are logged and skipped.
  */
 function validateRecords(records: unknown[]): {
-  valid: RawPermitData[];
+  valid: RawLeadData[];
   invalidCount: number;
 } {
-  const valid: RawPermitData[] = [];
+  const valid: RawLeadData[] = [];
   let invalidCount = 0;
 
   for (const record of records) {
-    const result = rawPermitSchema.safeParse(record);
+    const result = rawLeadSchema.safeParse(record);
     if (result.success) {
       valid.push(result.data);
     } else {
@@ -101,67 +105,141 @@ function validateRecords(records: unknown[]): {
 
 /**
  * Process validated records: geocode addresses, then upsert into leads table.
+ * After lead insertion, creates lead_sources entries for source tracking.
  */
 async function processRecords(
   sourceId: string,
-  jurisdiction: string,
-  records: RawPermitData[]
-): Promise<number> {
-  if (records.length === 0) return 0;
+  jurisdiction: string | undefined,
+  records: RawLeadData[]
+): Promise<{ storedCount: number; newLeadIds: string[] }> {
+  if (records.length === 0) return { storedCount: 0, newLeadIds: [] };
 
   const geocoded = await geocodeBatch(records, GEOCODE_THROTTLE_MS);
   const scrapedAt = new Date();
+  const newLeadIds: string[] = [];
 
-  const values = geocoded.map((record) => ({
-    permitNumber: record.permitNumber,
-    description: record.description ?? null,
-    address: record.address,
-    formattedAddress: record.formattedAddress ?? null,
-    lat: record.lat ?? null,
-    lng: record.lng ?? null,
-    projectType: record.projectType ?? null,
-    estimatedValue: record.estimatedValue ?? null,
-    applicantName: record.applicantName ?? null,
-    permitDate: record.permitDate ?? null,
-    sourceId,
-    sourceJurisdiction: jurisdiction,
-    sourceUrl: record.sourceUrl ?? null,
-    scrapedAt,
-  }));
+  for (const record of geocoded) {
+    // Build the address: use explicit address, or construct from city+state
+    const address =
+      record.address ||
+      (record.city && record.state
+        ? `${record.city}, ${record.state}`
+        : null);
 
-  await db
-    .insert(leads)
-    .values(values)
-    .onConflictDoUpdate({
-      target: [leads.sourceId, leads.permitNumber],
-      set: {
-        description: leads.description,
-        projectType: leads.projectType,
-        estimatedValue: leads.estimatedValue,
-        applicantName: leads.applicantName,
-        permitDate: leads.permitDate,
-        scrapedAt: leads.scrapedAt,
-        lat: leads.lat,
-        lng: leads.lng,
-        formattedAddress: leads.formattedAddress,
-        sourceUrl: leads.sourceUrl,
-      },
-    });
+    const values = {
+      permitNumber: record.permitNumber ?? null,
+      title: record.title ?? null,
+      description: record.description ?? null,
+      address: address ?? null,
+      formattedAddress: record.formattedAddress ?? null,
+      lat: record.lat ?? null,
+      lng: record.lng ?? null,
+      city: record.city ?? null,
+      state: record.state ?? null,
+      projectType: record.projectType ?? null,
+      estimatedValue: record.estimatedValue ?? null,
+      applicantName: record.applicantName ?? null,
+      contractorName: record.contractorName ?? null,
+      agencyName: record.agencyName ?? null,
+      permitDate: record.permitDate ?? null,
+      postedDate: record.postedDate ?? null,
+      deadlineDate: record.deadlineDate ?? null,
+      sourceType: record.sourceType,
+      sourceId,
+      sourceJurisdiction: jurisdiction ?? null,
+      sourceUrl: record.sourceUrl ?? null,
+      scrapedAt,
+    };
 
-  return values.length;
+    let leadId: string;
+
+    if (record.sourceType === "permit" && record.permitNumber) {
+      // Permit records: upsert on sourceId + permitNumber
+      const result = await db
+        .insert(leads)
+        .values(values)
+        .onConflictDoUpdate({
+          target: [leads.sourceId, leads.permitNumber],
+          set: {
+            description: leads.description,
+            title: leads.title,
+            projectType: leads.projectType,
+            estimatedValue: leads.estimatedValue,
+            applicantName: leads.applicantName,
+            contractorName: leads.contractorName,
+            agencyName: leads.agencyName,
+            permitDate: leads.permitDate,
+            postedDate: leads.postedDate,
+            deadlineDate: leads.deadlineDate,
+            scrapedAt: leads.scrapedAt,
+            lat: leads.lat,
+            lng: leads.lng,
+            formattedAddress: leads.formattedAddress,
+            sourceUrl: leads.sourceUrl,
+            city: leads.city,
+            state: leads.state,
+          },
+        })
+        .returning({ id: leads.id });
+
+      leadId = result[0].id;
+    } else {
+      // Non-permit records: check if exists by sourceId + externalId, then insert or skip
+      const externalId = record.externalId || record.title;
+      const existing = await db
+        .select({ id: leads.id })
+        .from(leads)
+        .where(
+          and(
+            eq(leads.sourceId, sourceId),
+            eq(leads.title, externalId ?? "")
+          )
+        )
+        .limit(1);
+
+      if (existing.length > 0) {
+        leadId = existing[0].id;
+      } else {
+        const result = await db
+          .insert(leads)
+          .values(values)
+          .returning({ id: leads.id });
+
+        leadId = result[0].id;
+      }
+    }
+
+    newLeadIds.push(leadId);
+
+    // Insert lead_sources entry for source tracking
+    await db
+      .insert(leadSources)
+      .values({
+        leadId,
+        sourceId,
+        sourceType: record.sourceType,
+        externalId: record.externalId || record.permitNumber || null,
+        sourceUrl: record.sourceUrl ?? null,
+        title: record.title ?? null,
+      })
+      .onConflictDoNothing();
+  }
+
+  return { storedCount: geocoded.length, newLeadIds };
 }
 
 /** Record with geocoding results attached */
-interface GeocodedRecord extends RawPermitData {
+interface GeocodedRecord extends RawLeadData {
   formattedAddress?: string;
 }
 
 /**
  * Geocode addresses for records that don't already have coordinates.
  * Applies throttling between requests to avoid rate limiting.
+ * For records without an address, attempts to geocode from city+state.
  */
 async function geocodeBatch(
-  records: RawPermitData[],
+  records: RawLeadData[],
   delayMs: number
 ): Promise<GeocodedRecord[]> {
   const results: GeocodedRecord[] = [];
@@ -175,8 +253,21 @@ async function geocodeBatch(
       continue;
     }
 
+    // Determine what to geocode: prefer address, fall back to city+state
+    const geocodeTarget =
+      record.address ||
+      (record.city && record.state
+        ? `${record.city}, ${record.state}`
+        : null);
+
+    if (!geocodeTarget) {
+      // No address or city/state available -- store without coordinates
+      results.push({ ...record });
+      continue;
+    }
+
     try {
-      const geo = await geocodeAddress(record.address);
+      const geo = await geocodeAddress(geocodeTarget);
       results.push({
         ...record,
         lat: geo.lat,
@@ -185,7 +276,7 @@ async function geocodeBatch(
       });
     } catch (error) {
       console.warn(
-        `[pipeline] Geocoding failed for "${record.address}":`,
+        `[pipeline] Geocoding failed for "${geocodeTarget}":`,
         error instanceof Error ? error.message : error
       );
       // Store record without coordinates if geocoding fails

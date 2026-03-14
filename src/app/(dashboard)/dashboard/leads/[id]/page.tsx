@@ -117,7 +117,7 @@ export default async function LeadDetailPage({ params }: PageProps) {
                 <LeadMap
                   lat={lead.lat}
                   lng={lead.lng}
-                  title={lead.formattedAddress ?? lead.address}
+                  title={lead.formattedAddress ?? lead.address ?? "Unknown location"}
                 />
               ) : (
                 <div className="flex h-[300px] w-full items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/50">

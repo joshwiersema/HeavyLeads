@@ -1,4 +1,4 @@
-import type { ScraperAdapter, RawPermitData } from "./base-adapter";
+import type { ScraperAdapter, RawLeadData } from "./base-adapter";
 
 /**
  * Atlanta GA building permits adapter.
@@ -30,12 +30,13 @@ interface ArcGISFeatureCollection {
 export class AtlantaPermitsAdapter implements ScraperAdapter {
   readonly sourceId = "atlanta-ga-permits";
   readonly sourceName = "City of Atlanta Building Permits";
+  readonly sourceType = "permit" as const;
   readonly jurisdiction = "Atlanta, GA";
 
   private readonly endpoint =
     "https://dpcd-coaplangis.opendata.arcgis.com/api/v3/datasets/655f985f43cc40b4bf2ab7bc73d2169b/downloads/data?format=geojson&spatialRefId=4326";
 
-  async scrape(): Promise<RawPermitData[]> {
+  async scrape(): Promise<RawLeadData[]> {
     const response = await fetch(this.endpoint);
 
     if (!response.ok) {
@@ -63,6 +64,7 @@ export class AtlantaPermitsAdapter implements ScraperAdapter {
           ? new Date(props.issue_date as string)
           : undefined,
         sourceUrl: this.endpoint,
+        sourceType: "permit" as const,
         // ArcGIS GeoJSON coordinates are [lng, lat] order
         lat: coords ? coords[1] : undefined,
         lng: coords ? coords[0] : undefined,

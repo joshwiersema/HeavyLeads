@@ -487,6 +487,7 @@ describe("Adapter pluggability", () => {
     const customAdapter: ScraperAdapter = {
       sourceId: "houston-tx-permits",
       sourceName: "City of Houston Building Permits",
+      sourceType: "permit",
       jurisdiction: "Houston, TX",
       scrape: async () => [],
     };
