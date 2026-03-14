@@ -5,6 +5,8 @@ export interface PipelineResult {
   recordsScraped: number;
   recordsStored: number;
   errors: string[];
+  /** IDs of newly inserted leads (for downstream dedup processing) */
+  newLeadIds?: string[];
 }
 
 /** Aggregated result from running all registered adapters */
