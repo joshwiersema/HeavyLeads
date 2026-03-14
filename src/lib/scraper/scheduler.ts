@@ -32,6 +32,24 @@ export function startScheduler(): void {
           );
         }
 
+        // Trigger email digest after successful pipeline completion
+        try {
+          const { generateDigests } = await import(
+            "@/lib/email/digest-generator"
+          );
+          const digestResult = await generateDigests();
+          console.log(
+            `[scheduler] Email digest: ${digestResult.sent} sent, ${digestResult.skipped} skipped, ${digestResult.errors} errors`
+          );
+        } catch (digestError) {
+          console.error(
+            "[scheduler] Digest generation failed:",
+            digestError instanceof Error
+              ? digestError.message
+              : digestError
+          );
+        }
+
         console.log("[scheduler] Daily pipeline complete.");
       } catch (error) {
         console.error(
