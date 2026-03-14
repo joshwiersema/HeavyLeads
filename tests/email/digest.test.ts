@@ -310,8 +310,9 @@ describe("daily-digest: DailyDigestEmail renders correctly", () => {
       "http://localhost:3000/dashboard/leads/00000000-0000-0000-0000-000000000001"
     );
 
-    // Check summary line
-    expect(html).toContain("3 new lead(s)");
+    // Check summary line (React Email inserts comment nodes between interpolated values)
+    expect(html).toContain("new lead(s)");
+    expect(html).toContain(">3<");
   });
 });
 
