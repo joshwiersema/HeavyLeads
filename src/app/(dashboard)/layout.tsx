@@ -54,7 +54,7 @@ export default async function DashboardLayout({
               href="/dashboard"
               className="flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
-              Dashboard
+              Leads
             </Link>
             <Link
               href="/settings"
