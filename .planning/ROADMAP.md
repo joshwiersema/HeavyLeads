@@ -12,8 +12,8 @@ HeavyLeads is a data pipeline product with a SaaS frontend. The build order foll
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Platform Foundation** - Auth, multi-tenancy with data isolation, company onboarding wizard, and account management
-- [ ] **Phase 2: Scraping Pipeline** - Crawlee-based scraper framework, initial permit scrapers, daily scheduling, and geocoding
+- [x] **Phase 1: Platform Foundation** - Auth, multi-tenancy with data isolation, company onboarding wizard, and account management
+- [x] **Phase 2: Scraping Pipeline** - Crawlee-based scraper framework, initial permit scrapers, daily scheduling, and geocoding
 - [ ] **Phase 3: Lead Intelligence and Dashboard** - Equipment inference, lead scoring, timeline mapping, filterable daily feed, and lead detail view
 - [ ] **Phase 4: Multi-Source Expansion** - Bid board, news, and deep web scrapers with cross-source deduplication
 - [ ] **Phase 5: Lead Management and Notifications** - Lead status tracking, saved searches, keyword search, and daily email digest
@@ -34,7 +34,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Scaffold Next.js 16 app, configure Better Auth + Drizzle + Neon PostgreSQL, create auth pages and protected dashboard layout
-- [ ] 01-02-PLAN.md -- Build onboarding wizard (location, equipment, radius), account settings, company profile settings, and end-to-end verification
+- [x] 01-02-PLAN.md -- Build onboarding wizard (location, equipment, radius), account settings, company profile settings, and end-to-end verification
 
 ### Phase 2: Scraping Pipeline
 **Goal**: System automatically collects permit data daily and stores geocoded lead records ready for enrichment
@@ -48,8 +48,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Leads DB schema, scraper adapter interface, pipeline orchestrator with error isolation and dedup, Zod validation, and test scaffolds
-- [ ] 02-02-PLAN.md -- Three jurisdiction adapters (Austin, Dallas, Atlanta), daily cron scheduler, and manual trigger API route
+- [x] 02-01-PLAN.md -- Leads DB schema, scraper adapter interface, pipeline orchestrator with error isolation and dedup, Zod validation, and test scaffolds
+- [x] 02-02-PLAN.md -- Three jurisdiction adapters (Austin, Dallas, Atlanta), daily cron scheduler, and manual trigger API route
 
 ### Phase 3: Lead Intelligence and Dashboard
 **Goal**: Sales reps can open HeavyLeads each morning and see a filtered, scored feed of relevant project leads
@@ -65,7 +65,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md -- Equipment inference engine, lead scoring algorithm, timeline mapping, freshness badges, and Haversine geo-filtered query module
-- [ ] 03-02-PLAN.md -- Daily lead feed dashboard with card layout, equipment and radius filter controls, and navigation update
+- [x] 03-02-PLAN.md -- Daily lead feed dashboard with card layout, equipment and radius filter controls, and navigation update
 - [ ] 03-03-PLAN.md -- Lead detail page with interactive Google Map, equipment needs with confidence, timeline urgency windows, and source attribution
 
 ### Phase 4: Multi-Source Expansion
@@ -119,9 +119,9 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Platform Foundation | 1/2 | In Progress | - |
-| 2. Scraping Pipeline | 0/2 | Not started | - |
-| 3. Lead Intelligence and Dashboard | 1/3 | In Progress | - |
+| 1. Platform Foundation | 2/2 | Complete | 2026-03-13 |
+| 2. Scraping Pipeline | 2/2 | Complete | 2026-03-14 |
+| 3. Lead Intelligence and Dashboard | 2/3 | In Progress | - |
 | 4. Multi-Source Expansion | 0/2 | Not started | - |
 | 5. Lead Management and Notifications | 0/2 | Not started | - |
 | 6. Billing and Launch Readiness | 0/1 | Not started | - |

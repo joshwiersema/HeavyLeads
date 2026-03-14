@@ -28,7 +28,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### User Experience
 
-- [ ] **UX-01**: User sees a daily lead feed dashboard with fresh leads sorted by recency and relevance
+- [x] **UX-01**: User sees a daily lead feed dashboard with fresh leads sorted by recency and relevance
 - [ ] **UX-02**: User can track lead status (New / Viewed / Contacted / Won / Lost)
 - [ ] **UX-03**: User can save searches and bookmark individual leads for quick re-access
 - [ ] **UX-04**: User receives a daily email digest summarizing new matching leads with links to dashboard
@@ -100,7 +100,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LEAD-04 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-05 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-06 | Phase 3: Lead Intelligence and Dashboard | Complete |
-| UX-01 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| UX-01 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | UX-02 | Phase 5: Lead Management and Notifications | Pending |
 | UX-03 | Phase 5: Lead Management and Notifications | Pending |
 | UX-04 | Phase 5: Lead Management and Notifications | Pending |
