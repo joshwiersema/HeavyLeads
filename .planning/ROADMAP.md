@@ -82,7 +82,7 @@ Plans:
 Plans:
 - [x] 04-01-PLAN.md -- Generalize adapter interface from permit-specific to source-agnostic, update DB schema (leads + lead_sources), update pipeline and existing adapters
 - [ ] 04-02-PLAN.md -- SAM.gov bid board adapter, RSS news adapters (ENR, Construction Dive, PR Newswire), Google dorking adapter via Serper.dev
-- [ ] 04-03-PLAN.md -- Cross-source deduplication engine, pipeline integration, and multi-source attribution on lead detail page
+- [x] 04-03-PLAN.md -- Cross-source deduplication engine, pipeline integration, and multi-source attribution on lead detail page
 
 ### Phase 5: Lead Management and Notifications
 **Goal**: Sales reps can track their lead workflow and receive proactive notifications about new matches

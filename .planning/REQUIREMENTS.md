@@ -14,7 +14,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **DATA-03**: System scrapes construction news and press releases for project announcements and groundbreakings
 - [ ] **DATA-04**: System performs Google dorking / deep web queries to surface project docs, contractor activity, and job postings
 - [x] **DATA-05**: System runs scraping pipeline on a daily schedule and marks data with freshness timestamps
-- [ ] **DATA-06**: System deduplicates leads across multiple data sources into a single canonical lead record
+- [x] **DATA-06**: System deduplicates leads across multiple data sources into a single canonical lead record
 - [x] **DATA-07**: System geocodes lead locations for radius-based geographic filtering
 
 ### Lead Intelligence
@@ -92,7 +92,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-03 | Phase 4: Multi-Source Expansion | Pending |
 | DATA-04 | Phase 4: Multi-Source Expansion | Pending |
 | DATA-05 | Phase 2: Scraping Pipeline | Complete |
-| DATA-06 | Phase 4: Multi-Source Expansion | Pending |
+| DATA-06 | Phase 4: Multi-Source Expansion | Complete |
 | DATA-07 | Phase 2: Scraping Pipeline | Complete |
 | LEAD-01 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-02 | Phase 3: Lead Intelligence and Dashboard | Complete |
