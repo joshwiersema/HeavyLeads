@@ -133,9 +133,10 @@ describe("AustinPermitsAdapter", () => {
     expect(capturedUrl).toContain(
       "https://data.austintexas.gov/resource/3syk-w9eu.json"
     );
-    expect(capturedUrl).toContain("$where=");
+    // URLSearchParams encodes $ as %24
+    expect(capturedUrl).toContain("%24where=");
     expect(capturedUrl).toContain("issue_date");
-    expect(capturedUrl).toContain("$limit=1000");
+    expect(capturedUrl).toContain("%24limit=1000");
   });
 
   it("maps Socrata fields to RawPermitData (permit_number -> permitNumber, permit_location -> address, latitude/longitude preserved)", async () => {
@@ -245,9 +246,10 @@ describe("DallasPermitsAdapter", () => {
     expect(capturedUrl).toContain(
       "https://www.dallasopendata.com/resource/e7gq-4sah.json"
     );
-    expect(capturedUrl).toContain("$where=");
+    // URLSearchParams encodes $ as %24
+    expect(capturedUrl).toContain("%24where=");
     expect(capturedUrl).toContain("issued_date");
-    expect(capturedUrl).toContain("$limit=1000");
+    expect(capturedUrl).toContain("%24limit=1000");
   });
 
   it("maps Socrata fields to RawPermitData (permit_number -> permitNumber, street_address -> address, value -> estimatedValue, contractor -> applicantName)", async () => {

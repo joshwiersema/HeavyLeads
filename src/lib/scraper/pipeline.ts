@@ -153,8 +153,6 @@ async function processRecords(
 
 /** Record with geocoding results attached */
 interface GeocodedRecord extends RawPermitData {
-  lat?: number;
-  lng?: number;
   formattedAddress?: string;
 }
 
@@ -170,6 +168,12 @@ async function geocodeBatch(
 
   for (let i = 0; i < records.length; i++) {
     const record = records[i];
+
+    // Skip geocoding if adapter already provides coordinates (e.g., Austin, Atlanta)
+    if (record.lat != null && record.lng != null) {
+      results.push({ ...record });
+      continue;
+    }
 
     try {
       const geo = await geocodeAddress(record.address);
