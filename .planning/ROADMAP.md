@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Scaffold Next.js 16 app, configure Better Auth + Drizzle + Neon PostgreSQL, create auth pages and protected dashboard layout
+- [x] 01-01-PLAN.md -- Scaffold Next.js 16 app, configure Better Auth + Drizzle + Neon PostgreSQL, create auth pages and protected dashboard layout
 - [ ] 01-02-PLAN.md -- Build onboarding wizard (location, equipment, radius), account settings, company profile settings, and end-to-end verification
 
 ### Phase 2: Scraping Pipeline
@@ -119,7 +119,7 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Platform Foundation | 0/2 | Not started | - |
+| 1. Platform Foundation | 1/2 | In Progress | - |
 | 2. Scraping Pipeline | 0/2 | Not started | - |
 | 3. Lead Intelligence and Dashboard | 0/3 | Not started | - |
 | 4. Multi-Source Expansion | 0/2 | Not started | - |

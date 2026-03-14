@@ -37,9 +37,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Platform
 
-- [ ] **PLAT-01**: User can sign up with email and password
-- [ ] **PLAT-02**: User session persists across browser refresh
-- [ ] **PLAT-03**: Multi-tenant company accounts with data isolation between competing dealers
+- [x] **PLAT-01**: User can sign up with email and password
+- [x] **PLAT-02**: User session persists across browser refresh
+- [x] **PLAT-03**: Multi-tenant company accounts with data isolation between competing dealers
 - [ ] **PLAT-04**: Company onboarding wizard: set HQ location, equipment types sold/rented, service radius
 - [ ] **PLAT-05**: Subscription billing with one-time setup fee + ongoing monthly charges via Stripe
 - [ ] **PLAT-06**: User can manage account settings and company profile
@@ -106,9 +106,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | UX-04 | Phase 5: Lead Management and Notifications | Pending |
 | UX-05 | Phase 3: Lead Intelligence and Dashboard | Pending |
 | UX-06 | Phase 5: Lead Management and Notifications | Pending |
-| PLAT-01 | Phase 1: Platform Foundation | Pending |
-| PLAT-02 | Phase 1: Platform Foundation | Pending |
-| PLAT-03 | Phase 1: Platform Foundation | Pending |
+| PLAT-01 | Phase 1: Platform Foundation | Complete |
+| PLAT-02 | Phase 1: Platform Foundation | Complete |
+| PLAT-03 | Phase 1: Platform Foundation | Complete |
 | PLAT-04 | Phase 1: Platform Foundation | Pending |
 | PLAT-05 | Phase 6: Billing and Launch Readiness | Pending |
 | PLAT-06 | Phase 1: Platform Foundation | Pending |
