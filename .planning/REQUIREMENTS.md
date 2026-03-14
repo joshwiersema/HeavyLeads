@@ -19,12 +19,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Lead Intelligence
 
-- [ ] **LEAD-01**: System infers equipment needs from project type and description (rule-based mapping: project type -> equipment categories)
-- [ ] **LEAD-02**: System scores leads by relevance to the dealer's configured equipment types and service radius
-- [ ] **LEAD-03**: System maps project phase to equipment-need timeline windows (e.g., earthwork phase = excavators now, finishing phase = boom lifts later)
+- [x] **LEAD-01**: System infers equipment needs from project type and description (rule-based mapping: project type -> equipment categories)
+- [x] **LEAD-02**: System scores leads by relevance to the dealer's configured equipment types and service radius
+- [x] **LEAD-03**: System maps project phase to equipment-need timeline windows (e.g., earthwork phase = excavators now, finishing phase = boom lifts later)
 - [ ] **LEAD-04**: Lead detail view shows project info, location on map, key contacts, estimated equipment needs, and source attribution
-- [ ] **LEAD-05**: User can filter leads by equipment type (forklifts, boom lifts, excavators, telehandlers, etc.) with show-all default
-- [ ] **LEAD-06**: User can filter leads by geographic radius from their company HQ
+- [x] **LEAD-05**: User can filter leads by equipment type (forklifts, boom lifts, excavators, telehandlers, etc.) with show-all default
+- [x] **LEAD-06**: User can filter leads by geographic radius from their company HQ
 
 ### User Experience
 
@@ -32,7 +32,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **UX-02**: User can track lead status (New / Viewed / Contacted / Won / Lost)
 - [ ] **UX-03**: User can save searches and bookmark individual leads for quick re-access
 - [ ] **UX-04**: User receives a daily email digest summarizing new matching leads with links to dashboard
-- [ ] **UX-05**: Leads display freshness indicators (discovered date, age badges: New, This Week, Older)
+- [x] **UX-05**: Leads display freshness indicators (discovered date, age badges: New, This Week, Older)
 - [ ] **UX-06**: User can search leads by keyword and filter by date range and project size
 
 ### Platform
@@ -94,17 +94,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-05 | Phase 2: Scraping Pipeline | Complete |
 | DATA-06 | Phase 4: Multi-Source Expansion | Pending |
 | DATA-07 | Phase 2: Scraping Pipeline | Complete |
-| LEAD-01 | Phase 3: Lead Intelligence and Dashboard | Pending |
-| LEAD-02 | Phase 3: Lead Intelligence and Dashboard | Pending |
-| LEAD-03 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-01 | Phase 3: Lead Intelligence and Dashboard | Complete |
+| LEAD-02 | Phase 3: Lead Intelligence and Dashboard | Complete |
+| LEAD-03 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-04 | Phase 3: Lead Intelligence and Dashboard | Pending |
-| LEAD-05 | Phase 3: Lead Intelligence and Dashboard | Pending |
-| LEAD-06 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-05 | Phase 3: Lead Intelligence and Dashboard | Complete |
+| LEAD-06 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | UX-01 | Phase 3: Lead Intelligence and Dashboard | Pending |
 | UX-02 | Phase 5: Lead Management and Notifications | Pending |
 | UX-03 | Phase 5: Lead Management and Notifications | Pending |
 | UX-04 | Phase 5: Lead Management and Notifications | Pending |
-| UX-05 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| UX-05 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | UX-06 | Phase 5: Lead Management and Notifications | Pending |
 | PLAT-01 | Phase 1: Platform Foundation | Complete |
 | PLAT-02 | Phase 1: Platform Foundation | Complete |

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-14T04:57:33.836Z"
-last_activity: 2026-03-14 -- Completed plan 02-02 (Adapter Implementations)
+status: in_progress
+stopped_at: Completed 03-01 (Lead Intelligence Core)
+last_updated: "2026-03-14T18:16:14Z"
+last_activity: 2026-03-14 -- Completed plan 03-01 (Lead Intelligence Core)
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 4
-  completed_plans: 4
-  percent: 33
+  total_plans: 12
+  completed_plans: 5
+  percent: 42
 ---
 
 # Project State
@@ -21,43 +21,45 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 2 - Scraping Pipeline
+**Current focus:** Phase 3 - Lead Intelligence and Dashboard
 
 ## Current Position
 
-Phase: 2 of 6 (Scraping Pipeline)
-Plan: 2 of 2 in current phase
-Status: Phase Complete
-Last activity: 2026-03-14 -- Completed plan 02-02 (Adapter Implementations)
+Phase: 3 of 6 (Lead Intelligence and Dashboard)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-03-14 -- Completed plan 03-01 (Lead Intelligence Core)
 
-Progress: [███░░░░░░░] 33%
+Progress: [████░░░░░░] 42%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 9min
-- Total execution time: 0.5 hours
+- Total plans completed: 5
+- Average duration: 7min
+- Total execution time: 0.6 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 1. Platform Foundation | 2/2 | 24min | 12min |
-| 2. Scraping Pipeline | 1/2 | 4min | 4min |
+| 2. Scraping Pipeline | 2/2 | 9min | 5min |
+| 3. Lead Intelligence | 1/3 | 5min | 5min |
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 9min | 4 tasks | 14 files |
 | Phase 01 P02 | 15min | 3 tasks | 17 files |
 | Phase 02 P01 | 4min | 2 tasks | 12 files |
+| Phase 02 P02 | 5min | 2 tasks | 10 files |
+| Phase 03 P01 | 5min | 2 tasks | 12 files |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (9min), 01-02 (15min), 02-01 (4min)
-- Trend: Accelerating
+- Last 5 plans: 01-02 (15min), 02-01 (4min), 02-02 (5min), 03-01 (5min)
+- Trend: Stable (~5min/plan)
 
 *Updated after each plan completion*
-| Phase 02 P02 | 5min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -81,6 +83,10 @@ Recent decisions affecting current work:
 - [Phase 02-01]: 25ms throttle between geocoding requests to avoid Google Maps rate limiting
 - [Phase 02]: Added optional lat/lng to rawPermitSchema so adapters with source coordinates can skip geocoding
 - [Phase 02]: Atlanta adapter uses ArcGIS GeoJSON download endpoint -- simpler than Feature Service query, avoids pagination
+- [Phase 03-01]: Equipment inference uses substring keyword matching against both projectType and description with confidence tiers (high/medium/low)
+- [Phase 03-01]: Haversine pure helper exported from queries.ts for testability and single-lead distance calculation
+- [Phase 03-01]: Equipment filtering extracted as pure filterByEquipment function for unit testing without DB mocking
+- [Phase 03-01]: Timeline mapping reuses INFERENCE_RULES from equipment-inference.ts to keep phase detection DRY
 
 ### Pending Todos
 
@@ -89,11 +95,10 @@ None yet.
 ### Blockers/Concerns
 
 - DATA-04 (Google dorking) is v1 but research flags high legal scrutiny -- needs legal review before Phase 4
-- Equipment taxonomy (project type to equipment mapping) requires domain expert input before Phase 3
 - Specific target jurisdictions for permit scraping not yet identified -- needed before Phase 2 planning
 
 ## Session Continuity
 
-Last session: 2026-03-14T04:57:33.833Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-lead-intelligence-and-dashboard/03-CONTEXT.md
+Last session: 2026-03-14T18:16:14Z
+Stopped at: Completed 03-01 (Lead Intelligence Core)
+Resume file: .planning/phases/03-lead-intelligence-and-dashboard/03-01-SUMMARY.md

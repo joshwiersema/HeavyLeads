@@ -64,7 +64,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Equipment inference engine, lead scoring algorithm, timeline mapping, freshness badges, and Haversine geo-filtered query module
+- [x] 03-01-PLAN.md -- Equipment inference engine, lead scoring algorithm, timeline mapping, freshness badges, and Haversine geo-filtered query module
 - [ ] 03-02-PLAN.md -- Daily lead feed dashboard with card layout, equipment and radius filter controls, and navigation update
 - [ ] 03-03-PLAN.md -- Lead detail page with interactive Google Map, equipment needs with confidence, timeline urgency windows, and source attribution
 
@@ -121,7 +121,7 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 |-------|----------------|--------|-----------|
 | 1. Platform Foundation | 1/2 | In Progress | - |
 | 2. Scraping Pipeline | 0/2 | Not started | - |
-| 3. Lead Intelligence and Dashboard | 0/3 | Not started | - |
+| 3. Lead Intelligence and Dashboard | 1/3 | In Progress | - |
 | 4. Multi-Source Expansion | 0/2 | Not started | - |
 | 5. Lead Management and Notifications | 0/2 | Not started | - |
 | 6. Billing and Launch Readiness | 0/1 | Not started | - |
