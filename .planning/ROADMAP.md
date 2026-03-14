@@ -108,10 +108,11 @@ Plans:
   1. Company admin can initiate subscription checkout that includes a one-time setup fee and a recurring monthly charge
   2. System handles subscription lifecycle events (activation, cancellation, payment failure) via Stripe webhooks
   3. Access to lead data is gated by active subscription status
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: TBD
+- [ ] 06-01-PLAN.md -- Install @better-auth/stripe plugin, configure Stripe integration in auth, create subscription schema, add dashboard access gate
+- [ ] 06-02-PLAN.md -- Billing settings page with subscribe/manage flows, billing status display, and test coverage
 
 ## Progress
 
@@ -126,4 +127,4 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 | 3. Lead Intelligence and Dashboard | 3/3 | Complete | 2026-03-14 |
 | 4. Multi-Source Expansion | 3/3 | Complete   | 2026-03-14 |
 | 5. Lead Management and Notifications | 3/3 | Complete   | 2026-03-14 |
-| 6. Billing and Launch Readiness | 0/1 | Not started | - |
+| 6. Billing and Launch Readiness | 0/2 | Not started | - |
