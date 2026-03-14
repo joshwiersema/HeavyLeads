@@ -19,7 +19,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Lead Intelligence
 
-- [ ] **LEAD-01**: System infers equipment needs from project type and description (rule-based mapping: project type → equipment categories)
+- [ ] **LEAD-01**: System infers equipment needs from project type and description (rule-based mapping: project type -> equipment categories)
 - [ ] **LEAD-02**: System scores leads by relevance to the dealer's configured equipment types and service radius
 - [ ] **LEAD-03**: System maps project phase to equipment-need timeline windows (e.g., earthwork phase = excavators now, finishing phase = boom lifts later)
 - [ ] **LEAD-04**: Lead detail view shows project info, location on map, key contacts, estimated equipment needs, and source attribution
@@ -87,13 +87,37 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (To be populated by roadmapper) | | |
+| DATA-01 | Phase 2: Scraping Pipeline | Pending |
+| DATA-02 | Phase 4: Multi-Source Expansion | Pending |
+| DATA-03 | Phase 4: Multi-Source Expansion | Pending |
+| DATA-04 | Phase 4: Multi-Source Expansion | Pending |
+| DATA-05 | Phase 2: Scraping Pipeline | Pending |
+| DATA-06 | Phase 4: Multi-Source Expansion | Pending |
+| DATA-07 | Phase 2: Scraping Pipeline | Pending |
+| LEAD-01 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-02 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-03 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-04 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-05 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-06 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| UX-01 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| UX-02 | Phase 5: Lead Management and Notifications | Pending |
+| UX-03 | Phase 5: Lead Management and Notifications | Pending |
+| UX-04 | Phase 5: Lead Management and Notifications | Pending |
+| UX-05 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| UX-06 | Phase 5: Lead Management and Notifications | Pending |
+| PLAT-01 | Phase 1: Platform Foundation | Pending |
+| PLAT-02 | Phase 1: Platform Foundation | Pending |
+| PLAT-03 | Phase 1: Platform Foundation | Pending |
+| PLAT-04 | Phase 1: Platform Foundation | Pending |
+| PLAT-05 | Phase 6: Billing and Launch Readiness | Pending |
+| PLAT-06 | Phase 1: Platform Foundation | Pending |
 
 **Coverage:**
-- v1 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 ⚠️
+- v1 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after initial definition*
+*Last updated: 2026-03-13 after roadmap creation*
