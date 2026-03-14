@@ -87,10 +87,30 @@ export default async function DashboardPage({
       ? radiusParam
       : undefined;
 
+  // New filter params
+  const keyword =
+    typeof params.keyword === "string" && params.keyword ? params.keyword : undefined;
+  const dateFrom =
+    typeof params.dateFrom === "string" && params.dateFrom
+      ? new Date(params.dateFrom)
+      : undefined;
+  const dateTo =
+    typeof params.dateTo === "string" && params.dateTo
+      ? new Date(params.dateTo)
+      : undefined;
+  const minProjectSize =
+    typeof params.minProjectSize === "string"
+      ? parseInt(params.minProjectSize, 10)
+      : undefined;
+  const maxProjectSize =
+    typeof params.maxProjectSize === "string"
+      ? parseInt(params.maxProjectSize, 10)
+      : undefined;
+
   const serviceRadius = profile.serviceRadiusMiles ?? 50;
   const dealerEquipment = (profile.equipmentTypes as string[]) ?? [];
 
-  // Fetch filtered leads
+  // Fetch filtered leads with user context for status/bookmark enrichment
   const leads = await getFilteredLeads({
     hqLat: profile.hqLat,
     hqLng: profile.hqLng,
@@ -98,9 +118,32 @@ export default async function DashboardPage({
     dealerEquipment,
     radiusMiles: parsedRadius,
     equipmentFilter: parsedEquipment,
+    keyword,
+    dateFrom: dateFrom && !isNaN(dateFrom.getTime()) ? dateFrom : undefined,
+    dateTo: dateTo && !isNaN(dateTo.getTime()) ? dateTo : undefined,
+    minProjectSize:
+      minProjectSize != null && !isNaN(minProjectSize)
+        ? minProjectSize
+        : undefined,
+    maxProjectSize:
+      maxProjectSize != null && !isNaN(maxProjectSize)
+        ? maxProjectSize
+        : undefined,
+    userId: session.user.id,
+    organizationId: session.session.activeOrganizationId!,
   });
 
   const effectiveRadius = parsedRadius ?? serviceRadius;
+
+  // Count active filters for display
+  const activeFilterParts: string[] = [];
+  if (keyword) activeFilterParts.push(`keyword "${keyword}"`);
+  if (dateFrom) activeFilterParts.push("date from");
+  if (dateTo) activeFilterParts.push("date to");
+  if (minProjectSize != null && !isNaN(minProjectSize)) activeFilterParts.push("min size");
+  if (maxProjectSize != null && !isNaN(maxProjectSize)) activeFilterParts.push("max size");
+  if (parsedEquipment && parsedEquipment.length > 0) activeFilterParts.push(`${parsedEquipment.length} equipment`);
+  const filterSummary = activeFilterParts.length > 0 ? ` (filtered by ${activeFilterParts.join(", ")})` : "";
 
   return (
     <div className="space-y-6">
@@ -109,7 +152,7 @@ export default async function DashboardPage({
         <h1 className="text-3xl font-bold tracking-tight">Lead Feed</h1>
         <p className="text-muted-foreground">
           {leads.length} lead{leads.length !== 1 ? "s" : ""} within{" "}
-          {effectiveRadius} miles
+          {effectiveRadius} miles{filterSummary}
         </p>
       </div>
 

@@ -264,7 +264,8 @@ export async function getFilteredLeads(
   });
 
   // Build select fields -- add status and bookmark info when user context available
-  const selectFields: Record<string, unknown> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selectFields: Record<string, any> = {
     ...getTableColumns(leads),
     distance: distanceExpr,
   };
@@ -276,7 +277,7 @@ export async function getFilteredLeads(
 
   // Build query with optional LEFT JOINs
   let query = db
-    .select(selectFields as { [key: string]: unknown })
+    .select(selectFields)
     .from(leads)
     .$dynamic();
 

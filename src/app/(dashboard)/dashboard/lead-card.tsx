@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { MapPin, Calendar, User } from "lucide-react";
+import { MapPin, Calendar, User, Bookmark } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -8,6 +8,27 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { EnrichedLead } from "@/lib/leads/types";
+import type { LeadStatus } from "@/lib/db/schema/lead-statuses";
+
+/** Color mapping for status indicators */
+const STATUS_CONFIG: Record<
+  LeadStatus,
+  { label: string; className: string }
+> = {
+  new: { label: "New", className: "text-gray-500" },
+  viewed: { label: "Viewed", className: "text-blue-600" },
+  contacted: { label: "Contacted", className: "text-amber-600" },
+  won: { label: "Won", className: "text-green-600" },
+  lost: { label: "Lost", className: "text-red-600" },
+};
+
+const STATUS_DOT: Record<LeadStatus, string> = {
+  new: "bg-gray-400",
+  viewed: "bg-blue-500",
+  contacted: "bg-amber-500",
+  won: "bg-green-500",
+  lost: "bg-red-500",
+};
 
 /** Color mapping for freshness badges */
 const FRESHNESS_VARIANT = {
@@ -31,19 +52,34 @@ export function LeadCard({ lead }: { lead: EnrichedLead }) {
   const equipmentToShow = lead.inferredEquipment.slice(0, MAX_EQUIPMENT_TAGS);
   const overflowCount = lead.inferredEquipment.length - MAX_EQUIPMENT_TAGS;
 
+  const leadStatus = (lead.status ?? "new") as LeadStatus;
+  const statusInfo = STATUS_CONFIG[leadStatus];
+  const statusDot = STATUS_DOT[leadStatus];
+
   return (
     <Link href={`/dashboard/leads/${lead.id}`} className="block group">
       <Card className="transition-shadow hover:shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between gap-2">
-            {lead.projectType && (
-              <Badge variant="secondary" className="truncate max-w-[200px]">
-                {lead.projectType}
+            <div className="flex items-center gap-2 min-w-0">
+              {lead.projectType && (
+                <Badge variant="secondary" className="truncate max-w-[200px]">
+                  {lead.projectType}
+                </Badge>
+              )}
+              <Badge variant={FRESHNESS_VARIANT[lead.freshness]}>
+                {lead.freshness}
               </Badge>
+              {leadStatus !== "new" && (
+                <span className={`inline-flex items-center gap-1 text-xs font-medium ${statusInfo.className}`}>
+                  <span className={`inline-block size-1.5 rounded-full ${statusDot}`} />
+                  {statusInfo.label}
+                </span>
+              )}
+            </div>
+            {lead.isBookmarked && (
+              <Bookmark className="size-4 shrink-0 fill-current text-amber-500" />
             )}
-            <Badge variant={FRESHNESS_VARIANT[lead.freshness]}>
-              {lead.freshness}
-            </Badge>
           </div>
           <div className="mt-1 text-base font-medium leading-snug">
             {displayAddress}

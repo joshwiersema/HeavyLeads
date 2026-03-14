@@ -6,8 +6,9 @@ import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import { getLeadById, getLeadSources } from "@/lib/leads/queries";
+import { getLeadStatus } from "@/actions/lead-status";
+import { getBookmarkedLeads } from "@/actions/bookmarks";
 import type { LeadSource } from "@/lib/leads/queries";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,17 +19,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { LeadTimeline } from "./lead-timeline";
+import { LeadMap } from "./lead-map-dynamic";
+import { LeadStatusSelect } from "./lead-status-select";
+import { BookmarkButton } from "./bookmark-button";
 import type { EnrichedLead, InferredEquipment } from "@/lib/leads/types";
-
-const LeadMap = dynamic(
-  () => import("./lead-map").then((mod) => ({ default: mod.LeadMap })),
-  {
-    ssr: false,
-    loading: () => <Skeleton className="h-[300px] w-full rounded-lg" />,
-  }
-);
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -77,8 +72,14 @@ export default async function LeadDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Fetch all contributing sources for this lead
-  const sources = await getLeadSources(lead.id);
+  // Fetch status, bookmark state, and sources in parallel
+  const [status, bookmarkedIds, sources] = await Promise.all([
+    getLeadStatus(lead.id),
+    getBookmarkedLeads(),
+    getLeadSources(lead.id),
+  ]);
+
+  const isBookmarked = bookmarkedIds.includes(lead.id);
 
   return (
     <div className="space-y-6">
@@ -99,6 +100,8 @@ export default async function LeadDetailPage({ params }: PageProps) {
         <div className="flex flex-wrap items-center gap-2">
           <FreshnessBadge freshness={lead.freshness} />
           <Badge variant="secondary">Score: {lead.score}</Badge>
+          <LeadStatusSelect leadId={lead.id} currentStatus={status} />
+          <BookmarkButton leadId={lead.id} isBookmarked={isBookmarked} />
         </div>
         <p className="text-sm text-muted-foreground">
           {[lead.projectType, lead.sourceJurisdiction, lead.permitNumber]

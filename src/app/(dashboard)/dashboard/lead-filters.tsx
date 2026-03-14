@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { EQUIPMENT_TYPES } from "@/types";
-import { ChevronDown, ChevronUp, Filter } from "lucide-react";
+import { ChevronDown, ChevronUp, Filter, Search, Save } from "lucide-react";
 
 interface LeadFiltersProps {
   defaultRadius: number;
@@ -38,8 +40,24 @@ export function LeadFilters({
     return defaultRadius;
   }, [searchParams, defaultRadius]);
 
+  // Parse new filter params from URL
+  const currentKeyword = searchParams.get("keyword") ?? "";
+  const currentDateFrom = searchParams.get("dateFrom") ?? "";
+  const currentDateTo = searchParams.get("dateTo") ?? "";
+  const currentMinSize = searchParams.get("minProjectSize") ?? "";
+  const currentMaxSize = searchParams.get("maxProjectSize") ?? "";
+
   // Local radius state for smooth slider dragging (only update URL on commit)
   const [localRadius, setLocalRadius] = useState(currentRadius);
+
+  // Local keyword state for debouncing
+  const [localKeyword, setLocalKeyword] = useState(currentKeyword);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync local keyword state when URL changes externally
+  useEffect(() => {
+    setLocalKeyword(searchParams.get("keyword") ?? "");
+  }, [searchParams]);
 
   // Collapsible filter panel state for mobile
   const [isOpen, setIsOpen] = useState(false);
@@ -49,7 +67,7 @@ export function LeadFilters({
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
       for (const [key, value] of Object.entries(updates)) {
-        if (value === null) {
+        if (value === null || value === "") {
           params.delete(key);
         } else {
           params.set(key, value);
@@ -58,6 +76,15 @@ export function LeadFilters({
       return params;
     },
     [searchParams]
+  );
+
+  /** Navigate with updated params */
+  const navigate = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = buildParams(updates);
+      router.replace(`${pathname}?${params.toString()}`);
+    },
+    [buildParams, router, pathname]
   );
 
   /** Toggle an equipment type in the filter */
@@ -69,32 +96,155 @@ export function LeadFilters({
       } else {
         next = selectedEquipment.filter((t) => t !== type);
       }
-
-      const params = buildParams({
-        equipment: next.length > 0 ? next.join(",") : null,
-      });
-      router.replace(`${pathname}?${params.toString()}`);
+      navigate({ equipment: next.length > 0 ? next.join(",") : null });
     },
-    [selectedEquipment, buildParams, router, pathname]
+    [selectedEquipment, navigate]
   );
 
   /** Update URL when radius slider is released */
   const handleRadiusCommit = useCallback(
     (value: number | readonly number[]) => {
       const radiusValue = Array.isArray(value) ? value[0] : value;
-      const params = buildParams({
-        radius:
-          radiusValue === defaultRadius
-            ? null
-            : String(radiusValue),
+      navigate({
+        radius: radiusValue === defaultRadius ? null : String(radiusValue),
       });
-      router.replace(`${pathname}?${params.toString()}`);
     },
-    [buildParams, router, pathname, defaultRadius]
+    [navigate, defaultRadius]
   );
+
+  /** Debounced keyword update */
+  const handleKeywordChange = useCallback(
+    (value: string) => {
+      setLocalKeyword(value);
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        navigate({ keyword: value || null });
+      }, 300);
+    },
+    [navigate]
+  );
+
+  /** Handle date range changes */
+  const handleDateChange = useCallback(
+    (field: "dateFrom" | "dateTo", value: string) => {
+      navigate({ [field]: value || null });
+    },
+    [navigate]
+  );
+
+  /** Handle project size changes */
+  const handleSizeChange = useCallback(
+    (field: "minProjectSize" | "maxProjectSize", value: string) => {
+      const parsed = parseInt(value, 10);
+      navigate({
+        [field]: !isNaN(parsed) && parsed >= 0 ? String(parsed) : null,
+      });
+    },
+    [navigate]
+  );
+
+  /** Navigate to saved searches page with current filter params to save */
+  const handleSaveSearch = useCallback(() => {
+    const currentParams = searchParams.toString();
+    const saveUrl = currentParams
+      ? `/dashboard/saved-searches?save=true&${currentParams}`
+      : `/dashboard/saved-searches?save=true`;
+    router.push(saveUrl);
+  }, [searchParams, router]);
+
+  /** Check if any filters are active */
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedEquipment.length > 0) count++;
+    if (currentKeyword) count++;
+    if (currentDateFrom) count++;
+    if (currentDateTo) count++;
+    if (currentMinSize) count++;
+    if (currentMaxSize) count++;
+    if (currentRadius !== defaultRadius) count++;
+    return count;
+  }, [
+    selectedEquipment,
+    currentKeyword,
+    currentDateFrom,
+    currentDateTo,
+    currentMinSize,
+    currentMaxSize,
+    currentRadius,
+    defaultRadius,
+  ]);
 
   const filterContent = (
     <div className="space-y-6">
+      {/* Keyword search */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Keyword Search</Label>
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search leads..."
+            value={localKeyword}
+            onChange={(e) => handleKeywordChange(e.target.value)}
+            className="pl-8"
+          />
+        </div>
+      </div>
+
+      {/* Date range */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Date Range</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs text-muted-foreground">From</label>
+            <Input
+              type="date"
+              value={currentDateFrom ? currentDateFrom.slice(0, 10) : ""}
+              onChange={(e) => handleDateChange("dateFrom", e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">To</label>
+            <Input
+              type="date"
+              value={currentDateTo ? currentDateTo.slice(0, 10) : ""}
+              onChange={(e) => handleDateChange("dateTo", e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Project size range */}
+      <div className="space-y-2">
+        <Label className="text-sm font-medium">Project Size</Label>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-xs text-muted-foreground">Min $</label>
+            <Input
+              type="number"
+              placeholder="0"
+              value={currentMinSize}
+              onChange={(e) =>
+                handleSizeChange("minProjectSize", e.target.value)
+              }
+              min={0}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted-foreground">Max $</label>
+            <Input
+              type="number"
+              placeholder="No limit"
+              value={currentMaxSize}
+              onChange={(e) =>
+                handleSizeChange("maxProjectSize", e.target.value)
+              }
+              min={0}
+            />
+          </div>
+        </div>
+      </div>
+
       {/* Radius slider */}
       <div className="space-y-3">
         <Label className="text-sm font-medium">
@@ -149,15 +299,22 @@ export function LeadFilters({
           <button
             type="button"
             className="text-xs text-muted-foreground underline hover:text-foreground"
-            onClick={() => {
-              const params = buildParams({ equipment: null });
-              router.replace(`${pathname}?${params.toString()}`);
-            }}
+            onClick={() => navigate({ equipment: null })}
           >
             Clear equipment filter
           </button>
         )}
       </div>
+
+      {/* Save Search button */}
+      <Button
+        variant="outline"
+        className="w-full gap-1.5"
+        onClick={handleSaveSearch}
+      >
+        <Save className="size-4" />
+        Save Search
+      </Button>
     </div>
   );
 
@@ -176,9 +333,9 @@ export function LeadFilters({
           <span className="flex items-center gap-2">
             <Filter className="size-4" />
             Filters
-            {selectedEquipment.length > 0 && (
+            {activeFilterCount > 0 && (
               <span className="rounded-full bg-primary px-1.5 py-0.5 text-xs text-primary-foreground">
-                {selectedEquipment.length}
+                {activeFilterCount}
               </span>
             )}
           </span>
