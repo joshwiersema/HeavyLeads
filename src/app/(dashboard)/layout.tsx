@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
+import { getActiveSubscription } from "@/lib/billing";
 import Link from "next/link";
 import { LayoutDashboard, Bookmark, Search, Settings } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
@@ -37,6 +38,14 @@ export default async function DashboardLayout({
 
   if (!profile || !profile.onboardingCompleted) {
     redirect("/onboarding");
+  }
+
+  // Check subscription status -- must have active subscription to access dashboard
+  const activeSubscription = await getActiveSubscription(
+    session.session.activeOrganizationId
+  );
+  if (!activeSubscription) {
+    redirect("/billing");
   }
 
   return (
