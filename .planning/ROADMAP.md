@@ -61,12 +61,12 @@ Plans:
   3. User can filter leads by equipment type (show-all default) and by geographic radius from company HQ
   4. Lead detail view shows project info, map location, key contacts, estimated equipment needs, and source attribution
   5. Leads include equipment-need timeline windows mapping project phases to when specific equipment is needed
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
-- [ ] 03-03: TBD
+- [ ] 03-01-PLAN.md -- Equipment inference engine, lead scoring algorithm, timeline mapping, freshness badges, and Haversine geo-filtered query module
+- [ ] 03-02-PLAN.md -- Daily lead feed dashboard with card layout, equipment and radius filter controls, and navigation update
+- [ ] 03-03-PLAN.md -- Lead detail page with interactive Google Map, equipment needs with confidence, timeline urgency windows, and source attribution
 
 ### Phase 4: Multi-Source Expansion
 **Goal**: System aggregates leads from permits, bid boards, news, and deep web into deduplicated canonical records
