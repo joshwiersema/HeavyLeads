@@ -45,11 +45,11 @@ Plans:
   2. Scraping pipeline runs automatically on a daily schedule and each record carries a freshness timestamp
   3. Lead locations are geocoded to coordinates that support radius-based geographic queries
   4. New scraper sources can be added via pluggable adapter configuration without modifying framework code
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Leads DB schema, scraper adapter interface, pipeline orchestrator with error isolation and dedup, Zod validation, and test scaffolds
+- [ ] 02-02-PLAN.md -- Three jurisdiction adapters (Austin, Dallas, Atlanta), daily cron scheduler, and manual trigger API route
 
 ### Phase 3: Lead Intelligence and Dashboard
 **Goal**: Sales reps can open HeavyLeads each morning and see a filtered, scored feed of relevant project leads
