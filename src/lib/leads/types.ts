@@ -1,6 +1,7 @@
 import type { InferSelectModel } from "drizzle-orm";
 import type { EquipmentType } from "@/types";
 import type { leads } from "@/lib/db/schema/leads";
+import type { LeadStatus } from "@/lib/db/schema/lead-statuses";
 
 /** Equipment inferred from project type and description keywords */
 export interface InferredEquipment {
@@ -36,6 +37,10 @@ export interface EnrichedLead extends InferSelectModel<typeof leads> {
   score: number;
   freshness: FreshnessBadge;
   timeline: TimelineWindow[];
+  /** Per-user lead status (defaults to "new" when no explicit status set) */
+  status?: LeadStatus;
+  /** Whether the current user has bookmarked this lead */
+  isBookmarked?: boolean;
 }
 
 /**

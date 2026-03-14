@@ -1,7 +1,22 @@
-import { sql, getTableColumns, and, isNotNull, eq, desc, asc } from "drizzle-orm";
+import {
+  sql,
+  getTableColumns,
+  and,
+  isNotNull,
+  eq,
+  desc,
+  asc,
+  ilike,
+  gte,
+  lte,
+  or,
+} from "drizzle-orm";
+import type { SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
 import { leadSources } from "@/lib/db/schema/lead-sources";
+import { leadStatuses } from "@/lib/db/schema/lead-statuses";
+import { bookmarks } from "@/lib/db/schema/bookmarks";
 import { inferEquipmentNeeds } from "./equipment-inference";
 import { scoreLead } from "./scoring";
 import { getFreshnessBadge } from "./types";
@@ -72,8 +87,123 @@ export interface GetFilteredLeadsParams {
   dealerEquipment: string[];
   radiusMiles?: number;
   equipmentFilter?: string[];
+  keyword?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  minProjectSize?: number;
+  maxProjectSize?: number;
+  userId?: string;
+  organizationId?: string;
   limit?: number;
   offset?: number;
+}
+
+/** Filter params subset used by buildFilterConditions and applyInMemoryFilters */
+export interface FilterParams {
+  keyword?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  minProjectSize?: number;
+  maxProjectSize?: number;
+}
+
+/**
+ * Builds an array of Drizzle SQL conditions from the optional filter params.
+ * Returns an empty array when no filters are active.
+ *
+ * Exported for testability -- the main getFilteredLeads function calls this
+ * internally and spreads the conditions into its WHERE clause.
+ */
+export function buildFilterConditions(params: FilterParams): SQL[] {
+  const conditions: SQL[] = [];
+
+  if (params.keyword) {
+    const pattern = `%${params.keyword}%`;
+    conditions.push(
+      or(
+        ilike(leads.title, pattern),
+        ilike(leads.description, pattern),
+        ilike(leads.address, pattern),
+        ilike(leads.applicantName, pattern),
+        ilike(leads.contractorName, pattern)
+      )!
+    );
+  }
+
+  if (params.dateFrom) {
+    conditions.push(gte(leads.scrapedAt, params.dateFrom));
+  }
+
+  if (params.dateTo) {
+    conditions.push(lte(leads.scrapedAt, params.dateTo));
+  }
+
+  if (params.minProjectSize != null) {
+    conditions.push(gte(leads.estimatedValue, params.minProjectSize));
+  }
+
+  if (params.maxProjectSize != null) {
+    conditions.push(lte(leads.estimatedValue, params.maxProjectSize));
+  }
+
+  return conditions;
+}
+
+/**
+ * In-memory filter that mirrors the SQL filter logic.
+ * Used for post-query filtering and unit testing without a database.
+ *
+ * Applies keyword (case-insensitive match across title, description,
+ * address, applicantName, contractorName), date range on scrapedAt,
+ * and project size range on estimatedValue.
+ */
+export function applyInMemoryFilters(
+  enrichedLeads: EnrichedLead[],
+  params: FilterParams
+): EnrichedLead[] {
+  return enrichedLeads.filter((lead) => {
+    // Keyword filter -- case-insensitive match across multiple fields
+    if (params.keyword) {
+      const kw = params.keyword.toLowerCase();
+      const matchFields = [
+        lead.title,
+        lead.description,
+        lead.address,
+        lead.applicantName,
+        lead.contractorName,
+      ];
+      const matches = matchFields.some(
+        (field) => field != null && field.toLowerCase().includes(kw)
+      );
+      if (!matches) return false;
+    }
+
+    // Date range filters on scrapedAt
+    if (params.dateFrom && lead.scrapedAt < params.dateFrom) {
+      return false;
+    }
+    if (params.dateTo && lead.scrapedAt > params.dateTo) {
+      return false;
+    }
+
+    // Project size filters on estimatedValue
+    if (
+      params.minProjectSize != null &&
+      (lead.estimatedValue == null ||
+        lead.estimatedValue < params.minProjectSize)
+    ) {
+      return false;
+    }
+    if (
+      params.maxProjectSize != null &&
+      (lead.estimatedValue == null ||
+        lead.estimatedValue > params.maxProjectSize)
+    ) {
+      return false;
+    }
+
+    return true;
+  });
 }
 
 export interface GetLeadByIdParams {
@@ -100,6 +230,13 @@ export async function getFilteredLeads(
     dealerEquipment,
     radiusMiles = serviceRadiusMiles,
     equipmentFilter,
+    keyword,
+    dateFrom,
+    dateTo,
+    minProjectSize,
+    maxProjectSize,
+    userId,
+    organizationId,
     limit = 50,
     offset = 0,
   } = params;
@@ -117,13 +254,54 @@ export async function getFilteredLeads(
     )
   `.mapWith(Number);
 
-  // Repeat the full Haversine expression in WHERE (cannot reference SELECT alias in PostgreSQL)
-  const rows = await db
-    .select({
-      ...getTableColumns(leads),
-      distance: distanceExpr,
-    })
+  // Build filter conditions from optional params
+  const filterConditions = buildFilterConditions({
+    keyword,
+    dateFrom,
+    dateTo,
+    minProjectSize,
+    maxProjectSize,
+  });
+
+  // Build select fields -- add status and bookmark info when user context available
+  const selectFields: Record<string, unknown> = {
+    ...getTableColumns(leads),
+    distance: distanceExpr,
+  };
+
+  if (userId && organizationId) {
+    selectFields.status = sql<string>`COALESCE(${leadStatuses.status}, 'new')`.as("status");
+    selectFields.isBookmarked = sql<boolean>`${bookmarks.id} IS NOT NULL`.as("is_bookmarked");
+  }
+
+  // Build query with optional LEFT JOINs
+  let query = db
+    .select(selectFields as { [key: string]: unknown })
     .from(leads)
+    .$dynamic();
+
+  if (userId && organizationId) {
+    query = query
+      .leftJoin(
+        leadStatuses,
+        and(
+          eq(leadStatuses.leadId, leads.id),
+          eq(leadStatuses.userId, userId),
+          eq(leadStatuses.organizationId, organizationId)
+        )
+      )
+      .leftJoin(
+        bookmarks,
+        and(
+          eq(bookmarks.leadId, leads.id),
+          eq(bookmarks.userId, userId),
+          eq(bookmarks.organizationId, organizationId)
+        )
+      );
+  }
+
+  // Repeat the full Haversine expression in WHERE (cannot reference SELECT alias in PostgreSQL)
+  const rows = await query
     .where(
       and(
         isNotNull(leads.lat),
@@ -136,7 +314,8 @@ export async function getFilteredLeads(
             + sin(radians(${hqLat}))
             * sin(radians(${leads.lat}))
           ))
-        ) <= ${radiusMiles}`
+        ) <= ${radiusMiles}`,
+        ...filterConditions
       )
     )
     .orderBy(desc(leads.scrapedAt))
@@ -144,8 +323,11 @@ export async function getFilteredLeads(
     .offset(offset);
 
   // Enrich each lead with intelligence
-  let enriched: EnrichedLead[] = rows.map((row) => {
-    const inferred = inferEquipmentNeeds(row.projectType, row.description);
+  let enriched: EnrichedLead[] = (rows as Record<string, unknown>[]).map((row) => {
+    const inferred = inferEquipmentNeeds(
+      row.projectType as string | null,
+      row.description as string | null
+    );
     const inferredTypes = inferred.map((i) => i.type);
 
     return {
@@ -154,13 +336,18 @@ export async function getFilteredLeads(
       score: scoreLead({
         inferredEquipment: inferredTypes,
         dealerEquipment,
-        distanceMiles: row.distance,
+        distanceMiles: row.distance as number,
         serviceRadiusMiles,
-        estimatedValue: row.estimatedValue,
+        estimatedValue: row.estimatedValue as number | null,
       }),
-      freshness: getFreshnessBadge(row.scrapedAt),
-      timeline: mapTimeline(row.projectType, row.description),
-    };
+      freshness: getFreshnessBadge(row.scrapedAt as Date),
+      timeline: mapTimeline(
+        row.projectType as string | null,
+        row.description as string | null
+      ),
+      status: row.status as string | undefined,
+      isBookmarked: row.isBookmarked as boolean | undefined,
+    } as EnrichedLead;
   });
 
   // Post-query equipment filter
