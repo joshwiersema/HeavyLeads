@@ -11,6 +11,7 @@ export const user = pgTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   image: text("image"),
+  stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -59,6 +60,7 @@ export const organization = pgTable("organization", {
   name: text("name").notNull(),
   slug: text("slug").unique(),
   logo: text("logo"),
+  stripeCustomerId: text("stripe_customer_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   metadata: text("metadata"),
 });
