@@ -30,11 +30,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Each company's data is fully isolated -- a user in Company A cannot see Company B's data
   3. New company completes onboarding wizard setting HQ location, equipment types, and service radius
   4. User can view and update their account settings and company profile after onboarding
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md -- Scaffold Next.js 16 app, configure Better Auth + Drizzle + Neon PostgreSQL, create auth pages and protected dashboard layout
+- [ ] 01-02-PLAN.md -- Build onboarding wizard (location, equipment, radius), account settings, company profile settings, and end-to-end verification
 
 ### Phase 2: Scraping Pipeline
 **Goal**: System automatically collects permit data daily and stores geocoded lead records ready for enrichment
