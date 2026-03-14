@@ -5,18 +5,18 @@ import { extractLocation, isConstructionRelevant } from "@/lib/scraper/adapters/
 // We'll test through the ENR adapter as the representative RSS adapter
 // since all three (ENR, Construction Dive, PR Newswire) share the same pattern
 
-describe("RSS News Adapters", () => {
-  // Mock rss-parser module
-  const mockParseURL = vi.fn();
+const mockParseURL = vi.fn();
 
+vi.mock("rss-parser", () => {
+  return {
+    default: class MockParser {
+      parseURL = mockParseURL;
+    },
+  };
+});
+
+describe("RSS News Adapters", () => {
   beforeEach(() => {
-    vi.mock("rss-parser", () => {
-      return {
-        default: vi.fn().mockImplementation(() => ({
-          parseURL: mockParseURL,
-        })),
-      };
-    });
     mockParseURL.mockReset();
   });
 
@@ -56,8 +56,9 @@ describe("RSS News Adapters", () => {
       const adapter = new EnrNewsAdapter();
       const results = await adapter.scrape();
 
-      // Should filter out the stock market article
-      expect(results.length).toBe(2);
+      // Should filter out the stock market article from each of the 3 feed URLs
+      // ENR has 3 feeds, so 2 relevant items * 3 feeds = 6
+      expect(results.length).toBe(6);
       expect(results.every((r) => r.sourceType === "news")).toBe(true);
     });
 
@@ -80,7 +81,8 @@ describe("RSS News Adapters", () => {
       const adapter = new EnrNewsAdapter();
       const results = await adapter.scrape();
 
-      expect(results.length).toBe(1);
+      // ENR has 3 feeds, so 1 item * 3 feeds = 3
+      expect(results.length).toBe(3);
       const result = results[0];
       expect(result.title).toBe("Major Infrastructure Project Announced");
       expect(result.description).toBe("Large-scale bridge construction project");
@@ -133,7 +135,8 @@ describe("RSS News Adapters", () => {
       const adapter = new EnrNewsAdapter();
       const results = await adapter.scrape();
 
-      expect(results.length).toBe(1);
+      // ENR has 3 feeds, so 1 item * 3 feeds = 3
+      expect(results.length).toBe(3);
       expect(results[0].externalId).toBe("https://enr.com/article/300");
     });
 

@@ -52,7 +52,7 @@ export function extractLocation(text: string): { city?: string; state?: string }
   }
 
   // Pattern 2: "in City, State Name"
-  const pattern2 = /\bin\s+([A-Z][a-zA-Z\s]+?),\s*([A-Za-z\s]+?)(?:\.|,|\s{2}|$)/;
+  const pattern2 = /\bin\s+([A-Z][a-zA-Z\s]+?),\s*([A-Za-z\s]+?)(?:\.|,|\s{2}|\s+\w|$)/;
   const match2 = text.match(pattern2);
   if (match2) {
     const stateAbbr = STATE_NAMES[match2[2].trim().toLowerCase()];
