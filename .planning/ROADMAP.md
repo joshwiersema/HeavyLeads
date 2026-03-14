@@ -77,11 +77,12 @@ Plans:
   2. System scrapes construction news and press releases for project announcements and groundbreakings
   3. System performs Google dorking and deep web queries to surface project docs, contractor activity, and job postings
   4. Leads appearing across multiple sources are deduplicated into a single canonical record with all source references preserved
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- Generalize adapter interface from permit-specific to source-agnostic, update DB schema (leads + lead_sources), update pipeline and existing adapters
+- [ ] 04-02-PLAN.md -- SAM.gov bid board adapter, RSS news adapters (ENR, Construction Dive, PR Newswire), Google dorking adapter via Serper.dev
+- [ ] 04-03-PLAN.md -- Cross-source deduplication engine, pipeline integration, and multi-source attribution on lead detail page
 
 ### Phase 5: Lead Management and Notifications
 **Goal**: Sales reps can track their lead workflow and receive proactive notifications about new matches
@@ -122,6 +123,6 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 | 1. Platform Foundation | 2/2 | Complete | 2026-03-13 |
 | 2. Scraping Pipeline | 2/2 | Complete | 2026-03-14 |
 | 3. Lead Intelligence and Dashboard | 2/3 | In Progress | - |
-| 4. Multi-Source Expansion | 0/2 | Not started | - |
+| 4. Multi-Source Expansion | 0/3 | Not started | - |
 | 5. Lead Management and Notifications | 0/2 | Not started | - |
 | 6. Billing and Launch Readiness | 0/1 | Not started | - |
