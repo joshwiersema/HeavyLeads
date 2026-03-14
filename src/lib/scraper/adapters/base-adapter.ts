@@ -13,6 +13,10 @@ export const rawPermitSchema = z.object({
   applicantName: z.string().optional(),
   permitDate: z.coerce.date().optional(),
   sourceUrl: z.string().optional(),
+  /** Optional latitude from source data (e.g., Austin Socrata includes coordinates) */
+  lat: z.number().optional(),
+  /** Optional longitude from source data — when present, pipeline can skip geocoding */
+  lng: z.number().optional(),
 });
 
 /** Validated permit data type inferred from the Zod schema */
