@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-02 (Lead Feed Dashboard)
-last_updated: "2026-03-14T18:34:35.061Z"
-last_activity: 2026-03-14 -- Completed plan 03-02 (Lead Feed Dashboard)
+stopped_at: Completed 04-01 (Generalize Scraper Infrastructure)
+last_updated: "2026-03-14T19:02:25Z"
+last_activity: 2026-03-14 -- Completed plan 04-01 (Generalize Scraper Infrastructure)
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 7
-  completed_plans: 7
-  percent: 50
+  total_plans: 14
+  completed_plans: 8
+  percent: 57
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 3 - Lead Intelligence and Dashboard
+**Current focus:** Phase 4 - Multi-Source Expansion
 
 ## Current Position
 
-Phase: 3 of 6 (Lead Intelligence and Dashboard)
-Plan: 2 of 3 in current phase
+Phase: 4 of 6 (Multi-Source Expansion)
+Plan: 1 of 3 in current phase
 Status: In Progress
-Last activity: 2026-03-14 -- Completed plan 03-02 (Lead Feed Dashboard)
+Last activity: 2026-03-14 -- Completed plan 04-01 (Generalize Scraper Infrastructure)
 
-Progress: [█████░░░░░] 50%
+Progress: [█████▓░░░░] 57%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
+- Total plans completed: 8
 - Average duration: 7min
-- Total execution time: 0.7 hours
+- Total execution time: 0.9 hours
 
 **By Phase:**
 
@@ -45,7 +45,8 @@ Progress: [█████░░░░░] 50%
 |-------|-------|-------|----------|
 | 1. Platform Foundation | 2/2 | 24min | 12min |
 | 2. Scraping Pipeline | 2/2 | 9min | 5min |
-| 3. Lead Intelligence | 2/3 | 10min | 5min |
+| 3. Lead Intelligence | 3/3 | 15min | 5min |
+| 4. Multi-Source Expansion | 1/3 | 6min | 6min |
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
@@ -55,9 +56,11 @@ Progress: [█████░░░░░] 50%
 | Phase 02 P02 | 5min | 2 tasks | 10 files |
 | Phase 03 P01 | 5min | 2 tasks | 12 files |
 | Phase 03 P02 | 5min | 2 tasks | 10 files |
+| Phase 03 P03 | 5min | 2 tasks | 10 files |
+| Phase 04 P01 | 6min | 2 tasks | 14 files |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (4min), 02-02 (5min), 03-01 (5min), 03-02 (5min)
+- Last 5 plans: 02-02 (5min), 03-01 (5min), 03-02 (5min), 03-03 (5min), 04-01 (6min)
 - Trend: Stable (~5min/plan)
 
 *Updated after each plan completion*
@@ -92,6 +95,10 @@ Recent decisions affecting current work:
 - [Phase 03-02]: Radius slider uses local state during drag, updates URL on onValueCommitted only
 - [Phase 03-02]: Filter state persisted in URL search params for bookmarkability and server-side rendering
 - [Phase 03-02]: Equipment tags truncated at 4 with +N more overflow indicator
+- [Phase 04-01]: rawLeadSchema uses .refine() for identity field enforcement rather than discriminated union
+- [Phase 04-01]: Permit records use onConflictDoUpdate upsert; non-permit records use select-then-insert pattern
+- [Phase 04-01]: rawPermitSchema kept as alias for zero-cost backward compatibility
+- [Phase 04-01]: Pipeline geocoding falls back to city+state when no street address available
 
 ### Pending Todos
 
@@ -104,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T18:28:43Z
-Stopped at: Completed 03-02 (Lead Feed Dashboard)
-Resume file: .planning/phases/03-lead-intelligence-and-dashboard/03-02-SUMMARY.md
+Last session: 2026-03-14T19:02:25Z
+Stopped at: Completed 04-01 (Generalize Scraper Infrastructure)
+Resume file: .planning/phases/04-multi-source-expansion/04-01-SUMMARY.md
