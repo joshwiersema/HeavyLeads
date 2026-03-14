@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-03-14T19:19:49.289Z"
-last_activity: 2026-03-14 -- Completed plan 04-03 (Cross-Source Dedup and Multi-Source Attribution)
+status: in-progress
+stopped_at: Completed 05-01-PLAN.md
+last_updated: "2026-03-14T19:42:40Z"
+last_activity: 2026-03-14 -- Completed plan 05-01 (Lead Management Data Layer)
 progress:
   total_phases: 6
   completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 71
+  total_plans: 14
+  completed_plans: 11
+  percent: 79
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 4 - Multi-Source Expansion
+**Current focus:** Phase 5 - Lead Management and Notifications
 
 ## Current Position
 
-Phase: 4 of 6 (Multi-Source Expansion)
-Plan: 3 of 3 in current phase
-Status: Phase Complete
-Last activity: 2026-03-14 -- Completed plan 04-03 (Cross-Source Dedup and Multi-Source Attribution)
+Phase: 5 of 6 (Lead Management and Notifications)
+Plan: 1 of 4 in current phase
+Status: In Progress
+Last activity: 2026-03-14 -- Completed plan 05-01 (Lead Management Data Layer)
 
-Progress: [███████░░░] 71%
+Progress: [████████░░] 79%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 10
+- Total plans completed: 11
 - Average duration: 6min
-- Total execution time: 1.1 hours
+- Total execution time: 1.2 hours
 
 **By Phase:**
 
@@ -47,6 +47,7 @@ Progress: [███████░░░] 71%
 | 2. Scraping Pipeline | 2/2 | 9min | 5min |
 | 3. Lead Intelligence | 3/3 | 15min | 5min |
 | 4. Multi-Source Expansion | 3/3 | 16min | 5min |
+| 5. Lead Management & Notifications | 1/4 | 7min | 7min |
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
@@ -60,10 +61,11 @@ Progress: [███████░░░] 71%
 | Phase 04 P01 | 6min | 2 tasks | 14 files |
 | Phase 04 P02 | 6min | 2 tasks | 11 files |
 | Phase 04 P03 | 5min | 2 tasks | 10 files |
+| Phase 05 P01 | 7min | 2 tasks | 13 files |
 
 **Recent Trend:**
-- Last 5 plans: 03-02 (5min), 03-03 (5min), 04-01 (6min), 04-02 (5min), 04-03 (5min)
-- Trend: Stable (~5min/plan)
+- Last 5 plans: 03-03 (5min), 04-01 (6min), 04-02 (5min), 04-03 (5min), 05-01 (7min)
+- Trend: Stable (~6min/plan)
 
 *Updated after each plan completion*
 
@@ -106,6 +108,11 @@ Recent decisions affecting current work:
 - [Phase 04-02]: Daily query rotation uses day-of-year modulo to cycle through dorking templates within 50-query budget
 - [Phase 04-02]: RSS adapters use rss-parser with Accept: application/rss+xml header for content negotiation
 - [Phase 04]: Bounding box pre-filter (0.002 degrees) avoids computing haversine for distant leads during dedup
+- [Phase 05-01]: Extracted buildFilterConditions as pure helper for SQL condition generation, testable without DB
+- [Phase 05-01]: Added applyInMemoryFilters mirroring SQL logic for TypeScript-side filtering and testability
+- [Phase 05-01]: Used text columns with TypeScript union types for lead status (not pgEnum, consistent with project convention)
+- [Phase 05-01]: savedSearches stores filter criteria as explicit columns (not JSON blob) for SQL-level digest querying
+- [Phase 05-01]: getBookmarkedLeads returns lead ID array (not full lead objects) for lightweight bookmark checking
 
 ### Pending Todos
 
@@ -118,6 +125,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T19:15:58.137Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-03-14T19:42:40Z
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None

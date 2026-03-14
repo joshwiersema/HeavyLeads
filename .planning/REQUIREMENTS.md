@@ -29,11 +29,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### User Experience
 
 - [x] **UX-01**: User sees a daily lead feed dashboard with fresh leads sorted by recency and relevance
-- [ ] **UX-02**: User can track lead status (New / Viewed / Contacted / Won / Lost)
-- [ ] **UX-03**: User can save searches and bookmark individual leads for quick re-access
+- [x] **UX-02**: User can track lead status (New / Viewed / Contacted / Won / Lost)
+- [x] **UX-03**: User can save searches and bookmark individual leads for quick re-access
 - [ ] **UX-04**: User receives a daily email digest summarizing new matching leads with links to dashboard
 - [x] **UX-05**: Leads display freshness indicators (discovered date, age badges: New, This Week, Older)
-- [ ] **UX-06**: User can search leads by keyword and filter by date range and project size
+- [x] **UX-06**: User can search leads by keyword and filter by date range and project size
 
 ### Platform
 
@@ -101,11 +101,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LEAD-05 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-06 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | UX-01 | Phase 3: Lead Intelligence and Dashboard | Complete |
-| UX-02 | Phase 5: Lead Management and Notifications | Pending |
-| UX-03 | Phase 5: Lead Management and Notifications | Pending |
+| UX-02 | Phase 5: Lead Management and Notifications | Complete |
+| UX-03 | Phase 5: Lead Management and Notifications | Complete |
 | UX-04 | Phase 5: Lead Management and Notifications | Pending |
 | UX-05 | Phase 3: Lead Intelligence and Dashboard | Complete |
-| UX-06 | Phase 5: Lead Management and Notifications | Pending |
+| UX-06 | Phase 5: Lead Management and Notifications | Complete |
 | PLAT-01 | Phase 1: Platform Foundation | Complete |
 | PLAT-02 | Phase 1: Platform Foundation | Complete |
 | PLAT-03 | Phase 1: Platform Foundation | Complete |
