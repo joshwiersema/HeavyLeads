@@ -93,11 +93,12 @@ Plans:
   2. User can save search configurations and bookmark individual leads for quick re-access
   3. User receives a daily email digest summarizing new matching leads with direct links to the dashboard
   4. User can search leads by keyword and filter by date range and project size
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md -- Schema tables (lead_statuses, bookmarks, saved_searches), query extensions (keyword, date, size filters), and server actions for status/bookmark/search CRUD
+- [ ] 05-02-PLAN.md -- Dashboard UI integration: status badges, bookmark toggles, advanced filters, bookmarks page, saved searches page, sidebar navigation
+- [ ] 05-03-PLAN.md -- Daily email digest with Resend + React Email, digest generator, API route, and scheduler integration
 
 ### Phase 6: Billing and Launch Readiness
 **Goal**: Companies can self-service subscribe with a one-time setup fee and ongoing monthly billing
@@ -124,5 +125,5 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 | 2. Scraping Pipeline | 2/2 | Complete | 2026-03-14 |
 | 3. Lead Intelligence and Dashboard | 3/3 | Complete | 2026-03-14 |
 | 4. Multi-Source Expansion | 3/3 | Complete   | 2026-03-14 |
-| 5. Lead Management and Notifications | 0/2 | Not started | - |
+| 5. Lead Management and Notifications | 0/3 | Not started | - |
 | 6. Billing and Launch Readiness | 0/1 | Not started | - |
