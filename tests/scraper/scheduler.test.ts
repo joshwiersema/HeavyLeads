@@ -1,9 +1,13 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+
+// Use vi.hoisted so mocks are available when vi.mock factory runs
+const { mockStop, mockSchedule } = vi.hoisted(() => {
+  const mockStop = vi.fn();
+  const mockSchedule = vi.fn().mockReturnValue({ stop: mockStop });
+  return { mockStop, mockSchedule };
+});
 
 // Mock node-cron
-const mockStop = vi.fn();
-const mockSchedule = vi.fn().mockReturnValue({ stop: mockStop });
-
 vi.mock("node-cron", () => ({
   default: {
     schedule: mockSchedule,
@@ -36,6 +40,16 @@ vi.mock("@/lib/scraper/registry", () => ({
 // Mock adapters index
 vi.mock("@/lib/scraper/adapters/index", () => ({
   initializeAdapters: vi.fn(),
+}));
+
+// Mock db (needed for API route which imports pipeline -> db)
+vi.mock("@/lib/db", () => ({
+  db: { insert: vi.fn() },
+}));
+
+// Mock geocoding (needed for pipeline import chain)
+vi.mock("@/lib/geocoding", () => ({
+  geocodeAddress: vi.fn(),
 }));
 
 import { startScheduler, stopScheduler } from "@/lib/scraper/scheduler";
@@ -92,9 +106,6 @@ describe("Scheduler", () => {
 });
 
 // ─── API Route Tests ───
-
-// We need to test the Next.js API route handler
-// Since it's a route handler, we test the POST function directly
 
 describe("POST /api/scraper/run", () => {
   beforeEach(() => {
