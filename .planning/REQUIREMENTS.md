@@ -40,9 +40,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **PLAT-01**: User can sign up with email and password
 - [x] **PLAT-02**: User session persists across browser refresh
 - [x] **PLAT-03**: Multi-tenant company accounts with data isolation between competing dealers
-- [ ] **PLAT-04**: Company onboarding wizard: set HQ location, equipment types sold/rented, service radius
+- [x] **PLAT-04**: Company onboarding wizard: set HQ location, equipment types sold/rented, service radius
 - [ ] **PLAT-05**: Subscription billing with one-time setup fee + ongoing monthly charges via Stripe
-- [ ] **PLAT-06**: User can manage account settings and company profile
+- [x] **PLAT-06**: User can manage account settings and company profile
 
 ## v2 Requirements
 
@@ -109,9 +109,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | PLAT-01 | Phase 1: Platform Foundation | Complete |
 | PLAT-02 | Phase 1: Platform Foundation | Complete |
 | PLAT-03 | Phase 1: Platform Foundation | Complete |
-| PLAT-04 | Phase 1: Platform Foundation | Pending |
+| PLAT-04 | Phase 1: Platform Foundation | Complete |
 | PLAT-05 | Phase 6: Billing and Launch Readiness | Pending |
-| PLAT-06 | Phase 1: Platform Foundation | Pending |
+| PLAT-06 | Phase 1: Platform Foundation | Complete |
 
 **Coverage:**
 - v1 requirements: 25 total
