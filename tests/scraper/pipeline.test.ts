@@ -58,6 +58,16 @@ vi.mock("drizzle-orm", () => ({
   })),
 }));
 
+// Mock the dedup module
+const mockDeduplicateNewLeads = vi
+  .fn()
+  .mockResolvedValue({ merged: 0, kept: 1 });
+
+vi.mock("@/lib/scraper/dedup", () => ({
+  deduplicateNewLeads: (...args: unknown[]) =>
+    mockDeduplicateNewLeads(...args),
+}));
+
 // Import after mocks are set up
 import { runPipeline } from "@/lib/scraper/pipeline";
 import { db } from "@/lib/db";
@@ -277,5 +287,41 @@ describe("Pipeline orchestrator", () => {
     expect(adapterResult).toBeDefined();
     expect(adapterResult!.newLeadIds).toBeDefined();
     expect(adapterResult!.newLeadIds!.length).toBe(2);
+  });
+
+  it("calls deduplicateNewLeads with IDs of newly inserted leads", async () => {
+    const adapter = createMockAdapter({
+      sourceId: "dedup-integration-test",
+      results: [
+        createMockPermitData({ permitNumber: "DEDUP-001" }),
+        createMockPermitData({ permitNumber: "DEDUP-002" }),
+      ],
+    });
+
+    await runPipeline([adapter]);
+
+    // deduplicateNewLeads should be called with all new lead IDs
+    expect(mockDeduplicateNewLeads).toHaveBeenCalledTimes(1);
+    const calledWithIds = mockDeduplicateNewLeads.mock.calls[0][0];
+    expect(calledWithIds).toHaveLength(2);
+  });
+
+  it("includes dedup stats in PipelineRunResult", async () => {
+    mockDeduplicateNewLeads.mockResolvedValueOnce({ merged: 1, kept: 2 });
+
+    const adapter = createMockAdapter({
+      sourceId: "dedup-stats-test",
+      results: [
+        createMockPermitData({ permitNumber: "DS-001" }),
+        createMockPermitData({ permitNumber: "DS-002" }),
+        createMockPermitData({ permitNumber: "DS-003" }),
+      ],
+    });
+
+    const result = await runPipeline([adapter]);
+
+    expect(result.dedup).toBeDefined();
+    expect(result.dedup!.merged).toBe(1);
+    expect(result.dedup!.kept).toBe(2);
   });
 });

@@ -1,6 +1,7 @@
 import type { ScraperAdapter, RawLeadData } from "./adapters/base-adapter";
 import { rawLeadSchema } from "./adapters/base-adapter";
 import type { PipelineResult, PipelineRunResult } from "./types";
+import { deduplicateNewLeads } from "./dedup";
 import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
 import { leadSources } from "@/lib/db/schema/lead-sources";
@@ -31,8 +32,20 @@ export async function runPipeline(
     results.push(result);
   }
 
+  // Collect all new lead IDs from all adapters for cross-source dedup
+  const allNewLeadIds = results.flatMap((r) => r.newLeadIds ?? []);
+
+  // Run cross-source deduplication as a post-pipeline step
+  let dedup: { merged: number; kept: number } | undefined;
+  if (allNewLeadIds.length > 0) {
+    dedup = await deduplicateNewLeads(allNewLeadIds);
+    console.log(
+      `[pipeline] Dedup complete: ${dedup.merged} merged, ${dedup.kept} kept`
+    );
+  }
+
   const completedAt = new Date();
-  return { results, startedAt, completedAt };
+  return { results, startedAt, completedAt, dedup };
 }
 
 /**

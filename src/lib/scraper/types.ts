@@ -14,4 +14,6 @@ export interface PipelineRunResult {
   results: PipelineResult[];
   startedAt: Date;
   completedAt: Date;
+  /** Cross-source deduplication stats (present when dedup runs) */
+  dedup?: { merged: number; kept: number };
 }

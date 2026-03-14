@@ -1,6 +1,7 @@
-import { sql, getTableColumns, and, isNotNull, eq, desc } from "drizzle-orm";
+import { sql, getTableColumns, and, isNotNull, eq, desc, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
+import { leadSources } from "@/lib/db/schema/lead-sources";
 import { inferEquipmentNeeds } from "./equipment-inference";
 import { scoreLead } from "./scoring";
 import { getFreshnessBadge } from "./types";
@@ -229,4 +230,32 @@ export async function getLeadById(
     freshness: getFreshnessBadge(row.scrapedAt),
     timeline: mapTimeline(row.projectType, row.description),
   };
+}
+
+// -- Lead sources query --
+
+/** Shape of a lead source record from the lead_sources table */
+export interface LeadSource {
+  id: string;
+  leadId: string;
+  sourceId: string;
+  sourceType: string;
+  externalId: string | null;
+  sourceUrl: string | null;
+  title: string | null;
+  discoveredAt: Date;
+}
+
+/**
+ * Fetch all source references for a given lead, ordered by discovery date ascending.
+ * Returns an empty array if the lead has no source entries.
+ */
+export async function getLeadSources(leadId: string): Promise<LeadSource[]> {
+  const rows = await db
+    .select()
+    .from(leadSources)
+    .where(eq(leadSources.leadId, leadId))
+    .orderBy(asc(leadSources.discoveredAt));
+
+  return rows;
 }

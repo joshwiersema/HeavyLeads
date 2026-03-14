@@ -5,7 +5,8 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
-import { getLeadById } from "@/lib/leads/queries";
+import { getLeadById, getLeadSources } from "@/lib/leads/queries";
+import type { LeadSource } from "@/lib/leads/queries";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
@@ -75,6 +76,9 @@ export default async function LeadDetailPage({ params }: PageProps) {
   if (!lead) {
     notFound();
   }
+
+  // Fetch all contributing sources for this lead
+  const sources = await getLeadSources(lead.id);
 
   return (
     <div className="space-y-6">
@@ -189,44 +193,65 @@ export default async function LeadDetailPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          {/* Source Attribution card */}
+          {/* Source Attribution card -- supports single and multi-source leads */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Source</CardTitle>
+              <CardTitle className="text-lg">
+                {sources.length > 1
+                  ? `Sources (${sources.length})`
+                  : "Source"}
+              </CardTitle>
               <CardDescription>
-                Data from {lead.sourceJurisdiction} via {lead.sourceId}
+                {sources.length > 1
+                  ? "This lead was found across multiple data sources"
+                  : `Data from ${lead.sourceJurisdiction ?? lead.sourceId}`}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Jurisdiction</span>
-                  <span>{lead.sourceJurisdiction}</span>
+              {sources.length > 0 ? (
+                <div className="space-y-4">
+                  {sources.map((source) => (
+                    <SourceEntry key={source.id} source={source} />
+                  ))}
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Source ID</span>
-                  <span className="font-mono text-xs">{lead.sourceId}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Permit #</span>
-                  <span className="font-mono text-xs">
-                    {lead.permitNumber}
-                  </span>
-                </div>
-                {lead.sourceUrl && (
-                  <div className="pt-2">
-                    <a
-                      href={lead.sourceUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-                    >
-                      View original permit data
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
+              ) : (
+                /* Fallback for leads without lead_sources entries (legacy data) */
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Source</span>
+                    <span className="font-mono text-xs">{lead.sourceId}</span>
                   </div>
-                )}
-              </div>
+                  {lead.sourceJurisdiction && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        Jurisdiction
+                      </span>
+                      <span>{lead.sourceJurisdiction}</span>
+                    </div>
+                  )}
+                  {lead.permitNumber && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">Permit #</span>
+                      <span className="font-mono text-xs">
+                        {lead.permitNumber}
+                      </span>
+                    </div>
+                  )}
+                  {lead.sourceUrl && (
+                    <div className="pt-2">
+                      <a
+                        href={lead.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+                      >
+                        View original source
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -343,6 +368,59 @@ function ConfidenceDot({
       className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${colorClass}`}
       title={`${confidence} confidence`}
     />
+  );
+}
+
+function SourceEntry({ source }: { source: LeadSource }) {
+  return (
+    <div className="flex items-start gap-3 text-sm">
+      <SourceTypeBadge sourceType={source.sourceType} />
+      <div className="min-w-0 flex-1 space-y-1">
+        <div className="font-medium">
+          {source.title || source.sourceId}
+        </div>
+        <div className="text-xs text-muted-foreground">
+          Discovered {formatDate(source.discoveredAt)}
+        </div>
+        {source.sourceUrl && (
+          <a
+            href={source.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+          >
+            View source
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SourceTypeBadge({ sourceType }: { sourceType: string }) {
+  const config: Record<string, { label: string; className: string }> = {
+    permit: { label: "Permit", className: "bg-blue-100 text-blue-800" },
+    bid: { label: "Bid", className: "bg-purple-100 text-purple-800" },
+    news: { label: "News", className: "bg-amber-100 text-amber-800" },
+    "deep-web": {
+      label: "Deep Web",
+      className: "bg-emerald-100 text-emerald-800",
+    },
+  };
+
+  const { label, className } = config[sourceType] ?? {
+    label: sourceType,
+    className: "bg-gray-100 text-gray-800",
+  };
+
+  return (
+    <Badge
+      variant="secondary"
+      className={`shrink-0 text-xs ${className}`}
+    >
+      {label}
+    </Badge>
   );
 }
 
