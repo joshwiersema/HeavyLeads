@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-stopped_at: Completed 05-03-PLAN.md
-last_updated: "2026-03-14T19:52:39Z"
-last_activity: 2026-03-14 -- Completed plan 05-03 (Daily Email Digest)
+stopped_at: Completed 05-02-PLAN.md
+last_updated: "2026-03-14T19:56:29Z"
+last_activity: 2026-03-14 -- Completed plan 05-02 (Lead Management UI)
 progress:
   total_phases: 6
   completed_phases: 4
   total_plans: 14
-  completed_plans: 12
-  percent: 86
+  completed_plans: 13
+  percent: 93
 ---
 
 # Project State
@@ -28,16 +28,16 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 Phase: 5 of 6 (Lead Management and Notifications)
 Plan: 3 of 4 in current phase
 Status: In Progress
-Last activity: 2026-03-14 -- Completed plan 05-03 (Daily Email Digest)
+Last activity: 2026-03-14 -- Completed plan 05-02 (Lead Management UI)
 
-Progress: [█████████░] 86%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 12
+- Total plans completed: 13
 - Average duration: 6min
-- Total execution time: 1.3 hours
+- Total execution time: 1.5 hours
 
 **By Phase:**
 
@@ -47,7 +47,7 @@ Progress: [█████████░] 86%
 | 2. Scraping Pipeline | 2/2 | 9min | 5min |
 | 3. Lead Intelligence | 3/3 | 15min | 5min |
 | 4. Multi-Source Expansion | 3/3 | 16min | 5min |
-| 5. Lead Management & Notifications | 2/4 | 13min | 7min |
+| 5. Lead Management & Notifications | 3/4 | 23min | 8min |
 
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
@@ -62,10 +62,11 @@ Progress: [█████████░] 86%
 | Phase 04 P02 | 6min | 2 tasks | 11 files |
 | Phase 04 P03 | 5min | 2 tasks | 10 files |
 | Phase 05 P01 | 7min | 2 tasks | 13 files |
+| Phase 05 P02 | 10min | 2 tasks | 16 files |
 | Phase 05 P03 | 6min | 2 tasks | 8 files |
 
 **Recent Trend:**
-- Last 5 plans: 04-01 (6min), 04-02 (5min), 04-03 (5min), 05-01 (7min), 05-03 (6min)
+- Last 5 plans: 04-02 (5min), 04-03 (5min), 05-01 (7min), 05-02 (10min), 05-03 (6min)
 - Trend: Stable (~6min/plan)
 
 *Updated after each plan completion*
@@ -114,6 +115,10 @@ Recent decisions affecting current work:
 - [Phase 05-01]: Used text columns with TypeScript union types for lead status (not pgEnum, consistent with project convention)
 - [Phase 05-01]: savedSearches stores filter criteria as explicit columns (not JSON blob) for SQL-level digest querying
 - [Phase 05-01]: getBookmarkedLeads returns lead ID array (not full lead objects) for lightweight bookmark checking
+- [Phase 05-02]: Used separate server action calls on detail page (getLeadStatus + getBookmarkedLeads) rather than extending getLeadById query
+- [Phase 05-02]: Extracted LeadMap dynamic import to client wrapper (ssr:false not allowed in Server Components)
+- [Phase 05-02]: Moved savedSearchToParams to shared utility (non-async functions cannot be exported from "use server" files)
+- [Phase 05-02]: Used useOptimistic for bookmark toggle for instant UI feedback with automatic revert on error
 - [Phase 05-03]: Used dynamic import for digest-generator in scheduler to avoid circular dependency and keep digest module optional
 - [Phase 05-03]: Digest API route uses CRON_SECRET bearer token auth with dev-mode bypass (no secret = allow all)
 - [Phase 05-03]: Missing RESEND_API_KEY checked at runtime in sendDigest (not module load) -- app starts without email configured
@@ -129,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T19:52:39Z
-Stopped at: Completed 05-03-PLAN.md
+Last session: 2026-03-14T19:56:29Z
+Stopped at: Completed 05-02-PLAN.md
 Resume file: None
