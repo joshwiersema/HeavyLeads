@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Platform Foundation** - Auth, multi-tenancy with data isolation, company onboarding wizard, and account management
 - [x] **Phase 2: Scraping Pipeline** - Crawlee-based scraper framework, initial permit scrapers, daily scheduling, and geocoding
 - [ ] **Phase 3: Lead Intelligence and Dashboard** - Equipment inference, lead scoring, timeline mapping, filterable daily feed, and lead detail view
-- [ ] **Phase 4: Multi-Source Expansion** - Bid board, news, and deep web scrapers with cross-source deduplication
+- [x] **Phase 4: Multi-Source Expansion** - Bid board, news, and deep web scrapers with cross-source deduplication (completed 2026-03-14)
 - [ ] **Phase 5: Lead Management and Notifications** - Lead status tracking, saved searches, keyword search, and daily email digest
 - [ ] **Phase 6: Billing and Launch Readiness** - Stripe subscription billing with one-time setup fee and ongoing monthly charges
 
@@ -123,6 +123,6 @@ Note: Phases 4 and 6 depend on Phase 2 and Phase 1 respectively (not strictly se
 | 1. Platform Foundation | 2/2 | Complete | 2026-03-13 |
 | 2. Scraping Pipeline | 2/2 | Complete | 2026-03-14 |
 | 3. Lead Intelligence and Dashboard | 3/3 | Complete | 2026-03-14 |
-| 4. Multi-Source Expansion | 1/3 | In Progress | - |
+| 4. Multi-Source Expansion | 3/3 | Complete   | 2026-03-14 |
 | 5. Lead Management and Notifications | 0/2 | Not started | - |
 | 6. Billing and Launch Readiness | 0/1 | Not started | - |

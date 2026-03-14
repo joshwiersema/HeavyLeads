@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03 (Cross-Source Dedup and Multi-Source Attribution)
-last_updated: "2026-03-14T19:14:25Z"
-last_activity: 2026-03-14 -- Completed plan 04-03 (Cross-Source Dedup and Multi-Source Attribution)
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-14T19:15:58.140Z"
+last_activity: 2026-03-14 -- Completed plan 04-02 (New Source Adapters)
 progress:
   total_phases: 6
   completed_phases: 4
@@ -58,7 +58,7 @@ Progress: [███████░░░] 71%
 | Phase 03 P02 | 5min | 2 tasks | 10 files |
 | Phase 03 P03 | 5min | 2 tasks | 10 files |
 | Phase 04 P01 | 6min | 2 tasks | 14 files |
-| Phase 04 P02 | 5min | 2 tasks | 8 files |
+| Phase 04 P02 | 6min | 2 tasks | 11 files |
 | Phase 04 P03 | 5min | 2 tasks | 10 files |
 
 **Recent Trend:**
@@ -101,6 +101,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: Permit records use onConflictDoUpdate upsert; non-permit records use select-then-insert pattern
 - [Phase 04-01]: rawPermitSchema kept as alias for zero-cost backward compatibility
 - [Phase 04-01]: Pipeline geocoding falls back to city+state when no street address available
+- [Phase 04-02]: Shared utils.ts for extractLocation and isConstructionRelevant keeps helpers reusable across adapters
+- [Phase 04-02]: Google dorking stores only Serper.dev search metadata (title, snippet, URL) -- no third-party scraping for legal safety
+- [Phase 04-02]: Daily query rotation uses day-of-year modulo to cycle through dorking templates within 50-query budget
+- [Phase 04-02]: RSS adapters use rss-parser with Accept: application/rss+xml header for content negotiation
 - [Phase 04]: Bounding box pre-filter (0.002 degrees) avoids computing haversine for distant leads during dedup
 
 ### Pending Todos
@@ -114,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T19:14:25.319Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-03-14T19:15:58.137Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
