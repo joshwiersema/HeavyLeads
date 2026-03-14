@@ -32,9 +32,21 @@ const mockDelete = vi.fn().mockReturnThis();
 const mockDeleteWhere = vi.fn().mockResolvedValue([]);
 const mockSelect = vi.fn().mockReturnThis();
 const mockFrom = vi.fn().mockReturnThis();
-const mockWhere = vi.fn().mockResolvedValue([]);
 const mockLimit = vi.fn().mockResolvedValue([]);
-const mockInnerJoin = vi.fn().mockReturnThis();
+
+// mockWhere needs to be thenable (for direct await) and have .limit() for chained use
+const mockWhereResult: unknown[] = [];
+const mockWhere = vi.fn().mockImplementation(() => {
+  const result = Promise.resolve(mockWhereResult);
+  (result as Record<string, unknown>).limit = (...lArgs: unknown[]) => mockLimit(...lArgs);
+  return result;
+});
+
+/** Helper to set what mockWhere resolves to when awaited directly */
+function setMockWhereResult(data: unknown[]) {
+  mockWhereResult.length = 0;
+  mockWhereResult.push(...data);
+}
 
 vi.mock("@/lib/db", () => ({
   db: {
@@ -62,18 +74,7 @@ vi.mock("@/lib/db", () => ({
         from: (...fArgs: unknown[]) => {
           mockFrom(...fArgs);
           return {
-            where: (...wArgs: unknown[]) => {
-              mockWhere(...wArgs);
-              return {
-                limit: (...lArgs: unknown[]) => mockLimit(...lArgs),
-              };
-            },
-            innerJoin: (...jArgs: unknown[]) => {
-              mockInnerJoin(...jArgs);
-              return {
-                where: (...wArgs: unknown[]) => mockWhere(...wArgs),
-              };
-            },
+            where: (...wArgs: unknown[]) => mockWhere(...wArgs),
           };
         },
       };
@@ -111,7 +112,7 @@ describe("toggleBookmark", () => {
       user: { id: "user-1" },
       session: { activeOrganizationId: "org-1" },
     });
-    // No existing bookmark
+    // No existing bookmark -- toggleBookmark checks via select().from().where().limit(1)
     mockLimit.mockResolvedValue([]);
 
     const { toggleBookmark } = await import("@/actions/bookmarks");
@@ -127,7 +128,7 @@ describe("toggleBookmark", () => {
       user: { id: "user-1" },
       session: { activeOrganizationId: "org-1" },
     });
-    // Existing bookmark found
+    // Existing bookmark found via select().from().where().limit(1)
     mockLimit.mockResolvedValue([
       { id: "bm-1", leadId: "lead-1", userId: "user-1" },
     ]);
@@ -159,7 +160,8 @@ describe("getBookmarkedLeads", () => {
       user: { id: "user-1" },
       session: { activeOrganizationId: "org-1" },
     });
-    mockWhere.mockResolvedValue([
+    // getBookmarkedLeads calls select().from().where() which resolves directly
+    setMockWhereResult([
       { leadId: "lead-1" },
       { leadId: "lead-2" },
     ]);
