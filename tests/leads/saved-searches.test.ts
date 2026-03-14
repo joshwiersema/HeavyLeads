@@ -188,7 +188,7 @@ describe("getSavedSearches", () => {
 
 describe("savedSearchToParams", () => {
   it("converts saved search to URLSearchParams correctly", async () => {
-    const { savedSearchToParams } = await import("@/actions/saved-searches");
+    const { savedSearchToParams } = await import("@/lib/leads/saved-search-utils");
 
     const search = {
       id: "s1",
@@ -218,7 +218,7 @@ describe("savedSearchToParams", () => {
   });
 
   it("skips null/undefined values", async () => {
-    const { savedSearchToParams } = await import("@/actions/saved-searches");
+    const { savedSearchToParams } = await import("@/lib/leads/saved-search-utils");
 
     const search = {
       id: "s1",

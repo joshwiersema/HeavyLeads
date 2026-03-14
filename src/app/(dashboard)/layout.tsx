@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
+import { LayoutDashboard, Bookmark, Search, Settings } from "lucide-react";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
 
@@ -52,14 +53,30 @@ export default async function DashboardLayout({
           <nav className="flex-1 space-y-1 p-4">
             <Link
               href="/dashboard"
-              className="flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
+              <LayoutDashboard className="size-4" />
               Leads
             </Link>
             <Link
-              href="/settings"
-              className="flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+              href="/dashboard/bookmarks"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
             >
+              <Bookmark className="size-4" />
+              Bookmarks
+            </Link>
+            <Link
+              href="/dashboard/saved-searches"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              <Search className="size-4" />
+              Saved Searches
+            </Link>
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+            >
+              <Settings className="size-4" />
               Settings
             </Link>
           </nav>
