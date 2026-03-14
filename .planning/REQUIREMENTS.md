@@ -22,7 +22,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **LEAD-01**: System infers equipment needs from project type and description (rule-based mapping: project type -> equipment categories)
 - [x] **LEAD-02**: System scores leads by relevance to the dealer's configured equipment types and service radius
 - [x] **LEAD-03**: System maps project phase to equipment-need timeline windows (e.g., earthwork phase = excavators now, finishing phase = boom lifts later)
-- [ ] **LEAD-04**: Lead detail view shows project info, location on map, key contacts, estimated equipment needs, and source attribution
+- [x] **LEAD-04**: Lead detail view shows project info, location on map, key contacts, estimated equipment needs, and source attribution
 - [x] **LEAD-05**: User can filter leads by equipment type (forklifts, boom lifts, excavators, telehandlers, etc.) with show-all default
 - [x] **LEAD-06**: User can filter leads by geographic radius from their company HQ
 
@@ -97,7 +97,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | LEAD-01 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-02 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-03 | Phase 3: Lead Intelligence and Dashboard | Complete |
-| LEAD-04 | Phase 3: Lead Intelligence and Dashboard | Pending |
+| LEAD-04 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-05 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | LEAD-06 | Phase 3: Lead Intelligence and Dashboard | Complete |
 | UX-01 | Phase 3: Lead Intelligence and Dashboard | Pending |
