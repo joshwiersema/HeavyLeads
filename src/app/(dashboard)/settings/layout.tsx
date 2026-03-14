@@ -36,6 +36,12 @@ export default function SettingsLayout({
           >
             Company
           </Link>
+          <Link
+            href="/billing"
+            className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          >
+            Billing
+          </Link>
         </nav>
 
         {/* Settings content */}
