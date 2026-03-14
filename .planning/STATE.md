@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: in-progress
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-14T04:42:57Z"
-last_activity: 2026-03-14 -- Completed plan 02-01 (Pipeline Foundation)
+status: completed
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-03-14T04:52:28.500Z"
+last_activity: 2026-03-14 -- Completed plan 02-02 (Adapter Implementations)
 progress:
   total_phases: 6
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 33
 ---
 
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 2 of 6 (Scraping Pipeline)
-Plan: 1 of 2 in current phase
-Status: In Progress
-Last activity: 2026-03-14 -- Completed plan 02-01 (Pipeline Foundation)
+Plan: 2 of 2 in current phase
+Status: Phase Complete
+Last activity: 2026-03-14 -- Completed plan 02-02 (Adapter Implementations)
 
 Progress: [███░░░░░░░] 33%
 
@@ -57,6 +57,7 @@ Progress: [███░░░░░░░] 33%
 - Trend: Accelerating
 
 *Updated after each plan completion*
+| Phase 02 P02 | 5min | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,8 @@ Recent decisions affecting current work:
 - [Phase 02-01]: Used plain real columns for lat/lng instead of PostGIS geometry -- Neon driver compatibility unverified, Haversine queries sufficient for MVP
 - [Phase 02-01]: Zod validation filters invalid records with logging rather than failing entire adapter batch
 - [Phase 02-01]: 25ms throttle between geocoding requests to avoid Google Maps rate limiting
+- [Phase 02]: Added optional lat/lng to rawPermitSchema so adapters with source coordinates can skip geocoding
+- [Phase 02]: Atlanta adapter uses ArcGIS GeoJSON download endpoint -- simpler than Feature Service query, avoids pagination
 
 ### Pending Todos
 
@@ -91,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T04:42:57Z
-Stopped at: Completed 02-01-PLAN.md
-Resume file: .planning/phases/02-scraping-pipeline/02-01-SUMMARY.md
+Last session: 2026-03-14T04:52:28.497Z
+Stopped at: Completed 02-02-PLAN.md
+Resume file: None
