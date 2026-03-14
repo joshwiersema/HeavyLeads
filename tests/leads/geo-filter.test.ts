@@ -7,22 +7,22 @@ describe("haversineDistance (pure helper)", () => {
     expect(distance).toBeCloseTo(0, 1);
   });
 
-  it("returns ~195 miles for Austin TX to Dallas TX", () => {
+  it("returns ~182 miles for Austin TX to Dallas TX", () => {
     // Austin TX: 30.2672, -97.7431
     // Dallas TX: 32.7767, -96.7970
     const distance = haversineDistance(30.2672, -97.7431, 32.7767, -96.797);
-    // Expected ~195 miles, within 5% tolerance
-    expect(distance).toBeGreaterThan(185);
-    expect(distance).toBeLessThan(205);
+    // Haversine computes ~182 miles for these coordinates
+    expect(distance).toBeGreaterThan(175);
+    expect(distance).toBeLessThan(190);
   });
 
-  it("returns ~1638 miles for Austin TX to New York City", () => {
+  it("returns ~1511 miles for Austin TX to New York City", () => {
     // Austin TX: 30.2672, -97.7431
     // NYC: 40.7128, -74.0060
     const distance = haversineDistance(30.2672, -97.7431, 40.7128, -74.006);
-    // Expected ~1638 miles, within 5% tolerance
-    expect(distance).toBeGreaterThan(1550);
-    expect(distance).toBeLessThan(1720);
+    // Haversine computes ~1511 miles for these coordinates
+    expect(distance).toBeGreaterThan(1450);
+    expect(distance).toBeLessThan(1570);
   });
 
   it("handles zero-longitude meridian crossing", () => {
