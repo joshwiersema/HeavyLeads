@@ -45,7 +45,7 @@ export function SubscribeButton({
 
   return (
     <Button size="lg" disabled={loading} onClick={handleSubscribe}>
-      {loading ? "Redirecting..." : "Subscribe Now"}
+      {loading ? "Redirecting..." : "Start Free Trial"}
     </Button>
   );
 }

@@ -152,7 +152,7 @@ describe("SubscribeButton", () => {
 
   it("renders subscribe button", () => {
     render(<SubscribeButton organizationId="org-123" />);
-    expect(screen.getByText("Subscribe Now")).toBeInTheDocument();
+    expect(screen.getByText("Start Free Trial")).toBeInTheDocument();
   });
 
   it("calls authClient.subscription.upgrade on click", async () => {
@@ -161,7 +161,7 @@ describe("SubscribeButton", () => {
     });
 
     render(<SubscribeButton organizationId="org-123" />);
-    fireEvent.click(screen.getByText("Subscribe Now"));
+    fireEvent.click(screen.getByText("Start Free Trial"));
 
     await waitFor(() => {
       expect(mockUpgrade).toHaveBeenCalledWith({
@@ -178,7 +178,7 @@ describe("SubscribeButton", () => {
     mockUpgrade.mockReturnValue(new Promise(() => {})); // never resolves
 
     render(<SubscribeButton organizationId="org-123" />);
-    fireEvent.click(screen.getByText("Subscribe Now"));
+    fireEvent.click(screen.getByText("Start Free Trial"));
 
     await waitFor(() => {
       expect(screen.getByText("Redirecting...")).toBeInTheDocument();
