@@ -1,9 +1,7 @@
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+import type { NextRequest } from "next/server";
 import { runPipeline } from "@/lib/scraper/pipeline";
 import { initializeAdapters } from "@/lib/scraper/adapters";
 import { getRegisteredAdapters, clearAdapters } from "@/lib/scraper/registry";
-import { checkRateLimit } from "@/lib/scraper/rate-limit";
 import { db } from "@/lib/db";
 import { pipelineRuns } from "@/lib/db/schema/pipeline-runs";
 import { eq } from "drizzle-orm";
@@ -11,47 +9,29 @@ import { eq } from "drizzle-orm";
 export const maxDuration = 300;
 
 /**
- * POST /api/scraper/run
+ * GET /api/cron/scrape
  *
- * User-triggered pipeline run. Requires session auth and enforces
- * a 1-run-per-hour rate limit per organization.
+ * Vercel Cron endpoint for daily automated scraping pipeline.
+ * Secured with CRON_SECRET Bearer token (injected by Vercel).
  *
- * - Verifies session and active organization
- * - Checks DB-based rate limit (1/hour per org)
- * - Records pipeline run with org and user context
+ * - Records a global pipeline run (organizationId = null)
  * - Runs all registered adapters
+ * - Triggers email digest after completion
  * - Updates run record with results or error
  */
-export async function POST(_request: Request) {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
-
-  if (!session?.session.activeOrganizationId) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const orgId = session.session.activeOrganizationId;
-
-  // Rate limit: 1 run per hour per org
-  const rateCheck = await checkRateLimit(orgId);
-  if (!rateCheck.allowed) {
-    return Response.json(
-      {
-        error: "Rate limited",
-        nextAllowedAt: rateCheck.nextAllowedAt!.toISOString(),
-      },
-      { status: 429 }
-    );
+export async function GET(request: NextRequest) {
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
   }
 
   // Record the pipeline run start
   const [run] = await db
     .insert(pipelineRuns)
     .values({
-      organizationId: orgId,
-      triggeredBy: session.user.id,
-      triggerType: "manual",
+      organizationId: null,
+      triggeredBy: "cron",
+      triggerType: "cron",
       status: "running",
     })
     .returning();
@@ -83,6 +63,22 @@ export async function POST(_request: Request) {
       })
       .where(eq(pipelineRuns.id, run.id));
 
+    // Trigger email digest after pipeline completion
+    try {
+      const { generateDigests } = await import(
+        "@/lib/email/digest-generator"
+      );
+      const digestResult = await generateDigests();
+      console.log(
+        `[cron/scrape] Email digest: ${digestResult.sent} sent, ${digestResult.skipped} skipped, ${digestResult.errors} errors`
+      );
+    } catch (digestError) {
+      console.error(
+        "[cron/scrape] Digest generation failed:",
+        digestError instanceof Error ? digestError.message : digestError
+      );
+    }
+
     return Response.json({
       success: true,
       runId: run.id,
@@ -95,7 +91,7 @@ export async function POST(_request: Request) {
     clearAdapters();
 
     const message =
-      error instanceof Error ? error.message : "Unknown pipeline error";
+      error instanceof Error ? error.message : "Pipeline error";
 
     // Update run record with failure
     await db
@@ -107,7 +103,7 @@ export async function POST(_request: Request) {
       })
       .where(eq(pipelineRuns.id, run.id));
 
-    console.error("[api/scraper/run] Pipeline error:", message);
+    console.error("[cron/scrape] Pipeline failed:", message);
     return Response.json({ error: message }, { status: 500 });
   }
 }
