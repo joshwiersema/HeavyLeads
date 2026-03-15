@@ -1,9 +1,54 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 
 /**
  * Tests for BILL-01 (createCustomerOnSignUp: false) and BILL-02 (freeTrial: { days: 7 }).
  * Verifies auth.ts exports testable config constants.
+ *
+ * Mocks heavy dependencies (DB, betterAuth, stripe plugin) so we can import
+ * the exported config constants without side effects.
  */
+
+// Mock DB to prevent real connection
+vi.mock("@/lib/db", () => ({
+  db: { query: { member: { findFirst: vi.fn() } } },
+}));
+
+// Mock drizzle-orm operators
+vi.mock("drizzle-orm", () => ({
+  eq: vi.fn(),
+  and: vi.fn(),
+  or: vi.fn(),
+}));
+
+// Mock DB schema
+vi.mock("@/lib/db/schema/auth", () => ({
+  member: { userId: "userId", organizationId: "organizationId" },
+}));
+
+vi.mock("@/lib/db/schema/subscriptions", () => ({
+  subscription: { referenceId: "referenceId", status: "status" },
+}));
+
+// Mock betterAuth to avoid full server instantiation
+vi.mock("better-auth", () => ({
+  betterAuth: vi.fn(() => ({})),
+}));
+
+vi.mock("better-auth/plugins", () => ({
+  organization: vi.fn(() => ({})),
+}));
+
+vi.mock("@better-auth/stripe", () => ({
+  stripe: vi.fn(() => ({})),
+}));
+
+vi.mock("better-auth/next-js", () => ({
+  nextCookies: vi.fn(() => ({})),
+}));
+
+vi.mock("better-auth/adapters/drizzle", () => ({
+  drizzleAdapter: vi.fn(() => ({})),
+}));
 
 describe("Stripe plugin config (BILL-01)", () => {
   it("has createCustomerOnSignUp set to false", async () => {

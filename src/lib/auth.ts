@@ -7,6 +7,23 @@ import { db } from "./db";
 import { member } from "./db/schema/auth";
 import { eq, and } from "drizzle-orm";
 import { stripeClient, PRICES } from "./stripe";
+import { buildCheckoutSessionParams } from "./billing";
+
+/**
+ * Exported config constants for testability.
+ * These mirror the values passed to the stripe plugin below.
+ */
+export const STRIPE_PLUGIN_CONFIG = {
+  createCustomerOnSignUp: false,
+} as const;
+
+export const SUBSCRIPTION_PLANS = [
+  {
+    name: "standard",
+    priceId: PRICES.monthlySubscription,
+    freeTrial: { days: 7 },
+  },
+] as const;
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
@@ -21,7 +38,7 @@ export const auth = betterAuth({
     stripe({
       stripeClient,
       stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
-      createCustomerOnSignUp: true,
+      createCustomerOnSignUp: STRIPE_PLUGIN_CONFIG.createCustomerOnSignUp,
       subscription: {
         enabled: true,
         authorizeReference: async ({ user, referenceId, action }) => {
@@ -37,28 +54,13 @@ export const auth = betterAuth({
         },
         plans: [
           {
-            name: "standard",
-            priceId: PRICES.monthlySubscription,
+            name: SUBSCRIPTION_PLANS[0].name,
+            priceId: SUBSCRIPTION_PLANS[0].priceId,
+            freeTrial: { days: SUBSCRIPTION_PLANS[0].freeTrial.days },
           },
         ],
         getCheckoutSessionParams: async ({ plan, subscription }) => {
-          // Only charge setup fee for first-time subscribers.
-          // IMPORTANT: params.line_items OVERRIDES the plugin's line_items
-          // (due to object spread order in the plugin source), so we must
-          // include the recurring subscription price alongside the setup fee.
-          const isFirstTime = !subscription?.stripeSubscriptionId;
-
-          if (isFirstTime) {
-            return {
-              params: {
-                line_items: [
-                  { price: plan.priceId, quantity: 1 },
-                  { price: PRICES.setupFee, quantity: 1 },
-                ],
-              },
-            };
-          }
-          return {};
+          return buildCheckoutSessionParams(plan, subscription);
         },
       },
       organization: { enabled: true },
