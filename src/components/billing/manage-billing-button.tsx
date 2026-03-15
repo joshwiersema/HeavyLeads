@@ -12,20 +12,23 @@ export function ManageBillingButton() {
     setLoading(true);
     try {
       const { data, error } = await authClient.subscription.billingPortal({
-        returnUrl: "/billing",
+        returnUrl: `${window.location.origin}/billing`,
       });
 
       if (error) {
         toast.error("Failed to open billing portal. Please try again.");
-        setLoading(false);
         return;
       }
 
       if (data?.url) {
         window.location.href = data.url;
+        return;
       }
+
+      toast.error("Unable to open billing portal. Please try again.");
     } catch {
       toast.error("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
     }
   };

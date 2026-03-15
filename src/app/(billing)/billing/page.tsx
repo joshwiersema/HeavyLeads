@@ -12,6 +12,7 @@ import {
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
 import { BillingStatus } from "@/components/billing/billing-status";
+import { DevSkipButton } from "@/components/billing/dev-skip-button";
 
 export const metadata = {
   title: "Billing | HeavyLeads",
@@ -88,7 +89,10 @@ export default async function BillingPage() {
               </li>
             </ul>
 
-            <SubscribeButton organizationId={organizationId} />
+            <div className="flex items-center gap-3">
+              <SubscribeButton organizationId={organizationId} />
+              {process.env.NODE_ENV === "development" && <DevSkipButton />}
+            </div>
           </CardContent>
         </Card>
       )}

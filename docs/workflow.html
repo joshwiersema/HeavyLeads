@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HeavyLeads - System Workflow</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #242836;
+      --border: #2e3345;
+      --text: #e4e4e7;
+      --text-muted: #9ca3af;
+      --primary: #3b82f6;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --purple: #a855f7;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 2rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+    h1 span { color: var(--primary); }
+    .subtitle { color: var(--text-muted); margin-bottom: 2.5rem; font-size: 1.1rem; }
+    h2 {
+      font-size: 1.4rem;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: var(--primary); }
+    p, li { color: var(--text-muted); }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .badge-blue { background: #1e3a5f; color: #60a5fa; }
+    .badge-green { background: #14532d; color: #4ade80; }
+    .badge-amber { background: #451a03; color: #fbbf24; }
+    .badge-red { background: #450a0a; color: #f87171; }
+    .badge-purple { background: #3b0764; color: #c084fc; }
+    .flow-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .flow-step {
+      display: flex;
+      gap: 1rem;
+      position: relative;
+    }
+    .flow-line {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 32px;
+      flex-shrink: 0;
+    }
+    .flow-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 3px solid var(--surface);
+      outline: 2px solid var(--primary);
+      flex-shrink: 0;
+      z-index: 1;
+      margin-top: 4px;
+    }
+    .flow-dot.green { background: var(--green); outline-color: var(--green); }
+    .flow-dot.amber { background: var(--amber); outline-color: var(--amber); }
+    .flow-dot.red { background: var(--red); outline-color: var(--red); }
+    .flow-dot.purple { background: var(--purple); outline-color: var(--purple); }
+    .flow-connector {
+      width: 2px;
+      flex-grow: 1;
+      background: var(--border);
+      min-height: 20px;
+    }
+    .flow-content {
+      padding-bottom: 1.5rem;
+      flex: 1;
+    }
+    .flow-content h4 { font-size: 1rem; color: var(--text); margin-bottom: 0.25rem; }
+    .flow-content p { font-size: 0.9rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0.75rem 0;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.6rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--text); font-weight: 600; background: var(--surface2); }
+    td { color: var(--text-muted); }
+    code {
+      background: var(--surface2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.85rem;
+      color: var(--green);
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .card h4 { margin-bottom: 0.5rem; font-size: 0.95rem; }
+    .card p { font-size: 0.85rem; }
+    ul { padding-left: 1.25rem; }
+    li { margin-bottom: 0.3rem; font-size: 0.9rem; }
+    .cmd {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--green);
+      margin: 0.5rem 0;
+      overflow-x: auto;
+    }
+    .scoring-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.3rem 0;
+    }
+    .scoring-bar .bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--primary);
+    }
+    .scoring-bar .label { font-size: 0.8rem; color: var(--text-muted); min-width: 120px; }
+    .scoring-bar .pts { font-size: 0.8rem; color: var(--text); min-width: 50px; text-align: right; }
+    .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+  </style>
+</head>
+<body>
+
+  <h1><span>HeavyLeads</span> System Workflow</h1>
+  <p class="subtitle">Lead generation platform for heavy equipment dealers. Scrapes public construction data, matches it to your inventory and location, and delivers scored leads daily.</p>
+
+  <!-- ============================================ -->
+  <h2>1. The Big Picture</h2>
+  <!-- ============================================ -->
+  <section>
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>Scraper Pipeline runs daily at 06:00 UTC</h4>
+          <p>8 adapters pull permits, bids, and news from public sources. Records are validated, geocoded, and upserted into the database. Cross-source deduplication merges records about the same project.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>Leads are enriched on read</h4>
+          <p>When you open the dashboard, each lead is analyzed: equipment types are inferred from project descriptions, a relevance score (0-100) is computed based on your profile, and construction phases are detected for timeline mapping.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot amber"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>You filter, bookmark, and track</h4>
+          <p>Filter leads by equipment type, radius, keyword, date, and project value. Bookmark promising leads, track their status (new &rarr; contacted &rarr; won/lost), and save filter combos as Saved Searches.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot purple"></div><div class="flow-connector" style="background:transparent;"></div></div>
+        <div class="flow-content">
+          <h4>Email digests deliver new matches daily</h4>
+          <p>Saved Searches with digest enabled generate daily emails listing new leads from the last 24 hours that match your saved criteria.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>2. Data Ingestion &mdash; The Scraper</h2>
+  <!-- ============================================ -->
+  <section>
+    <h3>How to trigger it</h3>
+    <p>Leads don't exist until the scraper runs. Two ways:</p>
+    <div class="cmd">curl -X POST http://localhost:3000/api/scraper/run</div>
+    <p>Or wait for the daily cron at 06:00 UTC (runs automatically when the dev server is up).</p>
+
+    <h3>The 8 Adapters</h3>
+    <table>
+      <thead>
+        <tr><th>Adapter</th><th>Source Type</th><th>What It Scrapes</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>AustinPermitsAdapter</td><td><span class="badge badge-blue">Permit</span></td><td>Austin, TX building permits via Socrata API</td></tr>
+        <tr><td>DallasPermitsAdapter</td><td><span class="badge badge-blue">Permit</span></td><td>Dallas, TX building permits</td></tr>
+        <tr><td>AtlantaPermitsAdapter</td><td><span class="badge badge-blue">Permit</span></td><td>Atlanta, GA building permits</td></tr>
+        <tr><td>SamGovBidsAdapter</td><td><span class="badge badge-green">Bid</span></td><td>Federal contract opportunities (SAM.gov, NAICS 236-238)</td></tr>
+        <tr><td>EnrNewsAdapter</td><td><span class="badge badge-amber">News</span></td><td>Engineering News-Record construction articles</td></tr>
+        <tr><td>ConstructionDiveNewsAdapter</td><td><span class="badge badge-amber">News</span></td><td>Construction Dive industry news</td></tr>
+        <tr><td>PrNewswireNewsAdapter</td><td><span class="badge badge-amber">News</span></td><td>PR Newswire construction press releases</td></tr>
+        <tr><td>GoogleDorkingAdapter</td><td><span class="badge badge-purple">Deep Web</span></td><td>Targeted Google queries via Serper.dev API</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Pipeline Steps</h3>
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>1. Scrape</h4>
+          <p>Each adapter fetches raw data from its source API or feed. Returns <code>RawLeadData[]</code>.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>2. Validate</h4>
+          <p>Zod schema validation. Requires at least one of: permitNumber, title, or externalId. Invalid records logged and skipped.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>3. Geocode</h4>
+          <p>Google Maps API converts addresses to lat/lng. Throttled at 25ms between requests. Skipped if adapter already provides coordinates.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>4. Upsert</h4>
+          <p>Permits: upsert on <code>(sourceId, permitNumber)</code>. Non-permits: check existing by <code>(sourceId, title)</code>, insert if new. Creates <code>leadSources</code> entry for attribution.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot purple"></div><div class="flow-connector" style="background:transparent;"></div></div>
+        <div class="flow-content">
+          <h4>5. Deduplicate</h4>
+          <p>Cross-source dedup: finds leads within 0.1 miles of each other with &gt;70% text similarity in address or title. Merges source entries and deletes the duplicate.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>3. Lead Enrichment &mdash; What Happens on Read</h2>
+  <!-- ============================================ -->
+  <section>
+    <p>Raw scraped data becomes actionable intelligence when you view the dashboard. Three systems run on every query:</p>
+
+    <div class="grid-2">
+      <div class="card">
+        <h4>Equipment Inference</h4>
+        <p>10 keyword rules analyze <code>projectType</code> and <code>description</code> to determine what equipment a project needs.</p>
+        <p style="margin-top:0.5rem"><strong>Example:</strong> "excavation, earthwork, grading" &rarr; Excavators, Bulldozers, Compactors</p>
+        <p style="margin-top:0.25rem">Confidence: <span class="badge badge-green">High</span> (projectType match), <span class="badge badge-amber">Medium</span> (description match), <span class="badge badge-red">Low</span> (fallback)</p>
+      </div>
+      <div class="card">
+        <h4>Timeline Mapping</h4>
+        <p>Detects construction phases from the same keywords and maps them to urgency levels:</p>
+        <ul style="margin-top:0.5rem">
+          <li><span class="badge badge-red">Now</span> Site Prep, Foundation, Paving</li>
+          <li><span class="badge badge-amber">Soon</span> Framing, Structural, Exterior</li>
+          <li><span class="badge badge-green">Later</span> Interior Finishing, Landscaping</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>Lead Scoring (0&ndash;100)</h3>
+    <p>Each lead gets a relevance score based on your company profile:</p>
+    <div style="margin-top:0.75rem">
+      <div class="scoring-bar">
+        <span class="label">Equipment Match</span>
+        <div class="bar" style="width:200px; background: var(--primary);"></div>
+        <span class="pts">50 pts</span>
+      </div>
+      <p style="font-size:0.8rem; margin-left:130px; margin-bottom:0.5rem;">Ratio of inferred equipment types that overlap with your inventory</p>
+      <div class="scoring-bar">
+        <span class="label">Proximity</span>
+        <div class="bar" style="width:120px; background: var(--green);"></div>
+        <span class="pts">30 pts</span>
+      </div>
+      <p style="font-size:0.8rem; margin-left:130px; margin-bottom:0.5rem;">Linear decay within service radius (closer = higher)</p>
+      <div class="scoring-bar">
+        <span class="label">Project Value</span>
+        <div class="bar" style="width:80px; background: var(--amber);"></div>
+        <span class="pts">20 pts</span>
+      </div>
+      <p style="font-size:0.8rem; margin-left:130px;">Logarithmic scale, $1M+ projects cap at 20 points</p>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>4. Dashboard &mdash; Your Daily Feed</h2>
+  <!-- ============================================ -->
+  <section>
+    <h3>URL: <code>/dashboard</code></h3>
+    <p>Two-column layout: filter sidebar on the left, lead cards on the right. All filtering syncs to URL params so you can share/bookmark specific views.</p>
+
+    <h3>Available Filters</h3>
+    <table>
+      <thead><tr><th>Filter</th><th>Type</th><th>Details</th></tr></thead>
+      <tbody>
+        <tr><td>Equipment</td><td>Multi-select checkboxes</td><td>Your equipment types shown with "(yours)" label</td></tr>
+        <tr><td>Radius</td><td>Slider</td><td>10&ndash;500 miles (overrides company profile default)</td></tr>
+        <tr><td>Keyword</td><td>Text input</td><td>Searches across title, description, applicant, contractor, agency (debounced 300ms)</td></tr>
+        <tr><td>Date Range</td><td>Date pickers</td><td>Filter by permit/posted date</td></tr>
+        <tr><td>Project Size</td><td>Min/Max inputs</td><td>Filter by estimated value ($)</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Lead Card Anatomy</h3>
+    <div class="card" style="margin-top:0.5rem">
+      <p><span class="badge badge-blue">COMMERCIAL</span> <span class="badge badge-green">NEW</span> <span style="color:var(--amber)">&#9679;</span></p>
+      <p style="color:var(--text); font-weight:600; margin:0.25rem 0">123 Main St, Austin, TX 78701</p>
+      <p style="font-size:0.85rem">New commercial building construction with steel framing and foundation work...</p>
+      <p style="font-size:0.8rem; margin-top:0.5rem"><span class="badge badge-blue">Excavators</span> <span class="badge badge-blue">Cranes</span> <span class="badge badge-blue">Forklifts</span> +2 more</p>
+      <p style="font-size:0.8rem; margin-top:0.5rem; color:var(--text-muted)">12.3 mi &bull; Permitted Mar 10, 2026 &bull; Score: <strong style="color:var(--green)">87</strong></p>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>5. Lead Detail Page</h2>
+  <!-- ============================================ -->
+  <section>
+    <h3>URL: <code>/dashboard/leads/[id]</code></h3>
+    <p>Click any lead card to see the full detail view. Three-column grid:</p>
+    <div class="grid-2">
+      <div class="card">
+        <h4>Left Column</h4>
+        <ul>
+          <li>Location map placeholder</li>
+          <li>Full project details (address, city, state, dates, value, applicant, contractor, agency)</li>
+          <li>Source attribution: every source that found this project, with dates</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h4>Right Column</h4>
+        <ul>
+          <li>Equipment types with confidence indicators (green/yellow/gray dots)</li>
+          <li>Timeline card showing construction phases + urgency</li>
+          <li>Score breakdown (0&ndash;100)</li>
+          <li>Status selector + bookmark toggle</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>6. Lead Tracking</h2>
+  <!-- ============================================ -->
+  <section>
+    <div class="grid-2">
+      <div class="card">
+        <h4>Statuses</h4>
+        <p>Track where each lead is in your pipeline:</p>
+        <ul style="margin-top:0.5rem">
+          <li><span class="badge badge-blue">New</span> &mdash; Default, haven't looked at it</li>
+          <li><span class="badge badge-amber">Viewed</span> &mdash; Opened the detail page</li>
+          <li><span class="badge badge-purple">Contacted</span> &mdash; Reached out to the applicant</li>
+          <li><span class="badge badge-green">Won</span> &mdash; Closed the deal</li>
+          <li><span class="badge badge-red">Lost</span> &mdash; Didn't work out</li>
+        </ul>
+        <p style="margin-top:0.5rem">Per-user, per-org. Team members see their own statuses.</p>
+      </div>
+      <div class="card">
+        <h4>Bookmarks</h4>
+        <p>Toggle bookmark on any lead (card or detail page). View all bookmarked leads at:</p>
+        <p style="margin-top:0.5rem"><code>/dashboard/bookmarks</code></p>
+        <p style="margin-top:0.5rem">Per-user, per-org. Quick way to build a shortlist of hot leads.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>7. Saved Searches &amp; Email Digests</h2>
+  <!-- ============================================ -->
+  <section>
+    <h3>Saving a Search</h3>
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>1. Apply filters on the dashboard</h4>
+          <p>Set equipment types, radius, keyword, dates, project size to your liking.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>2. Click "Save Search"</h4>
+          <p>Redirects to <code>/dashboard/saved-searches?save=true&amp;[params]</code> with a name input.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector" style="background:transparent;"></div></div>
+        <div class="flow-content">
+          <h4>3. All filter params stored as database columns</h4>
+          <p>Not a JSON blob &mdash; explicit columns allow SQL queries for digest generation. <code>isDigestEnabled</code> flag controls daily emails.</p>
+        </div>
+      </div>
+    </div>
+
+    <h3>Email Digests</h3>
+    <p>When <code>isDigestEnabled = true</code> on a saved search, the system generates a daily email with leads from the last 24 hours matching those filters. Uses Resend for delivery.</p>
+    <p>Trigger manually for testing:</p>
+    <div class="cmd">curl -X POST http://localhost:3000/api/email-digest</div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>8. User &amp; Org Setup Flow</h2>
+  <!-- ============================================ -->
+  <section>
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>Sign Up <code>/sign-up</code></h4>
+          <p>Name, email, password, company name. Creates user + organization + Stripe customer. Sets org as active on the session.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>Onboarding <code>/onboarding</code></h4>
+          <p><strong>Step 1:</strong> HQ address (geocoded to lat/lng for distance calculations)<br>
+             <strong>Step 2:</strong> Equipment types you sell/rent (used for scoring and matching)<br>
+             <strong>Step 3:</strong> Service radius in miles (default 50, range 10&ndash;500)</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot amber"></div><div class="flow-connector"></div></div>
+        <div class="flow-content">
+          <h4>Billing <code>/billing</code></h4>
+          <p>Stripe checkout for monthly subscription + one-time setup fee. In dev mode: "Skip (Dev Only)" button creates a mock subscription.</p>
+        </div>
+      </div>
+      <div class="flow-step">
+        <div class="flow-line"><div class="flow-dot purple"></div><div class="flow-connector" style="background:transparent;"></div></div>
+        <div class="flow-content">
+          <h4>Dashboard <code>/dashboard</code></h4>
+          <p>Your daily lead feed. Requires: authenticated session + active organization + completed onboarding + active subscription.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>9. Quick Reference &mdash; Dev Commands</h2>
+  <!-- ============================================ -->
+  <section>
+    <table>
+      <thead><tr><th>Action</th><th>Command</th></tr></thead>
+      <tbody>
+        <tr><td>Start dev server</td><td><code>npm run dev</code></td></tr>
+        <tr><td>Run scraper (populate leads)</td><td><code>curl -X POST http://localhost:3000/api/scraper/run</code></td></tr>
+        <tr><td>Trigger email digests</td><td><code>curl -X POST http://localhost:3000/api/email-digest</code></td></tr>
+        <tr><td>Push schema changes to DB</td><td><code>npx drizzle-kit push</code></td></tr>
+        <tr><td>Run tests</td><td><code>npx vitest run</code></td></tr>
+        <tr><td>Build for production</td><td><code>npx next build</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ============================================ -->
+  <h2>10. Architecture at a Glance</h2>
+  <!-- ============================================ -->
+  <section>
+    <table>
+      <thead><tr><th>Layer</th><th>Tech</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td>Framework</td><td>Next.js 16 + React 19</td><td>Full-stack with server components &amp; server actions</td></tr>
+        <tr><td>Auth</td><td>Better Auth + Organization plugin</td><td>Email/password, multi-tenant orgs, session management</td></tr>
+        <tr><td>Database</td><td>Neon (Serverless Postgres) + Drizzle ORM</td><td>All application data</td></tr>
+        <tr><td>Payments</td><td>Stripe via @better-auth/stripe</td><td>Subscriptions, checkout, billing portal</td></tr>
+        <tr><td>Scraping</td><td>Custom pipeline + 8 adapters</td><td>Permits, bids, news, deep-web search</td></tr>
+        <tr><td>Geocoding</td><td>Google Maps API</td><td>Address &rarr; lat/lng for distance calculations</td></tr>
+        <tr><td>Email</td><td>Resend</td><td>Daily digest delivery</td></tr>
+        <tr><td>Scheduling</td><td>node-cron</td><td>Daily scraper + digest runs at 06:00 UTC</td></tr>
+        <tr><td>UI</td><td>Tailwind CSS + Base UI + shadcn components</td><td>Dashboard, forms, cards</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <hr class="divider">
+  <p style="text-align:center; font-size:0.85rem; color:var(--text-muted);">
+    HeavyLeads &mdash; Generated workflow documentation
+  </p>
+
+</body>
+</html>

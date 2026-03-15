@@ -66,7 +66,10 @@ export function OnboardingWizard() {
       const result = await completeOnboarding(data);
       if (result.success) {
         toast.success("Onboarding complete! Welcome to HeavyLeads.");
-        router.push("/dashboard");
+        // Send to /billing instead of /dashboard. The user won't have a
+        // subscription yet, so /dashboard would immediately redirect to
+        // /billing anyway — causing a visible flash/glitch.
+        router.push("/billing");
       }
     } catch (error) {
       toast.error(
@@ -104,7 +107,20 @@ export function OnboardingWizard() {
       </CardHeader>
       <CardContent>
         <FormProvider {...methods}>
-          <form onSubmit={methods.handleSubmit(onSubmit)} className="space-y-6">
+          <form
+            onSubmit={methods.handleSubmit(onSubmit)}
+            onKeyDown={(e) => {
+              // Prevent Enter key from submitting the form on non-last steps.
+              // Without this, pressing Enter in an input (e.g. the address
+              // field on step 1) fires the native form submit, which would
+              // attempt to validate the entire schema — hiding errors for
+              // fields on later steps and confusing the user.
+              if (e.key === "Enter" && !isLastStep) {
+                e.preventDefault();
+              }
+            }}
+            className="space-y-6"
+          >
             <StepComponent />
 
             <div className="flex justify-between pt-4">

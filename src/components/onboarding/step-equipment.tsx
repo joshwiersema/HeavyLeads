@@ -2,7 +2,6 @@
 
 import { useFormContext, Controller } from "react-hook-form";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { EQUIPMENT_TYPES, type OnboardingFormData } from "@/lib/validators/onboarding";
 
 export function StepEquipment() {
@@ -27,28 +26,36 @@ export function StepEquipment() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {EQUIPMENT_TYPES.map((type) => {
               const isChecked = field.value?.includes(type) ?? false;
+
+              function toggle() {
+                const current = field.value ?? [];
+                field.onChange(
+                  isChecked
+                    ? current.filter((t: string) => t !== type)
+                    : [...current, type]
+                );
+              }
+
               return (
-                <label
+                <div
                   key={type}
                   className="flex cursor-pointer items-center space-x-2 rounded-md border p-3 hover:bg-accent"
+                  onClick={(e) => {
+                    // Only handle clicks on the row background/text.
+                    // Clicks on the Checkbox itself are handled by onCheckedChange.
+                    const target = e.target as HTMLElement;
+                    if (target.closest("[data-slot='checkbox']") || target.tagName === "INPUT") return;
+                    toggle();
+                  }}
                 >
                   <Checkbox
                     checked={isChecked}
-                    onCheckedChange={(checked) => {
-                      const current = field.value ?? [];
-                      if (checked) {
-                        field.onChange([...current, type]);
-                      } else {
-                        field.onChange(
-                          current.filter((t: string) => t !== type)
-                        );
-                      }
-                    }}
+                    onCheckedChange={() => toggle()}
                   />
-                  <Label className="cursor-pointer text-sm font-normal">
+                  <span className="cursor-pointer text-sm font-normal">
                     {type}
-                  </Label>
-                </label>
+                  </span>
+                </div>
               );
             })}
           </div>

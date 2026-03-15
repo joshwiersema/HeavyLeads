@@ -47,7 +47,20 @@ export function SignInForm() {
         return;
       }
 
-      router.push("/dashboard");
+      // Restore the active organization for the new session.
+      // Without this, activeOrganizationId is null and the dashboard
+      // layout redirects to /onboarding, which redirects back to
+      // /sign-in — creating an infinite redirect loop.
+      const { data: orgs } = await authClient.$fetch<
+        { id: string; name: string }[]
+      >("/organization/list");
+      if (orgs && orgs.length > 0) {
+        await authClient.organization.setActive({
+          organizationId: orgs[0].id,
+        });
+      }
+
+      router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {

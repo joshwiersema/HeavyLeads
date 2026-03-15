@@ -166,8 +166,8 @@ describe("SubscribeButton", () => {
     await waitFor(() => {
       expect(mockUpgrade).toHaveBeenCalledWith({
         plan: "standard",
-        successUrl: "/dashboard",
-        cancelUrl: "/billing",
+        successUrl: `${window.location.origin}/dashboard`,
+        cancelUrl: `${window.location.origin}/billing`,
         referenceId: "org-123",
         customerType: "organization",
       });
@@ -206,7 +206,7 @@ describe("ManageBillingButton", () => {
 
     await waitFor(() => {
       expect(mockBillingPortal).toHaveBeenCalledWith({
-        returnUrl: "/billing",
+        returnUrl: `${window.location.origin}/billing`,
       });
     });
   });
