@@ -3,521 +3,670 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HeavyLeads - System Workflow</title>
+  <title>HeavyLeads — Application Workflow</title>
   <style>
     :root {
-      --bg: #0f1117;
-      --surface: #1a1d27;
-      --surface2: #242836;
-      --border: #2e3345;
-      --text: #e4e4e7;
-      --text-muted: #9ca3af;
-      --primary: #3b82f6;
-      --green: #22c55e;
-      --amber: #f59e0b;
-      --red: #ef4444;
-      --purple: #a855f7;
+      --blue: #2563eb;
+      --blue-light: #dbeafe;
+      --blue-dark: #1e40af;
+      --amber: #d97706;
+      --amber-light: #fef3c7;
+      --amber-dark: #92400e;
+      --green: #16a34a;
+      --green-light: #dcfce7;
+      --red: #dc2626;
+      --red-light: #fee2e2;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+      --purple: #7c3aed;
+      --purple-light: #ede9fe;
     }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      background: var(--bg);
-      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--gray-900);
+      background: var(--gray-50);
       line-height: 1.6;
-      padding: 2rem;
-      max-width: 1100px;
-      margin: 0 auto;
     }
-    h1 { font-size: 2rem; margin-bottom: 0.5rem; }
-    h1 span { color: var(--primary); }
-    .subtitle { color: var(--text-muted); margin-bottom: 2.5rem; font-size: 1.1rem; }
-    h2 {
-      font-size: 1.4rem;
-      margin: 2.5rem 0 1rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--border);
+
+    .hero {
+      background: linear-gradient(135deg, var(--blue-dark) 0%, var(--blue) 50%, #3b82f6 100%);
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
     }
-    h3 { font-size: 1.1rem; margin: 1.5rem 0 0.5rem; color: var(--primary); }
-    p, li { color: var(--text-muted); }
-    section {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    .hero h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .hero p { font-size: 1.1rem; opacity: 0.9; max-width: 600px; margin: 0 auto; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    .phase {
+      margin-bottom: 3rem;
+      background: white;
       border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
     }
-    .badge {
-      display: inline-block;
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .badge-blue { background: #1e3a5f; color: #60a5fa; }
-    .badge-green { background: #14532d; color: #4ade80; }
-    .badge-amber { background: #451a03; color: #fbbf24; }
-    .badge-red { background: #450a0a; color: #f87171; }
-    .badge-purple { background: #3b0764; color: #c084fc; }
-    .flow-container {
+    .phase-header {
       display: flex;
-      flex-direction: column;
-      gap: 0;
-    }
-    .flow-step {
-      display: flex;
-      gap: 1rem;
-      position: relative;
-    }
-    .flow-line {
-      display: flex;
-      flex-direction: column;
       align-items: center;
-      width: 32px;
-      flex-shrink: 0;
+      gap: 1rem;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--gray-200);
     }
-    .flow-dot {
-      width: 14px;
-      height: 14px;
+    .phase-number {
+      width: 40px; height: 40px;
       border-radius: 50%;
-      background: var(--primary);
-      border: 3px solid var(--surface);
-      outline: 2px solid var(--primary);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1.1rem; color: white;
       flex-shrink: 0;
-      z-index: 1;
-      margin-top: 4px;
     }
-    .flow-dot.green { background: var(--green); outline-color: var(--green); }
-    .flow-dot.amber { background: var(--amber); outline-color: var(--amber); }
-    .flow-dot.red { background: var(--red); outline-color: var(--red); }
-    .flow-dot.purple { background: var(--purple); outline-color: var(--purple); }
-    .flow-connector {
-      width: 2px;
-      flex-grow: 1;
-      background: var(--border);
-      min-height: 20px;
-    }
-    .flow-content {
-      padding-bottom: 1.5rem;
-      flex: 1;
-    }
-    .flow-content h4 { font-size: 1rem; color: var(--text); margin-bottom: 0.25rem; }
-    .flow-content p { font-size: 0.9rem; }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 0.75rem 0;
-      font-size: 0.9rem;
-    }
-    th, td {
-      text-align: left;
-      padding: 0.6rem 0.75rem;
-      border-bottom: 1px solid var(--border);
-    }
-    th { color: var(--text); font-weight: 600; background: var(--surface2); }
-    td { color: var(--text-muted); }
-    code {
-      background: var(--surface2);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.85rem;
-      color: var(--green);
-    }
-    .grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-    }
-    @media (max-width: 700px) { .grid-2 { grid-template-columns: 1fr; } }
-    .card {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 1rem;
-    }
-    .card h4 { margin-bottom: 0.5rem; font-size: 0.95rem; }
-    .card p { font-size: 0.85rem; }
-    ul { padding-left: 1.25rem; }
-    li { margin-bottom: 0.3rem; font-size: 0.9rem; }
-    .cmd {
-      background: var(--surface2);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 0.75rem 1rem;
+    .phase-header h2 { font-size: 1.25rem; font-weight: 600; }
+    .phase-header .route {
+      margin-left: auto;
       font-family: monospace;
-      font-size: 0.85rem;
-      color: var(--green);
-      margin: 0.5rem 0;
-      overflow-x: auto;
+      font-size: 0.8rem;
+      background: var(--gray-100);
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      color: var(--gray-500);
     }
-    .scoring-bar {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      margin: 0.3rem 0;
+    .phase-body { padding: 1.5rem; }
+
+    .flow { display: flex; flex-direction: column; gap: 0; }
+    .step { display: flex; gap: 1rem; position: relative; }
+    .step-line { display: flex; flex-direction: column; align-items: center; width: 24px; flex-shrink: 0; }
+    .step-dot {
+      width: 12px; height: 12px; border-radius: 50%;
+      background: var(--blue); flex-shrink: 0; margin-top: 6px;
     }
-    .scoring-bar .bar {
-      height: 8px;
-      border-radius: 4px;
-      background: var(--primary);
+    .step-dot.amber { background: var(--amber); }
+    .step-dot.green { background: var(--green); }
+    .step-dot.red { background: var(--red); }
+    .step-dot.purple { background: var(--purple); }
+    .step-connector { width: 2px; flex-grow: 1; background: var(--gray-200); min-height: 16px; }
+    .step-content { padding-bottom: 1.25rem; flex: 1; }
+    .step-content h4 { font-size: 0.95rem; font-weight: 600; margin-bottom: 0.25rem; }
+    .step-content p { font-size: 0.875rem; color: var(--gray-500); }
+
+    .mockup {
+      border: 1px solid var(--gray-200); border-radius: 8px;
+      padding: 1rem; margin: 0.75rem 0; background: var(--gray-50); font-size: 0.85rem;
     }
-    .scoring-bar .label { font-size: 0.8rem; color: var(--text-muted); min-width: 120px; }
-    .scoring-bar .pts { font-size: 0.8rem; color: var(--text); min-width: 50px; text-align: right; }
-    .divider { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .mockup-title {
+      font-weight: 600; font-size: 0.8rem; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 0.5rem;
+    }
+    .field { display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0; font-size: 0.85rem; }
+    .field-label { font-weight: 500; min-width: 120px; color: var(--gray-700); }
+    .field-input {
+      flex: 1; background: white; border: 1px solid var(--gray-300);
+      border-radius: 6px; padding: 0.35rem 0.6rem; color: var(--gray-500); font-size: 0.8rem;
+    }
+
+    .btn {
+      display: inline-block; padding: 0.4rem 1rem; border-radius: 6px;
+      font-size: 0.85rem; font-weight: 500; text-decoration: none; border: none;
+    }
+    .btn-primary { background: var(--blue); color: white; }
+    .btn-outline { background: white; border: 1px solid var(--gray-300); color: var(--gray-700); }
+
+    .badge {
+      display: inline-block; padding: 0.15rem 0.5rem; border-radius: 999px;
+      font-size: 0.7rem; font-weight: 600;
+    }
+    .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
+    .badge-green { background: var(--green-light); color: var(--green); }
+    .badge-amber { background: var(--amber-light); color: var(--amber-dark); }
+    .badge-red { background: var(--red-light); color: var(--red); }
+    .badge-purple { background: var(--purple-light); color: var(--purple); }
+    .badge-gray { background: var(--gray-100); color: var(--gray-500); }
+
+    .branches { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin: 0.75rem 0; }
+    .branches-3 { grid-template-columns: 1fr 1fr 1fr; }
+    .branch {
+      border: 1px solid var(--gray-200); border-radius: 8px; padding: 1rem; background: white;
+    }
+    .branch h5 {
+      font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .branch p { font-size: 0.8rem; color: var(--gray-500); }
+
+    .phase-connector { display: flex; justify-content: center; padding: 0.5rem 0; }
+    .phase-connector svg { color: var(--gray-300); }
+
+    .callout {
+      border-left: 3px solid var(--blue); padding: 0.75rem 1rem;
+      background: var(--blue-light); border-radius: 0 6px 6px 0;
+      margin: 0.75rem 0; font-size: 0.85rem;
+    }
+    .callout.amber { border-color: var(--amber); background: var(--amber-light); }
+    .callout.green { border-color: var(--green); background: var(--green-light); }
+
+    .sidebar-mockup { display: flex; gap: 1rem; margin: 0.75rem 0; }
+    .sidebar-nav {
+      width: 180px; background: var(--gray-900); border-radius: 8px;
+      padding: 0.75rem; color: white; font-size: 0.8rem; flex-shrink: 0;
+    }
+    .sidebar-nav .brand { font-weight: 700; margin-bottom: 0.75rem; font-size: 0.9rem; }
+    .sidebar-nav .nav-item {
+      padding: 0.35rem 0.5rem; border-radius: 4px; margin-bottom: 0.2rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .sidebar-nav .nav-item.active { background: rgba(255,255,255,0.1); }
+    .sidebar-main {
+      flex: 1; background: white; border: 1px solid var(--gray-200);
+      border-radius: 8px; padding: 1rem; font-size: 0.85rem;
+    }
+
+    .lead-card {
+      border: 1px solid var(--gray-200); border-radius: 8px;
+      padding: 0.75rem 1rem; margin: 0.4rem 0; background: white;
+    }
+    .lead-card-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem; }
+    .lead-card h5 { font-size: 0.85rem; font-weight: 600; flex: 1; }
+    .lead-card .meta { font-size: 0.75rem; color: var(--gray-500); display: flex; gap: 1rem; }
+
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    table { width: 100%; border-collapse: collapse; font-size: 0.85rem; margin: 0.75rem 0; }
+    th, td { text-align: left; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--gray-200); }
+    th {
+      font-weight: 600; font-size: 0.8rem; color: var(--gray-500);
+      text-transform: uppercase; letter-spacing: 0.03em;
+    }
+
+    .timeline-label {
+      font-size: 0.75rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 0.5rem;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 1.75rem; }
+      .branches, .branches-3 { grid-template-columns: 1fr; }
+      .sidebar-mockup { flex-direction: column; }
+      .sidebar-nav { width: 100%; }
+      .phase-header .route { display: none; }
+    }
   </style>
 </head>
 <body>
 
-  <h1><span>HeavyLeads</span> System Workflow</h1>
-  <p class="subtitle">Lead generation platform for heavy equipment dealers. Scrapes public construction data, matches it to your inventory and location, and delivers scored leads daily.</p>
+  <div class="hero">
+    <h1>HeavyLeads</h1>
+    <p>Application workflow &mdash; from signup to daily lead discovery for heavy machinery sales teams</p>
+  </div>
 
-  <!-- ============================================ -->
-  <h2>1. The Big Picture</h2>
-  <!-- ============================================ -->
-  <section>
-    <div class="flow-container">
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>Scraper Pipeline runs daily at 06:00 UTC</h4>
-          <p>8 adapters pull permits, bids, and news from public sources. Records are validated, geocoded, and upserted into the database. Cross-source deduplication merges records about the same project.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>Leads are enriched on read</h4>
-          <p>When you open the dashboard, each lead is analyzed: equipment types are inferred from project descriptions, a relevance score (0-100) is computed based on your profile, and construction phases are detected for timeline mapping.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot amber"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>You filter, bookmark, and track</h4>
-          <p>Filter leads by equipment type, radius, keyword, date, and project value. Bookmark promising leads, track their status (new &rarr; contacted &rarr; won/lost), and save filter combos as Saved Searches.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot purple"></div><div class="flow-connector" style="background:transparent;"></div></div>
-        <div class="flow-content">
-          <h4>Email digests deliver new matches daily</h4>
-          <p>Saved Searches with digest enabled generate daily emails listing new leads from the last 24 hours that match your saved criteria.</p>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="container">
 
-  <!-- ============================================ -->
-  <h2>2. Data Ingestion &mdash; The Scraper</h2>
-  <!-- ============================================ -->
-  <section>
-    <h3>How to trigger it</h3>
-    <p>Leads don't exist until the scraper runs. Two ways:</p>
-    <div class="cmd">curl -X POST http://localhost:3000/api/scraper/run</div>
-    <p>Or wait for the daily cron at 06:00 UTC (runs automatically when the dev server is up).</p>
-
-    <h3>The 8 Adapters</h3>
-    <table>
-      <thead>
-        <tr><th>Adapter</th><th>Source Type</th><th>What It Scrapes</th></tr>
-      </thead>
-      <tbody>
-        <tr><td>AustinPermitsAdapter</td><td><span class="badge badge-blue">Permit</span></td><td>Austin, TX building permits via Socrata API</td></tr>
-        <tr><td>DallasPermitsAdapter</td><td><span class="badge badge-blue">Permit</span></td><td>Dallas, TX building permits</td></tr>
-        <tr><td>AtlantaPermitsAdapter</td><td><span class="badge badge-blue">Permit</span></td><td>Atlanta, GA building permits</td></tr>
-        <tr><td>SamGovBidsAdapter</td><td><span class="badge badge-green">Bid</span></td><td>Federal contract opportunities (SAM.gov, NAICS 236-238)</td></tr>
-        <tr><td>EnrNewsAdapter</td><td><span class="badge badge-amber">News</span></td><td>Engineering News-Record construction articles</td></tr>
-        <tr><td>ConstructionDiveNewsAdapter</td><td><span class="badge badge-amber">News</span></td><td>Construction Dive industry news</td></tr>
-        <tr><td>PrNewswireNewsAdapter</td><td><span class="badge badge-amber">News</span></td><td>PR Newswire construction press releases</td></tr>
-        <tr><td>GoogleDorkingAdapter</td><td><span class="badge badge-purple">Deep Web</span></td><td>Targeted Google queries via Serper.dev API</td></tr>
-      </tbody>
-    </table>
-
-    <h3>Pipeline Steps</h3>
-    <div class="flow-container">
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>1. Scrape</h4>
-          <p>Each adapter fetches raw data from its source API or feed. Returns <code>RawLeadData[]</code>.</p>
-        </div>
+    <!-- SIGNUP -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--blue);">1</div>
+        <h2>Sign Up</h2>
+        <span class="route">/sign-up</span>
       </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>2. Validate</h4>
-          <p>Zod schema validation. Requires at least one of: permitNumber, title, or externalId. Invalid records logged and skipped.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>3. Geocode</h4>
-          <p>Google Maps API converts addresses to lat/lng. Throttled at 25ms between requests. Skipped if adapter already provides coordinates.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>4. Upsert</h4>
-          <p>Permits: upsert on <code>(sourceId, permitNumber)</code>. Non-permits: check existing by <code>(sourceId, title)</code>, insert if new. Creates <code>leadSources</code> entry for attribution.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot purple"></div><div class="flow-connector" style="background:transparent;"></div></div>
-        <div class="flow-content">
-          <h4>5. Deduplicate</h4>
-          <p>Cross-source dedup: finds leads within 0.1 miles of each other with &gt;70% text similarity in address or title. Merges source entries and deletes the duplicate.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <h2>3. Lead Enrichment &mdash; What Happens on Read</h2>
-  <!-- ============================================ -->
-  <section>
-    <p>Raw scraped data becomes actionable intelligence when you view the dashboard. Three systems run on every query:</p>
-
-    <div class="grid-2">
-      <div class="card">
-        <h4>Equipment Inference</h4>
-        <p>10 keyword rules analyze <code>projectType</code> and <code>description</code> to determine what equipment a project needs.</p>
-        <p style="margin-top:0.5rem"><strong>Example:</strong> "excavation, earthwork, grading" &rarr; Excavators, Bulldozers, Compactors</p>
-        <p style="margin-top:0.25rem">Confidence: <span class="badge badge-green">High</span> (projectType match), <span class="badge badge-amber">Medium</span> (description match), <span class="badge badge-red">Low</span> (fallback)</p>
-      </div>
-      <div class="card">
-        <h4>Timeline Mapping</h4>
-        <p>Detects construction phases from the same keywords and maps them to urgency levels:</p>
-        <ul style="margin-top:0.5rem">
-          <li><span class="badge badge-red">Now</span> Site Prep, Foundation, Paving</li>
-          <li><span class="badge badge-amber">Soon</span> Framing, Structural, Exterior</li>
-          <li><span class="badge badge-green">Later</span> Interior Finishing, Landscaping</li>
-        </ul>
-      </div>
-    </div>
-
-    <h3>Lead Scoring (0&ndash;100)</h3>
-    <p>Each lead gets a relevance score based on your company profile:</p>
-    <div style="margin-top:0.75rem">
-      <div class="scoring-bar">
-        <span class="label">Equipment Match</span>
-        <div class="bar" style="width:200px; background: var(--primary);"></div>
-        <span class="pts">50 pts</span>
-      </div>
-      <p style="font-size:0.8rem; margin-left:130px; margin-bottom:0.5rem;">Ratio of inferred equipment types that overlap with your inventory</p>
-      <div class="scoring-bar">
-        <span class="label">Proximity</span>
-        <div class="bar" style="width:120px; background: var(--green);"></div>
-        <span class="pts">30 pts</span>
-      </div>
-      <p style="font-size:0.8rem; margin-left:130px; margin-bottom:0.5rem;">Linear decay within service radius (closer = higher)</p>
-      <div class="scoring-bar">
-        <span class="label">Project Value</span>
-        <div class="bar" style="width:80px; background: var(--amber);"></div>
-        <span class="pts">20 pts</span>
-      </div>
-      <p style="font-size:0.8rem; margin-left:130px;">Logarithmic scale, $1M+ projects cap at 20 points</p>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <h2>4. Dashboard &mdash; Your Daily Feed</h2>
-  <!-- ============================================ -->
-  <section>
-    <h3>URL: <code>/dashboard</code></h3>
-    <p>Two-column layout: filter sidebar on the left, lead cards on the right. All filtering syncs to URL params so you can share/bookmark specific views.</p>
-
-    <h3>Available Filters</h3>
-    <table>
-      <thead><tr><th>Filter</th><th>Type</th><th>Details</th></tr></thead>
-      <tbody>
-        <tr><td>Equipment</td><td>Multi-select checkboxes</td><td>Your equipment types shown with "(yours)" label</td></tr>
-        <tr><td>Radius</td><td>Slider</td><td>10&ndash;500 miles (overrides company profile default)</td></tr>
-        <tr><td>Keyword</td><td>Text input</td><td>Searches across title, description, applicant, contractor, agency (debounced 300ms)</td></tr>
-        <tr><td>Date Range</td><td>Date pickers</td><td>Filter by permit/posted date</td></tr>
-        <tr><td>Project Size</td><td>Min/Max inputs</td><td>Filter by estimated value ($)</td></tr>
-      </tbody>
-    </table>
-
-    <h3>Lead Card Anatomy</h3>
-    <div class="card" style="margin-top:0.5rem">
-      <p><span class="badge badge-blue">COMMERCIAL</span> <span class="badge badge-green">NEW</span> <span style="color:var(--amber)">&#9679;</span></p>
-      <p style="color:var(--text); font-weight:600; margin:0.25rem 0">123 Main St, Austin, TX 78701</p>
-      <p style="font-size:0.85rem">New commercial building construction with steel framing and foundation work...</p>
-      <p style="font-size:0.8rem; margin-top:0.5rem"><span class="badge badge-blue">Excavators</span> <span class="badge badge-blue">Cranes</span> <span class="badge badge-blue">Forklifts</span> +2 more</p>
-      <p style="font-size:0.8rem; margin-top:0.5rem; color:var(--text-muted)">12.3 mi &bull; Permitted Mar 10, 2026 &bull; Score: <strong style="color:var(--green)">87</strong></p>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <h2>5. Lead Detail Page</h2>
-  <!-- ============================================ -->
-  <section>
-    <h3>URL: <code>/dashboard/leads/[id]</code></h3>
-    <p>Click any lead card to see the full detail view. Three-column grid:</p>
-    <div class="grid-2">
-      <div class="card">
-        <h4>Left Column</h4>
-        <ul>
-          <li>Location map placeholder</li>
-          <li>Full project details (address, city, state, dates, value, applicant, contractor, agency)</li>
-          <li>Source attribution: every source that found this project, with dates</li>
-        </ul>
-      </div>
-      <div class="card">
-        <h4>Right Column</h4>
-        <ul>
-          <li>Equipment types with confidence indicators (green/yellow/gray dots)</li>
-          <li>Timeline card showing construction phases + urgency</li>
-          <li>Score breakdown (0&ndash;100)</li>
-          <li>Status selector + bookmark toggle</li>
-        </ul>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <h2>6. Lead Tracking</h2>
-  <!-- ============================================ -->
-  <section>
-    <div class="grid-2">
-      <div class="card">
-        <h4>Statuses</h4>
-        <p>Track where each lead is in your pipeline:</p>
-        <ul style="margin-top:0.5rem">
-          <li><span class="badge badge-blue">New</span> &mdash; Default, haven't looked at it</li>
-          <li><span class="badge badge-amber">Viewed</span> &mdash; Opened the detail page</li>
-          <li><span class="badge badge-purple">Contacted</span> &mdash; Reached out to the applicant</li>
-          <li><span class="badge badge-green">Won</span> &mdash; Closed the deal</li>
-          <li><span class="badge badge-red">Lost</span> &mdash; Didn't work out</li>
-        </ul>
-        <p style="margin-top:0.5rem">Per-user, per-org. Team members see their own statuses.</p>
-      </div>
-      <div class="card">
-        <h4>Bookmarks</h4>
-        <p>Toggle bookmark on any lead (card or detail page). View all bookmarked leads at:</p>
-        <p style="margin-top:0.5rem"><code>/dashboard/bookmarks</code></p>
-        <p style="margin-top:0.5rem">Per-user, per-org. Quick way to build a shortlist of hot leads.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ============================================ -->
-  <h2>7. Saved Searches &amp; Email Digests</h2>
-  <!-- ============================================ -->
-  <section>
-    <h3>Saving a Search</h3>
-    <div class="flow-container">
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>1. Apply filters on the dashboard</h4>
-          <p>Set equipment types, radius, keyword, dates, project size to your liking.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>2. Click "Save Search"</h4>
-          <p>Redirects to <code>/dashboard/saved-searches?save=true&amp;[params]</code> with a name input.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector" style="background:transparent;"></div></div>
-        <div class="flow-content">
-          <h4>3. All filter params stored as database columns</h4>
-          <p>Not a JSON blob &mdash; explicit columns allow SQL queries for digest generation. <code>isDigestEnabled</code> flag controls daily emails.</p>
+      <div class="phase-body">
+        <div class="flow">
+          <div class="step">
+            <div class="step-line"><div class="step-dot"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Create Account</h4>
+              <p>User fills out a single form with name, email, password, and company name.</p>
+              <div class="mockup">
+                <div class="mockup-title">Sign Up Form</div>
+                <div class="field"><span class="field-label">Full Name</span><span class="field-input">Jane Smith</span></div>
+                <div class="field"><span class="field-label">Email</span><span class="field-input">jane@acmecranes.com</span></div>
+                <div class="field"><span class="field-label">Password</span><span class="field-input">••••••••</span></div>
+                <div class="field"><span class="field-label">Company Name</span><span class="field-input">Acme Cranes Inc</span></div>
+                <div style="margin-top: 0.75rem;"><span class="btn btn-primary">Create Account</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot green"></div></div>
+            <div class="step-content">
+              <h4>Account + Organization Created</h4>
+              <p>A user account and an organization (from the company name) are created simultaneously. The user is set as the organization owner.</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <h3>Email Digests</h3>
-    <p>When <code>isDigestEnabled = true</code> on a saved search, the system generates a daily email with leads from the last 24 hours matching those filters. Uses Resend for delivery.</p>
-    <p>Trigger manually for testing:</p>
-    <div class="cmd">curl -X POST http://localhost:3000/api/email-digest</div>
-  </section>
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
 
-  <!-- ============================================ -->
-  <h2>8. User &amp; Org Setup Flow</h2>
-  <!-- ============================================ -->
-  <section>
-    <div class="flow-container">
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot green"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>Sign Up <code>/sign-up</code></h4>
-          <p>Name, email, password, company name. Creates user + organization + Stripe customer. Sets org as active on the session.</p>
-        </div>
+    <!-- ONBOARDING -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--blue);">2</div>
+        <h2>Onboarding Wizard</h2>
+        <span class="route">/onboarding</span>
       </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>Onboarding <code>/onboarding</code></h4>
-          <p><strong>Step 1:</strong> HQ address (geocoded to lat/lng for distance calculations)<br>
-             <strong>Step 2:</strong> Equipment types you sell/rent (used for scoring and matching)<br>
-             <strong>Step 3:</strong> Service radius in miles (default 50, range 10&ndash;500)</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot amber"></div><div class="flow-connector"></div></div>
-        <div class="flow-content">
-          <h4>Billing <code>/billing</code></h4>
-          <p>Stripe checkout for monthly subscription + one-time setup fee. In dev mode: "Skip (Dev Only)" button creates a mock subscription.</p>
-        </div>
-      </div>
-      <div class="flow-step">
-        <div class="flow-line"><div class="flow-dot purple"></div><div class="flow-connector" style="background:transparent;"></div></div>
-        <div class="flow-content">
-          <h4>Dashboard <code>/dashboard</code></h4>
-          <p>Your daily lead feed. Requires: authenticated session + active organization + completed onboarding + active subscription.</p>
+      <div class="phase-body">
+        <p style="font-size: 0.9rem; color: var(--gray-500); margin-bottom: 1rem;">Three-step wizard that captures the information needed to find relevant leads.</p>
+        <div class="flow">
+          <div class="step">
+            <div class="step-line"><div class="step-dot"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Step 1: Location <span class="badge badge-blue">1 / 3</span></h4>
+              <p>Enter company headquarters address. Used to calculate lead proximity and set the geographic center for searches.</p>
+              <div class="mockup">
+                <div class="field"><span class="field-label">HQ Address</span><span class="field-input">123 Main St, Dallas, TX 75201</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Step 2: Equipment Types <span class="badge badge-blue">2 / 3</span></h4>
+              <p>Select which equipment types you sell or rent. Used to score and filter leads by equipment relevance.</p>
+              <div class="mockup">
+                <div style="display: flex; flex-wrap: wrap; gap: 0.4rem;">
+                  <span class="badge badge-blue">Excavators</span>
+                  <span class="badge badge-blue">Cranes</span>
+                  <span class="badge badge-gray">Boom Lifts</span>
+                  <span class="badge badge-gray">Forklifts</span>
+                  <span class="badge badge-gray">Telehandlers</span>
+                  <span class="badge badge-gray">Skid Steers</span>
+                  <span class="badge badge-blue">Bulldozers</span>
+                  <span class="badge badge-gray">Backhoes</span>
+                  <span class="badge badge-gray">Wheel Loaders</span>
+                  <span class="badge badge-gray">Compactors</span>
+                  <span class="badge badge-gray">Aerial Platforms</span>
+                  <span class="badge badge-gray">Generators</span>
+                </div>
+                <p style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--gray-500);">Blue = selected &middot; Must select at least 1</p>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot green"></div></div>
+            <div class="step-content">
+              <h4>Step 3: Service Radius <span class="badge badge-blue">3 / 3</span></h4>
+              <p>Set how far from HQ you're willing to service. Range: 10&ndash;500 miles. Default: 50 miles.</p>
+              <div class="mockup">
+                <div class="field"><span class="field-label">Service Radius</span><span class="field-input">100 miles</span></div>
+                <div style="margin-top: 0.5rem; height: 6px; background: var(--gray-200); border-radius: 3px;">
+                  <div style="width: 20%; height: 100%; background: var(--blue); border-radius: 3px;"></div>
+                </div>
+              </div>
+              <div style="margin-top: 0.75rem;"><span class="btn btn-primary">Complete Setup</span></div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
-  </section>
 
-  <!-- ============================================ -->
-  <h2>9. Quick Reference &mdash; Dev Commands</h2>
-  <!-- ============================================ -->
-  <section>
-    <table>
-      <thead><tr><th>Action</th><th>Command</th></tr></thead>
-      <tbody>
-        <tr><td>Start dev server</td><td><code>npm run dev</code></td></tr>
-        <tr><td>Run scraper (populate leads)</td><td><code>curl -X POST http://localhost:3000/api/scraper/run</code></td></tr>
-        <tr><td>Trigger email digests</td><td><code>curl -X POST http://localhost:3000/api/email-digest</code></td></tr>
-        <tr><td>Push schema changes to DB</td><td><code>npx drizzle-kit push</code></td></tr>
-        <tr><td>Run tests</td><td><code>npx vitest run</code></td></tr>
-        <tr><td>Build for production</td><td><code>npx next build</code></td></tr>
-      </tbody>
-    </table>
-  </section>
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
 
-  <!-- ============================================ -->
-  <h2>10. Architecture at a Glance</h2>
-  <!-- ============================================ -->
-  <section>
-    <table>
-      <thead><tr><th>Layer</th><th>Tech</th><th>Purpose</th></tr></thead>
-      <tbody>
-        <tr><td>Framework</td><td>Next.js 16 + React 19</td><td>Full-stack with server components &amp; server actions</td></tr>
-        <tr><td>Auth</td><td>Better Auth + Organization plugin</td><td>Email/password, multi-tenant orgs, session management</td></tr>
-        <tr><td>Database</td><td>Neon (Serverless Postgres) + Drizzle ORM</td><td>All application data</td></tr>
-        <tr><td>Payments</td><td>Stripe via @better-auth/stripe</td><td>Subscriptions, checkout, billing portal</td></tr>
-        <tr><td>Scraping</td><td>Custom pipeline + 8 adapters</td><td>Permits, bids, news, deep-web search</td></tr>
-        <tr><td>Geocoding</td><td>Google Maps API</td><td>Address &rarr; lat/lng for distance calculations</td></tr>
-        <tr><td>Email</td><td>Resend</td><td>Daily digest delivery</td></tr>
-        <tr><td>Scheduling</td><td>node-cron</td><td>Daily scraper + digest runs at 06:00 UTC</td></tr>
-        <tr><td>UI</td><td>Tailwind CSS + Base UI + shadcn components</td><td>Dashboard, forms, cards</td></tr>
-      </tbody>
-    </table>
-  </section>
+    <!-- BILLING / TRIAL -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--amber);">3</div>
+        <h2>Start Free Trial</h2>
+        <span class="route">/billing</span>
+      </div>
+      <div class="phase-body">
+        <div class="flow">
+          <div class="step">
+            <div class="step-line"><div class="step-dot amber"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Subscribe via Stripe Checkout</h4>
+              <p>After onboarding, the user lands on the billing page. They see the plan details and click <strong>"Start Free Trial"</strong> to open Stripe Checkout.</p>
+              <div class="mockup">
+                <div class="mockup-title">Get Started with HeavyLeads</div>
+                <p style="font-weight: 600; margin-bottom: 0.25rem;">Standard Plan</p>
+                <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 0.5rem;">Monthly subscription + one-time setup fee</p>
+                <div style="font-size: 0.8rem; display: flex; flex-direction: column; gap: 0.2rem; margin-bottom: 0.75rem; color: var(--green);">
+                  <span>&#10003; Daily lead feed from multiple sources</span>
+                  <span>&#10003; Multi-source intelligence aggregation</span>
+                  <span>&#10003; Equipment matching and relevance scoring</span>
+                  <span>&#10003; Email digests for saved searches</span>
+                </div>
+                <span class="btn btn-primary">Start Free Trial</span>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot green"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>7-Day Trial Starts</h4>
+              <p>Credit card is collected but <strong>no charges during trial</strong>. The setup fee is deferred until the user converts to a paid subscription after the trial ends.</p>
+              <div class="callout amber">
+                <strong>Trial banner appears on every dashboard page:</strong><br>
+                &#128339; "7 days left in your trial &mdash; <u>Subscribe now</u>"
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot"></div></div>
+            <div class="step-content">
+              <h4>Redirected to Dashboard</h4>
+              <p>After Stripe checkout completes, the user lands on the main dashboard for the first time.</p>
+            </div>
+          </div>
+        </div>
 
-  <hr class="divider">
-  <p style="text-align:center; font-size:0.85rem; color:var(--text-muted);">
-    HeavyLeads &mdash; Generated workflow documentation
-  </p>
+        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--gray-200);">
+          <p class="timeline-label">What happens when the trial ends?</p>
+          <div class="branches">
+            <div class="branch">
+              <h5><span class="status-dot" style="background: var(--red);"></span> Trial Expires</h5>
+              <p>User is redirected from the dashboard to <code>/billing</code> and sees a "Your Trial Has Ended" card with a subscribe button. No access to leads until they subscribe.</p>
+            </div>
+            <div class="branch">
+              <h5><span class="status-dot" style="background: var(--green);"></span> User Subscribes</h5>
+              <p>Clicking "Subscribe" charges the monthly rate <strong>plus the one-time setup fee</strong>. Full access resumes immediately.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
+
+    <!-- FIRST DASHBOARD VISIT -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--green);">4</div>
+        <h2>First Dashboard Visit</h2>
+        <span class="route">/dashboard</span>
+      </div>
+      <div class="phase-body">
+        <p style="font-size: 0.9rem; color: var(--gray-500); margin-bottom: 1rem;">On the very first visit, the scraping pipeline runs automatically. No blank pages.</p>
+        <div class="flow">
+          <div class="step">
+            <div class="step-line"><div class="step-dot purple"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Auto-Trigger Fires</h4>
+              <p>The dashboard detects "first visit, no leads, no pipeline ever run" and automatically triggers the scraping pipeline in the background. No user action needed.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot amber"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Pipeline Progress Indicator</h4>
+              <p>While the pipeline runs (~2&ndash;3 minutes), the user sees an animated progress card instead of a blank page.</p>
+              <div class="mockup">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                  <div style="width: 24px; height: 24px; border: 3px solid var(--blue); border-top-color: transparent; border-radius: 50%;"></div>
+                  <div>
+                    <p style="font-weight: 600; color: var(--gray-900);">Finding leads near you...</p>
+                    <p style="font-size: 0.8rem; color: var(--gray-500);">This usually takes 2&ndash;3 minutes. We're scanning multiple sources for construction projects.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot green"></div></div>
+            <div class="step-content">
+              <h4>Leads Appear</h4>
+              <p>Once the pipeline finishes, the page auto-refreshes and shows the lead feed &mdash; scored, filtered, and sorted by relevance to the user's equipment types and location.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
+
+    <!-- DAILY USAGE -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--blue);">5</div>
+        <h2>Daily Usage &mdash; Lead Feed</h2>
+        <span class="route">/dashboard</span>
+      </div>
+      <div class="phase-body">
+        <div class="sidebar-mockup">
+          <div class="sidebar-nav">
+            <div class="brand">HeavyLeads</div>
+            <div class="nav-item active">&#127968; Leads</div>
+            <div class="nav-item">&#128278; Bookmarks</div>
+            <div class="nav-item">&#128269; Saved Searches</div>
+            <div class="nav-item">&#9881; Settings</div>
+          </div>
+          <div class="sidebar-main">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+              <div>
+                <p style="font-weight: 600; font-size: 1rem;">Lead Feed</p>
+                <p style="font-size: 0.8rem; color: var(--gray-500);">24 leads within 100 miles</p>
+              </div>
+              <span class="btn btn-outline">&#8635; Refresh Leads</span>
+            </div>
+
+            <div class="lead-card">
+              <div class="lead-card-header">
+                <span class="badge badge-blue">Commercial</span>
+                <span class="badge badge-green">New</span>
+                <h5>1200 Commerce St, Dallas, TX</h5>
+                <span class="badge badge-green">Score: 87</span>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--gray-500); margin-bottom: 0.25rem;">New 12-story mixed-use development with underground parking...</p>
+              <div style="display: flex; gap: 0.3rem; margin-bottom: 0.25rem;">
+                <span class="badge badge-gray">Cranes</span>
+                <span class="badge badge-gray">Excavators</span>
+                <span class="badge badge-gray">Concrete Pumps</span>
+              </div>
+              <div class="meta">
+                <span>&#128205; 12 mi</span>
+                <span>&#128197; Mar 14, 2026</span>
+                <span>&#128100; Summit Development LLC</span>
+              </div>
+            </div>
+
+            <div class="lead-card">
+              <div class="lead-card-header">
+                <span class="badge badge-blue">Infrastructure</span>
+                <span class="badge badge-gray">This Week</span>
+                <h5>Highway 75 Bridge Expansion, McKinney</h5>
+                <span class="badge badge-amber">Score: 54</span>
+              </div>
+              <div class="meta">
+                <span>&#128205; 38 mi</span>
+                <span>&#128197; Mar 11, 2026</span>
+                <span>&#128100; TxDOT</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--gray-200);">
+          <p class="timeline-label">Available Filters</p>
+          <table>
+            <tr><th>Filter</th><th>Type</th><th>Description</th></tr>
+            <tr><td>Keyword</td><td>Text search</td><td>Search across project descriptions, addresses, applicants</td></tr>
+            <tr><td>Date Range</td><td>From / To</td><td>Filter by permit or discovery date</td></tr>
+            <tr><td>Project Size</td><td>Min $ / Max $</td><td>Filter by estimated project value</td></tr>
+            <tr><td>Search Radius</td><td>Slider (10&ndash;500 mi)</td><td>Override default service radius</td></tr>
+            <tr><td>Equipment</td><td>Multi-select</td><td>Filter by inferred equipment needs. Your types marked "(yours)"</td></tr>
+          </table>
+        </div>
+
+        <div class="callout" style="margin-top: 1rem;">
+          <strong>Refresh Leads:</strong> Click the button to trigger an on-demand pipeline run. Rate-limited to once per hour per organization. The button shows a cooldown timer when rate-limited.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
+
+    <!-- LEAD DETAIL -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--blue);">6</div>
+        <h2>Lead Detail Page</h2>
+        <span class="route">/dashboard/leads/[id]</span>
+      </div>
+      <div class="phase-body">
+        <p style="font-size: 0.9rem; color: var(--gray-500); margin-bottom: 1rem;">Click any lead card to see full details, map, equipment analysis, and source attribution.</p>
+
+        <div class="branches branches-3">
+          <div class="branch">
+            <h5>&#128506; Location &amp; Map</h5>
+            <p>Interactive map with pin. Address, distance from HQ, and jurisdiction info.</p>
+          </div>
+          <div class="branch">
+            <h5>&#128196; Project Details</h5>
+            <p>Description, estimated value, permit date, applicant/contractor name.</p>
+          </div>
+          <div class="branch">
+            <h5>&#128279; Source Attribution</h5>
+            <p>Where the lead was found. Source type badges: <span class="badge badge-blue" style="font-size: 0.65rem;">Permit</span> <span class="badge badge-purple" style="font-size: 0.65rem;">Bid</span> <span class="badge badge-amber" style="font-size: 0.65rem;">News</span></p>
+          </div>
+        </div>
+
+        <div class="branches">
+          <div class="branch">
+            <h5>&#128736; Equipment Needs</h5>
+            <p>AI-inferred equipment types with confidence levels (high / medium / low). Shows which of your equipment types match.</p>
+          </div>
+          <div class="branch">
+            <h5>&#127919; Lead Score</h5>
+            <p>Score out of 100 based on equipment match, proximity, and project value. Color-coded: <span style="color: var(--green); font-weight: 600;">70+</span> green, <span style="color: var(--amber); font-weight: 600;">40&ndash;69</span> amber, <span style="color: var(--red); font-weight: 600;">&lt;40</span> red.</p>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-200);">
+          <p class="timeline-label">Lead Status Tracking</p>
+          <p style="font-size: 0.85rem; color: var(--gray-500); margin-bottom: 0.5rem;">Track where each lead is in your sales pipeline:</p>
+          <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+            <span style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;"><span class="status-dot" style="background: var(--gray-300);"></span> New</span>
+            <span style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;"><span class="status-dot" style="background: var(--blue);"></span> Viewed</span>
+            <span style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;"><span class="status-dot" style="background: var(--amber);"></span> Contacted</span>
+            <span style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;"><span class="status-dot" style="background: var(--green);"></span> Won</span>
+            <span style="display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem;"><span class="status-dot" style="background: var(--red);"></span> Lost</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--gray-500); margin-top: 0.5rem;">Also available: <strong>Bookmark</strong> button to save leads for quick access.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
+
+    <!-- BACKGROUND AUTOMATION -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--purple);">&#9889;</div>
+        <h2>Background: Daily Automation</h2>
+        <span class="route">Vercel Cron &mdash; 6:00 AM UTC</span>
+      </div>
+      <div class="phase-body">
+        <p style="font-size: 0.9rem; color: var(--gray-500); margin-bottom: 1rem;">Runs automatically every day with no user action required.</p>
+        <div class="flow">
+          <div class="step">
+            <div class="step-line"><div class="step-dot purple"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Cron Job Fires</h4>
+              <p>Vercel triggers <code>GET /api/cron/scrape</code> at 6:00 AM UTC daily. Authenticated via <code>CRON_SECRET</code> Bearer token.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot purple"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Pipeline Scrapes All Sources</h4>
+              <p>Initializes all registered adapters (permits, bids, news, deep-web) and runs them sequentially. Each adapter scrapes its data source and stores new leads in the database.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot purple"></div><div class="step-connector"></div></div>
+            <div class="step-content">
+              <h4>Results Recorded</h4>
+              <p>Pipeline run is tracked in the <code>pipeline_runs</code> table with: records scraped, records stored, duration, and status.</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-line"><div class="step-dot green"></div></div>
+            <div class="step-content">
+              <h4>Email Digest Sent</h4>
+              <p>After scraping completes, an email digest of new leads is generated and sent to users with saved searches (if Resend is configured).</p>
+            </div>
+          </div>
+        </div>
+        <div class="callout green">
+          <strong>Result:</strong> Every morning, sales reps open HeavyLeads and see fresh leads they would have otherwise missed.
+        </div>
+      </div>
+    </div>
+
+    <div class="phase-connector">
+      <svg width="24" height="32" viewBox="0 0 24 32"><path d="M12 0 L12 24 M6 18 L12 24 L18 18" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+    </div>
+
+    <!-- ADDITIONAL FEATURES -->
+    <div class="phase">
+      <div class="phase-header">
+        <div class="phase-number" style="background: var(--gray-700);">+</div>
+        <h2>Additional Features</h2>
+      </div>
+      <div class="phase-body">
+        <div class="branches branches-3">
+          <div class="branch">
+            <h5>&#128278; Bookmarks</h5>
+            <p>Save leads for quick access. View all bookmarked leads in a dedicated tab.</p>
+            <p style="font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem;"><code>/dashboard/bookmarks</code></p>
+          </div>
+          <div class="branch">
+            <h5>&#128269; Saved Searches</h5>
+            <p>Save filter combinations. Reload filters instantly. Used for email digest targeting.</p>
+            <p style="font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem;"><code>/dashboard/saved-searches</code></p>
+          </div>
+          <div class="branch">
+            <h5>&#9881; Settings</h5>
+            <p>Update account name, company address, equipment types, and service radius. Admin-only for company settings.</p>
+            <p style="font-size: 0.75rem; color: var(--gray-500); margin-top: 0.25rem;"><code>/settings/account</code> &amp; <code>/settings/company</code></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROUTE PROTECTION -->
+    <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--gray-200);">
+      <div class="phase" style="border-left: 3px solid var(--red);">
+        <div class="phase-header">
+          <div class="phase-number" style="background: var(--red);">&#128274;</div>
+          <h2>Route Protection Model</h2>
+        </div>
+        <div class="phase-body">
+          <p style="font-size: 0.9rem; color: var(--gray-500); margin-bottom: 1rem;">Every protected page checks auth state server-side and redirects if requirements aren't met.</p>
+          <table>
+            <tr><th>Check</th><th>Fails &rarr; Redirect</th></tr>
+            <tr><td>No session (not logged in)</td><td><code>/sign-in</code></td></tr>
+            <tr><td>No organization set</td><td><code>/onboarding</code></td></tr>
+            <tr><td>Onboarding not completed</td><td><code>/onboarding</code></td></tr>
+            <tr><td>No active or trialing subscription</td><td><code>/billing</code></td></tr>
+          </table>
+          <p style="font-size: 0.8rem; color: var(--gray-500); margin-top: 0.75rem;"><strong>Public routes:</strong> <code>/sign-in</code> and <code>/sign-up</code> only. Everything else requires authentication.</p>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align: center; color: var(--gray-500); font-size: 0.8rem; margin-top: 2rem; padding-bottom: 2rem;">
+      HeavyLeads Workflow &mdash; Generated March 15, 2026
+    </p>
+
+  </div>
 </body>
 </html>

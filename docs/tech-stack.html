@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HeavyLeads — Tech Stack</title>
+  <style>
+    :root {
+      --blue: #2563eb;
+      --blue-light: #dbeafe;
+      --blue-dark: #1e40af;
+      --green: #16a34a;
+      --green-light: #dcfce7;
+      --amber: #d97706;
+      --amber-light: #fef3c7;
+      --purple: #7c3aed;
+      --purple-light: #ede9fe;
+      --red: #dc2626;
+      --red-light: #fee2e2;
+      --cyan: #0891b2;
+      --cyan-light: #cffafe;
+      --gray-50: #f9fafb;
+      --gray-100: #f3f4f6;
+      --gray-200: #e5e7eb;
+      --gray-300: #d1d5db;
+      --gray-500: #6b7280;
+      --gray-700: #374151;
+      --gray-900: #111827;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--gray-900);
+      background: var(--gray-50);
+      line-height: 1.6;
+    }
+
+    .hero {
+      background: linear-gradient(135deg, var(--gray-900) 0%, var(--gray-700) 100%);
+      color: white;
+      padding: 3rem 2rem;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem; }
+    .hero p { font-size: 1.1rem; opacity: 0.7; max-width: 600px; margin: 0 auto; }
+
+    .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* Summary bar */
+    .summary-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-bottom: 2.5rem;
+    }
+    .summary-chip {
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 999px;
+      padding: 0.5rem 1.25rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .chip-dot {
+      width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+    }
+
+    /* Section */
+    .section {
+      margin-bottom: 2rem;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .section-icon {
+      width: 36px; height: 36px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .section-header h2 { font-size: 1.1rem; font-weight: 600; }
+    .section-header .section-desc {
+      margin-left: auto;
+      font-size: 0.8rem;
+      color: var(--gray-500);
+    }
+    .section-body { padding: 1.25rem 1.5rem; }
+
+    /* Tech items */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .tech-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem;
+      border: 1px solid var(--gray-100);
+      border-radius: 8px;
+      transition: border-color 0.15s;
+    }
+    .tech-item:hover { border-color: var(--gray-300); }
+    .tech-logo {
+      width: 40px; height: 40px; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 700; flex-shrink: 0;
+      color: white;
+    }
+    .tech-info { flex: 1; min-width: 0; }
+    .tech-name {
+      font-weight: 600; font-size: 0.9rem;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .tech-version {
+      font-family: monospace;
+      font-size: 0.7rem;
+      background: var(--gray-100);
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      color: var(--gray-500);
+      font-weight: 400;
+    }
+    .tech-desc { font-size: 0.8rem; color: var(--gray-500); margin-top: 0.15rem; }
+
+    /* Adapter list */
+    .adapter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .adapter {
+      text-align: center;
+      padding: 0.75rem 0.5rem;
+      border: 1px solid var(--gray-100);
+      border-radius: 8px;
+      font-size: 0.8rem;
+    }
+    .adapter-type {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .adapter-name { font-weight: 500; font-size: 0.78rem; }
+
+    /* Schema table */
+    .schema-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .schema-item {
+      padding: 0.5rem 0.75rem;
+      background: var(--gray-50);
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .schema-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+
+    /* Directory tree */
+    .tree {
+      font-family: monospace;
+      font-size: 0.82rem;
+      line-height: 1.8;
+      background: var(--gray-900);
+      color: #e5e7eb;
+      padding: 1.25rem;
+      border-radius: 8px;
+      overflow-x: auto;
+    }
+    .tree .dir { color: #60a5fa; }
+    .tree .comment { color: #6b7280; }
+
+    /* Full width tech item */
+    .tech-grid-1 {
+      grid-template-columns: 1fr;
+    }
+
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 1.75rem; }
+      .tech-grid, .schema-grid { grid-template-columns: 1fr; }
+      .adapter-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <h1>HeavyLeads</h1>
+    <p>Tech stack overview &mdash; a modern full-stack Next.js application for construction lead intelligence</p>
+  </div>
+
+  <div class="container">
+
+    <!-- Summary chips -->
+    <div class="summary-bar">
+      <div class="summary-chip"><div class="chip-dot" style="background: var(--blue);"></div> Next.js 16</div>
+      <div class="summary-chip"><div class="chip-dot" style="background: var(--cyan);"></div> React 19</div>
+      <div class="summary-chip"><div class="chip-dot" style="background: var(--green);"></div> Neon Postgres</div>
+      <div class="summary-chip"><div class="chip-dot" style="background: var(--purple);"></div> Stripe Billing</div>
+      <div class="summary-chip"><div class="chip-dot" style="background: var(--amber);"></div> Vercel + Cron</div>
+      <div class="summary-chip"><div class="chip-dot" style="background: var(--gray-700);"></div> TypeScript 5</div>
+    </div>
+
+    <!-- ===================== CORE FRAMEWORK ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--blue-light); color: var(--blue);">&#9881;</div>
+        <h2>Core Framework</h2>
+        <span class="section-desc">Runtime &amp; language</span>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--gray-900);">N</div>
+            <div class="tech-info">
+              <div class="tech-name">Next.js <span class="tech-version">16.1.6</span></div>
+              <div class="tech-desc">Full-stack React framework with App Router, server components, API routes, and Turbopack for builds.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #087ea4;">R</div>
+            <div class="tech-info">
+              <div class="tech-name">React <span class="tech-version">19.2.3</span></div>
+              <div class="tech-desc">UI library with server components, async rendering, and the latest concurrent features.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #3178c6;">TS</div>
+            <div class="tech-info">
+              <div class="tech-name">TypeScript <span class="tech-version">5.x</span></div>
+              <div class="tech-desc">Strict mode enabled. Path aliases (<code>@/*</code>), ES2017 target, bundler module resolution.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #68a063;">JS</div>
+            <div class="tech-info">
+              <div class="tech-name">Node.js <span class="tech-version">18+</span></div>
+              <div class="tech-desc">Server runtime for API routes, cron jobs, and server-side rendering.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== DATABASE ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--green-light); color: var(--green);">&#128451;</div>
+        <h2>Database</h2>
+        <span class="section-desc">Storage &amp; ORM</span>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--green);">Ne</div>
+            <div class="tech-info">
+              <div class="tech-name">Neon <span class="tech-version">Serverless Postgres</span></div>
+              <div class="tech-desc">Managed PostgreSQL with serverless driver, auto-scaling, and branching. Connects via WebSocket from edge/serverless environments.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #c5f74f; color: var(--gray-900);">D</div>
+            <div class="tech-info">
+              <div class="tech-name">Drizzle ORM <span class="tech-version">0.45.1</span></div>
+              <div class="tech-desc">Type-safe SQL ORM with zero overhead. Schema-as-code, relational queries, and <code>drizzle-kit push</code> for migrations.</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="margin-top: 1rem;">
+          <p style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 0.5rem;">Database Tables</p>
+          <div class="schema-grid">
+            <div class="schema-item"><div class="schema-dot" style="background: var(--blue);"></div> users</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--blue);"></div> sessions</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--blue);"></div> organizations</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--blue);"></div> members</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--green);"></div> leads</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--green);"></div> lead_sources</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--green);"></div> lead_statuses</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--amber);"></div> company_profiles</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--amber);"></div> saved_searches</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--amber);"></div> bookmarks</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--purple);"></div> subscriptions</div>
+            <div class="schema-item"><div class="schema-dot" style="background: var(--purple);"></div> pipeline_runs</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== AUTH & BILLING ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--purple-light); color: var(--purple);">&#128274;</div>
+        <h2>Auth &amp; Billing</h2>
+        <span class="section-desc">Identity &amp; payments</span>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--gray-900);">BA</div>
+            <div class="tech-info">
+              <div class="tech-name">Better Auth <span class="tech-version">1.5.5</span></div>
+              <div class="tech-desc">Full-featured auth framework. Email/password login, organization plugin (multi-tenant, 50 member limit), Drizzle adapter, and cookie-based sessions.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #635bff;">S</div>
+            <div class="tech-info">
+              <div class="tech-name">Stripe <span class="tech-version">20.4.1</span></div>
+              <div class="tech-desc">Subscription billing with 7-day free trial via Stripe Checkout. Org-level customers, webhook events, conditional setup fee logic. Client SDK for checkout.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== UI & STYLING ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--cyan-light); color: var(--cyan);">&#127912;</div>
+        <h2>UI &amp; Styling</h2>
+        <span class="section-desc">Design system</span>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #0ea5e9;">Tw</div>
+            <div class="tech-info">
+              <div class="tech-name">Tailwind CSS <span class="tech-version">4.x</span></div>
+              <div class="tech-desc">Utility-first CSS framework. PostCSS integration, custom theme variables in globals.css, and tw-animate-css for animations.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--gray-900);">sh</div>
+            <div class="tech-info">
+              <div class="tech-name">shadcn/ui <span class="tech-version">4.0.6</span></div>
+              <div class="tech-desc">Copy-paste component library. Badge, Button, Card, Checkbox, Input, Label, Select, Skeleton, Slider, and Sonner (toasts).</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--gray-700);">Lu</div>
+            <div class="tech-info">
+              <div class="tech-name">Lucide React <span class="tech-version">0.577</span></div>
+              <div class="tech-desc">Icon library. Clean, consistent SVG icons used throughout the app for navigation, status indicators, and actions.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #1a1a2e;">cva</div>
+            <div class="tech-info">
+              <div class="tech-name">CVA + clsx + tailwind-merge</div>
+              <div class="tech-desc">Component variant system (class-variance-authority), class composition (clsx), and intelligent Tailwind class merging.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== FORMS ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--amber-light); color: var(--amber);">&#128221;</div>
+        <h2>Forms &amp; Validation</h2>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #ec5990;">RH</div>
+            <div class="tech-info">
+              <div class="tech-name">React Hook Form <span class="tech-version">7.71</span></div>
+              <div class="tech-desc">Performant form library with uncontrolled inputs. Used for signup, onboarding wizard, settings, and saved searches.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #3068b7;">Z</div>
+            <div class="tech-info">
+              <div class="tech-name">Zod <span class="tech-version">4.3.6</span></div>
+              <div class="tech-desc">TypeScript-first schema validation. Shared validators in <code>src/lib/validators/</code> used by both forms and server actions.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== SCRAPING ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--red-light); color: var(--red);">&#128375;</div>
+        <h2>Scraping Pipeline</h2>
+        <span class="section-desc">Lead data sources</span>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid" style="margin-bottom: 1rem;">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--red);">Cr</div>
+            <div class="tech-info">
+              <div class="tech-name">Crawlee <span class="tech-version">3.16</span></div>
+              <div class="tech-desc">Enterprise web scraping framework. Handles retries, rate limiting, proxy rotation, and browser automation.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--amber);">RS</div>
+            <div class="tech-info">
+              <div class="tech-name">RSS Parser <span class="tech-version">3.13</span></div>
+              <div class="tech-desc">Parses RSS/Atom feeds for news sources like ENR, Construction Dive, and PRNewswire.</div>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--gray-500); margin-bottom: 0.5rem;">8 Registered Adapters</p>
+        <div class="adapter-grid">
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--blue-light); color: var(--blue-dark);">Permit</div>
+            <div class="adapter-name">Austin</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--blue-light); color: var(--blue-dark);">Permit</div>
+            <div class="adapter-name">Dallas</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--blue-light); color: var(--blue-dark);">Permit</div>
+            <div class="adapter-name">Atlanta</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--purple-light); color: var(--purple);">Bid</div>
+            <div class="adapter-name">SAM.gov</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--amber-light); color: var(--amber);">News</div>
+            <div class="adapter-name">ENR</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--amber-light); color: var(--amber);">News</div>
+            <div class="adapter-name">Construction Dive</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--amber-light); color: var(--amber);">News</div>
+            <div class="adapter-name">PRNewswire</div>
+          </div>
+          <div class="adapter">
+            <div class="adapter-type" style="background: var(--green-light); color: var(--green);">Deep Web</div>
+            <div class="adapter-name">Google Dorking</div>
+          </div>
+        </div>
+        <p style="font-size: 0.78rem; color: var(--gray-500); margin-top: 0.5rem;">Plugin-based registry architecture &mdash; adapters self-register and gracefully degrade when API keys are missing.</p>
+      </div>
+    </div>
+
+    <!-- ===================== INTEGRATIONS ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--green-light); color: var(--green);">&#128279;</div>
+        <h2>External Integrations</h2>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #4285f4;">G</div>
+            <div class="tech-info">
+              <div class="tech-name">Google Maps <span class="tech-version">vis.gl 1.7</span></div>
+              <div class="tech-desc">Server-side Geocoding API for address-to-coordinates. Client-side interactive maps on lead detail pages via @vis.gl/react-google-maps.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--gray-900);">Re</div>
+            <div class="tech-info">
+              <div class="tech-name">Resend <span class="tech-version">6.9.3</span></div>
+              <div class="tech-desc">Email delivery for daily lead digests. React Email templates for formatted HTML emails. Graceful fallback if not configured.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== HOSTING ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--gray-100); color: var(--gray-900);">&#9650;</div>
+        <h2>Hosting &amp; Deployment</h2>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid tech-grid-1">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: var(--gray-900);">&#9650;</div>
+            <div class="tech-info">
+              <div class="tech-name">Vercel</div>
+              <div class="tech-desc">
+                Hosting platform with automatic deployments from GitHub. Serverless functions for API routes (300s max duration).
+                <strong>Vercel Cron</strong> runs the scraping pipeline daily at 6:00 AM UTC via <code>vercel.json</code>, secured with <code>CRON_SECRET</code> Bearer token authentication.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== TESTING ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: #fef3c7; color: var(--amber);">&#10003;</div>
+        <h2>Testing</h2>
+        <span class="section-desc">285 tests passing</span>
+      </div>
+      <div class="section-body">
+        <div class="tech-grid">
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #729b1b;">Vi</div>
+            <div class="tech-info">
+              <div class="tech-name">Vitest <span class="tech-version">4.1.0</span></div>
+              <div class="tech-desc">Fast unit test runner with jsdom environment. Native ESM support, inline mocking, and parallel execution.</div>
+            </div>
+          </div>
+          <div class="tech-item">
+            <div class="tech-logo" style="background: #e33332;">TL</div>
+            <div class="tech-info">
+              <div class="tech-name">Testing Library <span class="tech-version">React 16.3</span></div>
+              <div class="tech-desc">Component testing with user-centric queries. Jest DOM matchers for accessible assertions.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== PROJECT STRUCTURE ===================== -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-icon" style="background: var(--gray-100); color: var(--gray-700);">&#128193;</div>
+        <h2>Project Structure</h2>
+      </div>
+      <div class="section-body">
+        <div class="tree">
+<span class="dir">src/</span>
+├── <span class="dir">app/</span>                    <span class="comment"># Next.js App Router</span>
+│   ├── <span class="dir">api/</span>                <span class="comment"># API routes (cron, scraper, email, auth)</span>
+│   ├── <span class="dir">(auth)/</span>             <span class="comment"># Sign in &amp; sign up</span>
+│   ├── <span class="dir">(billing)/</span>          <span class="comment"># Subscription management</span>
+│   ├── <span class="dir">(dashboard)/</span>        <span class="comment"># Protected lead feed, detail, bookmarks, searches</span>
+│   └── <span class="dir">(onboarding)/</span>       <span class="comment"># 3-step setup wizard</span>
+├── <span class="dir">components/</span>             <span class="comment"># React components</span>
+│   ├── <span class="dir">ui/</span>                 <span class="comment"># shadcn/ui primitives</span>
+│   ├── <span class="dir">billing/</span>            <span class="comment"># Trial banner, subscribe button, billing status</span>
+│   ├── <span class="dir">dashboard/</span>          <span class="comment"># Empty state, pipeline progress, refresh button</span>
+│   └── <span class="dir">emails/</span>             <span class="comment"># React Email templates</span>
+├── <span class="dir">lib/</span>
+│   ├── <span class="dir">db/schema/</span>          <span class="comment"># Drizzle table definitions (12 tables)</span>
+│   ├── <span class="dir">scraper/adapters/</span>   <span class="comment"># 8 source-specific scrapers</span>
+│   ├── <span class="dir">email/</span>              <span class="comment"># Digest generation &amp; sending</span>
+│   ├── auth.ts              <span class="comment"># Better Auth server config</span>
+│   ├── billing.ts           <span class="comment"># Trial status, checkout params</span>
+│   └── stripe.ts            <span class="comment"># Stripe client &amp; pricing</span>
+└── <span class="dir">types/</span>                  <span class="comment"># Shared TypeScript types</span>
+
+<span class="dir">tests/</span>                      <span class="comment"># 285 tests across 36 files</span>
+├── <span class="dir">billing/</span>                <span class="comment"># Auth config, trial, checkout params</span>
+├── <span class="dir">scraper/</span>                <span class="comment"># Cron route, rate limit, user trigger</span>
+└── <span class="dir">dashboard/</span>              <span class="comment"># Empty state, pipeline progress</span>
+        </div>
+      </div>
+    </div>
+
+    <p style="text-align: center; color: var(--gray-500); font-size: 0.8rem; margin-top: 2rem; padding-bottom: 2rem;">
+      HeavyLeads Tech Stack &mdash; March 2026
+    </p>
+
+  </div>
+</body>
+</html>

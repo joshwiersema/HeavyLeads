@@ -4,12 +4,17 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+
+interface SubscribeButtonProps {
+  organizationId: string;
+  variant?: "trial" | "subscribe";
+}
 
 export function SubscribeButton({
   organizationId,
-}: {
-  organizationId: string;
-}) {
+  variant = "trial",
+}: SubscribeButtonProps) {
   const [loading, setLoading] = useState(false);
 
   const handleSubscribe = async () => {
@@ -24,6 +29,7 @@ export function SubscribeButton({
       });
 
       if (error) {
+        console.error("[checkout] Upgrade error:", error);
         toast.error(error.message || "Failed to start checkout. Please try again.");
         return;
       }
@@ -33,19 +39,23 @@ export function SubscribeButton({
         return;
       }
 
-      // If we get here, the API returned successfully but without a
-      // checkout URL — something is misconfigured on the Stripe side.
+      console.error("[checkout] No URL returned from upgrade call");
       toast.error("Unable to create checkout session. Please try again.");
-    } catch {
+    } catch (err) {
+      console.error("[checkout] Unexpected error:", err);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  const label = variant === "trial" ? "Start Free Trial" : "Subscribe Now";
+  const loadingLabel = "Redirecting to checkout...";
+
   return (
     <Button size="lg" disabled={loading} onClick={handleSubscribe}>
-      {loading ? "Redirecting..." : "Start Free Trial"}
+      {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+      {loading ? loadingLabel : label}
     </Button>
   );
 }

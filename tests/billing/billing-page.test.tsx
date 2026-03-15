@@ -182,7 +182,7 @@ describe("SubscribeButton", () => {
     fireEvent.click(screen.getByText("Start Free Trial"));
 
     await waitFor(() => {
-      expect(screen.getByText("Redirecting...")).toBeInTheDocument();
+      expect(screen.getByText("Redirecting to checkout...")).toBeInTheDocument();
     });
   });
 });

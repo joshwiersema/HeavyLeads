@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { Separator } from "@/components/ui/separator";
+import { SettingsNav } from "@/components/settings/settings-nav";
 
 export const metadata = {
   title: "Settings | HeavyLeads",
@@ -15,37 +15,15 @@ export default function SettingsLayout({
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
         <p className="text-muted-foreground">
-          Manage your account and company profile
+          Manage your account, company profile, and subscription
         </p>
       </div>
 
       <Separator />
 
       <div className="flex flex-col gap-8 md:flex-row">
-        {/* Settings navigation */}
-        <nav className="flex gap-2 md:flex-col md:gap-1 md:w-48">
-          <Link
-            href="/settings/account"
-            className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            Account
-          </Link>
-          <Link
-            href="/settings/company"
-            className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            Company
-          </Link>
-          <Link
-            href="/billing"
-            className="rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-          >
-            Billing
-          </Link>
-        </nav>
-
-        {/* Settings content */}
-        <div className="flex-1">{children}</div>
+        <SettingsNav />
+        <div className="flex-1 min-w-0">{children}</div>
       </div>
     </div>
   );
