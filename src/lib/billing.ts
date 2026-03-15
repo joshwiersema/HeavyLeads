@@ -69,7 +69,7 @@ export function getTrialStatus(
 
 interface CheckoutPlan {
   name: string;
-  priceId: string;
+  priceId?: string;
   freeTrial?: { days: number };
 }
 
