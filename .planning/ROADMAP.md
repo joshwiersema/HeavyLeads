@@ -147,7 +147,7 @@ Plans:
 
 Plans:
 - [x] 07-01-PLAN.md -- Fix Stripe customer creation, configure 7-day free trial, conditional setup fee logic, and trial status utility
-- [ ] 07-02-PLAN.md -- Trial countdown banner in dashboard layout and trial-ended messaging on billing page
+- [x] 07-02-PLAN.md -- Trial countdown banner in dashboard layout and trial-ended messaging on billing page
 
 ### Phase 8: Lead Automation
 **Goal**: Leads appear automatically every day, new users see leads within minutes of onboarding, and the dashboard is never a blank page
@@ -162,7 +162,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- Pipeline runs schema, Vercel Cron GET route with CRON_SECRET auth, secured user-trigger POST route with DB rate limiting, vercel.json cron config
+- [x] 08-01-PLAN.md -- Pipeline runs schema, Vercel Cron GET route with CRON_SECRET auth, secured user-trigger POST route with DB rate limiting, vercel.json cron config
 - [ ] 08-02-PLAN.md -- First-login pipeline auto-trigger, pipeline progress indicator, Refresh Leads button, context-aware dashboard empty state
 
 ### Phase 9: Onboarding Expansion
@@ -223,7 +223,7 @@ Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with 
 | 5. Lead Management and Notifications | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 7. Billing Fix and Free Trial | 2/2 | Complete   | 2026-03-15 | - |
-| 8. Lead Automation | v2.0 | 0/2 | Not started | - |
+| 8. Lead Automation | 1/2 | In Progress|  | - |
 | 9. Onboarding Expansion | v2.0 | 0/? | Not started | - |
 | 10. Guided Tour and Conversion Emails | v2.0 | 0/? | Not started | - |
 | 11. Custom Search and Polish | v2.0 | 0/? | Not started | - |
