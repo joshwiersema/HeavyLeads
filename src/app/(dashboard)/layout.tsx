@@ -4,9 +4,10 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
-import { getActiveSubscription } from "@/lib/billing";
+import { getActiveSubscription, getTrialStatus } from "@/lib/billing";
 import Link from "next/link";
 import { LayoutDashboard, Bookmark, Search, Settings } from "lucide-react";
+import { TrialBanner } from "@/components/billing/trial-banner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
 
@@ -47,6 +48,8 @@ export default async function DashboardLayout({
   if (!activeSubscription) {
     redirect("/billing");
   }
+
+  const trialStatus = getTrialStatus(activeSubscription);
 
   return (
     <div className="flex min-h-screen">
@@ -108,6 +111,11 @@ export default async function DashboardLayout({
             <SignOutButton />
           </div>
         </header>
+
+        {/* Trial countdown banner */}
+        {trialStatus.isTrialing && (
+          <TrialBanner daysRemaining={trialStatus.daysRemaining} />
+        )}
 
         {/* Page content */}
         <main className="flex-1 p-6">{children}</main>

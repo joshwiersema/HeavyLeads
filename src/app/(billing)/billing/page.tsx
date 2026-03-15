@@ -1,7 +1,10 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getActiveSubscription } from "@/lib/billing";
+import { getActiveSubscription, getTrialStatus } from "@/lib/billing";
+import { db } from "@/lib/db";
+import { subscription as subscriptionTable } from "@/lib/db/schema/subscriptions";
+import { eq, desc } from "drizzle-orm";
 import {
   Card,
   CardContent,
@@ -12,6 +15,7 @@ import {
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
 import { BillingStatus } from "@/components/billing/billing-status";
+import { TrialEndedCard } from "@/components/billing/trial-ended-card";
 import { DevSkipButton } from "@/components/billing/dev-skip-button";
 
 export const metadata = {
@@ -28,7 +32,20 @@ export default async function BillingPage() {
   }
 
   const organizationId = session.session.activeOrganizationId;
-  const subscription = await getActiveSubscription(organizationId);
+  const activeSubscription = await getActiveSubscription(organizationId);
+
+  // Check for any subscription (including expired trials) if no active one exists
+  let showTrialEnded = false;
+  if (!activeSubscription) {
+    const latestSubscription = await db.query.subscription.findFirst({
+      where: eq(subscriptionTable.referenceId, organizationId),
+      orderBy: desc(subscriptionTable.createdAt),
+    });
+    if (latestSubscription) {
+      const trialStatus = getTrialStatus(latestSubscription);
+      showTrialEnded = trialStatus.isExpired;
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -39,18 +56,21 @@ export default async function BillingPage() {
         </p>
       </div>
 
-      {subscription ? (
+      {activeSubscription ? (
         <div className="space-y-4">
           <BillingStatus
             subscription={{
-              plan: subscription.plan,
-              status: subscription.status ?? "unknown",
-              periodEnd: subscription.periodEnd,
-              cancelAtPeriodEnd: subscription.cancelAtPeriodEnd ?? false,
+              plan: activeSubscription.plan,
+              status: activeSubscription.status ?? "unknown",
+              periodEnd: activeSubscription.periodEnd,
+              cancelAtPeriodEnd:
+                activeSubscription.cancelAtPeriodEnd ?? false,
             }}
           />
           <ManageBillingButton />
         </div>
+      ) : showTrialEnded ? (
+        <TrialEndedCard organizationId={organizationId} />
       ) : (
         <Card>
           <CardHeader>
