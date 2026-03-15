@@ -9,3 +9,4 @@ process.env.STRIPE_SECRET_KEY = "sk_test_fake_key_for_testing";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test_fake_secret_for_testing";
 process.env.STRIPE_MONTHLY_PRICE_ID = "price_monthly_test";
 process.env.STRIPE_SETUP_FEE_PRICE_ID = "price_setup_test";
+process.env.CRON_SECRET = "test-cron-secret";
