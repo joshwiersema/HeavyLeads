@@ -1,14 +1,10 @@
 /**
  * Database Reset Script
  *
- * Wipes all non-admin data from the database. Preserves the admin user
- * and their org/membership. Clears all leads, subscriptions, pipeline runs, etc.
+ * Wipes all non-admin data. Preserves the admin user and their org.
  *
  * Usage:
- *   npx tsx scripts/db-reset.ts
- *   npx tsx scripts/db-reset.ts --admin-email=josh@example.com
- *
- * Requires DATABASE_URL in .env.local
+ *   npx tsx scripts/db-reset.ts --admin-email=josh@wiersema.xyz
  */
 
 import "dotenv/config";
@@ -22,7 +18,7 @@ const adminEmail = process.argv
 
 async function main() {
   if (!process.env.DATABASE_URL) {
-    console.error("ERROR: DATABASE_URL not set. Copy .env.example to .env.local and fill it in.");
+    console.error("ERROR: DATABASE_URL not set.");
     process.exit(1);
   }
 
@@ -31,115 +27,117 @@ async function main() {
 
   console.log("=== HeavyLeads Database Reset ===\n");
 
-  // Find admin user(s) to preserve
-  let adminCondition = "";
-  if (adminEmail) {
-    adminCondition = adminEmail;
-    console.log(`Preserving admin: ${adminEmail}`);
-  } else {
-    // Preserve the first user created (assumed to be admin)
-    const firstUser = await db.execute(
-      sql`SELECT email FROM "user" ORDER BY "createdAt" ASC LIMIT 1`
-    );
-    if (firstUser.rows.length > 0) {
-      adminCondition = firstUser.rows[0].email as string;
-      console.log(`Preserving first user (assumed admin): ${adminCondition}`);
-    } else {
-      console.log("No users found — wiping everything.");
-    }
-  }
+  // List actual tables
+  const tablesResult = await db.execute(
+    sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+  );
+  const allTables = tablesResult.rows.map((r) => r.tablename as string);
+  console.log("Tables found:", allTables.join(", "), "\n");
 
-  // Get admin user ID and org IDs to preserve
+  // Find admin user
   let adminUserId: string | null = null;
   let adminOrgIds: string[] = [];
 
-  if (adminCondition) {
+  if (adminEmail) {
     const adminResult = await db.execute(
-      sql`SELECT id FROM "user" WHERE email = ${adminCondition}`
+      sql`SELECT id FROM "user" WHERE email = ${adminEmail}`
     );
     if (adminResult.rows.length > 0) {
       adminUserId = adminResult.rows[0].id as string;
+      console.log(`Admin: ${adminEmail} (${adminUserId})`);
+
       const orgResult = await db.execute(
-        sql`SELECT "organizationId" FROM "member" WHERE "userId" = ${adminUserId}`
+        sql`SELECT "organization_id" FROM "member" WHERE "user_id" = ${adminUserId}`
       );
-      adminOrgIds = orgResult.rows.map((r) => r.organizationId as string);
-      console.log(`Admin user ID: ${adminUserId}`);
-      console.log(`Admin org IDs: ${adminOrgIds.join(", ") || "none"}\n`);
+      adminOrgIds = orgResult.rows.map((r) => r.organization_id as string);
+      console.log(`Admin orgs: ${adminOrgIds.join(", ") || "none"}\n`);
+    } else {
+      console.log(`Admin email ${adminEmail} not found — wiping everything.\n`);
     }
   }
 
-  // Clear tables in dependency-safe order
-  const tables = [
-    // App data (no FK deps)
+  // Tables to fully wipe (no FK deps to auth tables)
+  const wipeTables = [
     "pipeline_runs",
-    "bookmark",
-    "saved_search",
     "lead_status",
     "lead_source",
     "lead",
-    // Billing
+    "saved_search",
     "subscription",
-    // Company
     "company_profile",
   ];
 
-  for (const table of tables) {
-    const result = await db.execute(sql.raw(`DELETE FROM "${table}"`));
-    console.log(`  Cleared: ${table} (${result.rowCount} rows)`);
+  for (const table of wipeTables) {
+    if (!allTables.includes(table)) continue;
+    try {
+      const result = await db.execute(sql.raw(`DELETE FROM "${table}"`));
+      console.log(`  Cleared: ${table} (${result.rowCount} rows)`);
+    } catch (err) {
+      console.log(`  Skip: ${table} (${err instanceof Error ? err.message : "error"})`);
+    }
   }
 
-  // Clear non-admin auth data
+  // Clear auth tables, preserving admin
   if (adminUserId) {
-    // Delete sessions for non-admin users
-    const sessionResult = await db.execute(
-      sql`DELETE FROM "session" WHERE "userId" != ${adminUserId}`
+    // Sessions
+    const sr = await db.execute(
+      sql`DELETE FROM "session" WHERE "user_id" != ${adminUserId}`
     );
-    console.log(`  Cleared: session (${sessionResult.rowCount} non-admin rows)`);
+    console.log(`  Cleared: session (${sr.rowCount} non-admin rows)`);
 
-    // Delete non-admin members
-    const memberResult = await db.execute(
-      sql`DELETE FROM "member" WHERE "userId" != ${adminUserId}`
+    // Members
+    const mr = await db.execute(
+      sql`DELETE FROM "member" WHERE "user_id" != ${adminUserId}`
     );
-    console.log(`  Cleared: member (${memberResult.rowCount} non-admin rows)`);
+    console.log(`  Cleared: member (${mr.rowCount} non-admin rows)`);
 
-    // Delete non-admin accounts
-    const accountResult = await db.execute(
-      sql`DELETE FROM "account" WHERE "userId" != ${adminUserId}`
+    // Accounts
+    const ar = await db.execute(
+      sql`DELETE FROM "account" WHERE "user_id" != ${adminUserId}`
     );
-    console.log(`  Cleared: account (${accountResult.rowCount} non-admin rows)`);
+    console.log(`  Cleared: account (${ar.rowCount} non-admin rows)`);
 
-    // Delete non-admin users
-    const userResult = await db.execute(
+    // Users
+    const ur = await db.execute(
       sql`DELETE FROM "user" WHERE id != ${adminUserId}`
     );
-    console.log(`  Cleared: user (${userResult.rowCount} non-admin rows)`);
+    console.log(`  Cleared: user (${ur.rowCount} non-admin rows)`);
 
-    // Delete orgs not owned by admin
+    // Orgs not owned by admin
     if (adminOrgIds.length > 0) {
       const placeholders = adminOrgIds.map((id) => `'${id}'`).join(", ");
-      const orgResult = await db.execute(
+      const or2 = await db.execute(
         sql.raw(`DELETE FROM "organization" WHERE id NOT IN (${placeholders})`)
       );
-      console.log(`  Cleared: organization (${orgResult.rowCount} non-admin rows)`);
+      console.log(`  Cleared: organization (${or2.rowCount} non-admin rows)`);
+    }
+
+    // Clear admin's stripe customer ID so it can be recreated
+    if (adminOrgIds.length > 0) {
+      await db.execute(
+        sql.raw(
+          `UPDATE "organization" SET "stripe_customer_id" = NULL WHERE id IN (${adminOrgIds.map((id) => `'${id}'`).join(", ")})`
+        )
+      );
+      console.log("  Reset: admin org stripe_customer_id → NULL");
     }
   } else {
-    // No admin to preserve — wipe everything
+    // No admin — wipe everything
     for (const table of ["session", "member", "account", "verification", "user", "organization"]) {
+      if (!allTables.includes(table)) continue;
       try {
         const result = await db.execute(sql.raw(`DELETE FROM "${table}"`));
         console.log(`  Cleared: ${table} (${result.rowCount} rows)`);
       } catch {
-        // Table may not exist
+        // table might not exist
       }
     }
   }
 
   console.log("\n=== Reset complete ===");
   if (adminUserId) {
-    console.log(`Admin account preserved: ${adminCondition}`);
-    console.log("Admin can log in and access dashboard without subscription.");
-    console.log("\nNote: Admin will be redirected to /billing (no active subscription).");
-    console.log("Use the dev skip button or create a subscription via Stripe to proceed.");
+    console.log(`Admin preserved: ${adminEmail}`);
+    console.log("Admin will need to re-complete onboarding and subscribe.");
   }
 }
 

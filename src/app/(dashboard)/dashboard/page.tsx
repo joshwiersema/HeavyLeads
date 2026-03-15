@@ -117,8 +117,18 @@ export default async function DashboardPage({
   const serviceRadius = profile.serviceRadiusMiles ?? 50;
   const dealerEquipment = (profile.equipmentTypes as string[]) ?? [];
 
+  // Check for active filters early (needed for nationwide fallback)
+  const hasFilters = !!(
+    keyword ||
+    dateFrom ||
+    dateTo ||
+    (minProjectSize != null && !isNaN(minProjectSize)) ||
+    (maxProjectSize != null && !isNaN(maxProjectSize)) ||
+    (parsedEquipment && parsedEquipment.length > 0)
+  );
+
   // Fetch filtered leads with user context for status/bookmark enrichment
-  const leads = await getFilteredLeads({
+  let leads = await getFilteredLeads({
     hqLat: profile.hqLat,
     hqLng: profile.hqLng,
     serviceRadiusMiles: serviceRadius,
@@ -140,6 +150,25 @@ export default async function DashboardPage({
     organizationId: orgId,
   });
 
+  // If no leads within radius and no filters active, expand to nationwide
+  // so new users always see something instead of an empty dashboard.
+  let expandedNationwide = false;
+  if (leads.length === 0 && !hasFilters) {
+    leads = await getFilteredLeads({
+      hqLat: profile.hqLat,
+      hqLng: profile.hqLng,
+      serviceRadiusMiles: 99999, // effectively nationwide
+      dealerEquipment,
+      radiusMiles: 99999,
+      userId: session.user.id,
+      organizationId: orgId,
+      limit: 50,
+    });
+    if (leads.length > 0) {
+      expandedNationwide = true;
+    }
+  }
+
   // Get pipeline status for progress indicator and empty state context
   const pipelineStatus = await getOrgPipelineStatus(orgId);
 
@@ -148,16 +177,6 @@ export default async function DashboardPage({
     await shouldAutoTrigger(orgId, leads.length) && !pipelineStatus.isRunning;
 
   const effectiveRadius = parsedRadius ?? serviceRadius;
-
-  // Determine if active filters are applied (for empty state context)
-  const hasFilters = !!(
-    keyword ||
-    dateFrom ||
-    dateTo ||
-    (minProjectSize != null && !isNaN(minProjectSize)) ||
-    (maxProjectSize != null && !isNaN(maxProjectSize)) ||
-    (parsedEquipment && parsedEquipment.length > 0)
-  );
 
   // Count active filters for display
   const activeFilterParts: string[] = [];
@@ -179,8 +198,9 @@ export default async function DashboardPage({
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Lead Feed</h1>
           <p className="text-muted-foreground">
-            {leads.length} lead{leads.length !== 1 ? "s" : ""} within{" "}
-            {effectiveRadius} miles{filterSummary}
+            {expandedNationwide
+              ? `No leads within ${effectiveRadius} miles — showing ${leads.length} nationwide`
+              : `${leads.length} lead${leads.length !== 1 ? "s" : ""} within ${effectiveRadius} miles${filterSummary}`}
           </p>
         </div>
         <RefreshLeadsButton />
