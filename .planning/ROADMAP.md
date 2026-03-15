@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### v2.0 Production Rework
 
-- [ ] **Phase 7: Billing Fix and Free Trial** - Fix Stripe customer creation, add 7-day trial via Stripe Checkout, trial UI
+- [x] **Phase 7: Billing Fix and Free Trial** - Fix Stripe customer creation, add 7-day trial via Stripe Checkout, trial UI (completed 2026-03-15)
 - [ ] **Phase 8: Lead Automation** - Vercel Cron daily scraping, first-login trigger, on-demand refresh, empty state
 - [ ] **Phase 9: Onboarding Expansion** - Company details step, logo upload, team invites
 - [ ] **Phase 10: Guided Tour and Conversion Emails** - Dashboard product tour, pre-expiry conversion email sequence
@@ -222,7 +222,7 @@ Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with 
 | 4. Multi-Source Expansion | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 5. Lead Management and Notifications | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
-| 7. Billing Fix and Free Trial | v2.0 | 0/2 | Not started | - |
+| 7. Billing Fix and Free Trial | 2/2 | Complete   | 2026-03-15 | - |
 | 8. Lead Automation | v2.0 | 0/? | Not started | - |
 | 9. Onboarding Expansion | v2.0 | 0/? | Not started | - |
 | 10. Guided Tour and Conversion Emails | v2.0 | 0/? | Not started | - |
