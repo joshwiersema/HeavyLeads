@@ -65,8 +65,8 @@ Requirements for production rework milestone. Each maps to roadmap phases.
 ### Lead Automation
 
 - [x] **AUTO-01**: Vercel Cron runs scraping pipeline daily (replace dead node-cron)
-- [ ] **AUTO-02**: First-login trigger fires pipeline after onboarding so new users see leads immediately
-- [ ] **AUTO-03**: Dashboard shows progress indicator while pipeline runs
+- [x] **AUTO-02**: First-login trigger fires pipeline after onboarding so new users see leads immediately
+- [x] **AUTO-03**: Dashboard shows progress indicator while pipeline runs
 - [x] **AUTO-04**: On-demand "Refresh Leads" button in dashboard (rate-limited 1/hour per org)
 - [x] **AUTO-05**: Scraper API route is secured with auth (CRON_SECRET for cron, session for user-triggered)
 
@@ -79,7 +79,7 @@ Requirements for production rework milestone. Each maps to roadmap phases.
 ### Polish
 
 - [ ] **PLSH-01**: Pre-expiry conversion emails at 3 days, 1 day, and expiry day
-- [ ] **PLSH-02**: Empty dashboard state with informative messaging (not blank page)
+- [x] **PLSH-02**: Empty dashboard state with informative messaging (not blank page)
 - [ ] **PLSH-03**: Overall UI consistency and production readiness pass
 
 ## Future Requirements
@@ -164,11 +164,11 @@ Deferred beyond v2.0.
 | BILL-04 | Phase 7 | Complete |
 | BILL-05 | Phase 7 | Complete |
 | AUTO-01 | Phase 8 | Complete |
-| AUTO-02 | Phase 8 | Pending |
-| AUTO-03 | Phase 8 | Pending |
+| AUTO-02 | Phase 8 | Complete |
+| AUTO-03 | Phase 8 | Complete |
 | AUTO-04 | Phase 8 | Complete |
 | AUTO-05 | Phase 8 | Complete |
-| PLSH-02 | Phase 8 | Pending |
+| PLSH-02 | Phase 8 | Complete |
 | ONBD-01 | Phase 9 | Pending |
 | ONBD-02 | Phase 9 | Pending |
 | ONBD-03 | Phase 9 | Pending |

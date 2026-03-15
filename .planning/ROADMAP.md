@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### v2.0 Production Rework
 
 - [x] **Phase 7: Billing Fix and Free Trial** - Fix Stripe customer creation, add 7-day trial via Stripe Checkout, trial UI (completed 2026-03-15)
-- [ ] **Phase 8: Lead Automation** - Vercel Cron daily scraping, first-login trigger, on-demand refresh, empty state
+- [x] **Phase 8: Lead Automation** - Vercel Cron daily scraping, first-login trigger, on-demand refresh, empty state (completed 2026-03-15)
 - [ ] **Phase 9: Onboarding Expansion** - Company details step, logo upload, team invites
 - [ ] **Phase 10: Guided Tour and Conversion Emails** - Dashboard product tour, pre-expiry conversion email sequence
 - [ ] **Phase 11: Custom Search and Polish** - User-initiated location/keyword search, UI consistency pass
@@ -163,7 +163,7 @@ Plans:
 
 Plans:
 - [x] 08-01-PLAN.md -- Pipeline runs schema, Vercel Cron GET route with CRON_SECRET auth, secured user-trigger POST route with DB rate limiting, vercel.json cron config
-- [ ] 08-02-PLAN.md -- First-login pipeline auto-trigger, pipeline progress indicator, Refresh Leads button, context-aware dashboard empty state
+- [x] 08-02-PLAN.md -- First-login pipeline auto-trigger, pipeline progress indicator, Refresh Leads button, context-aware dashboard empty state
 
 ### Phase 9: Onboarding Expansion
 **Goal**: New companies provide professional details and invite their team during a polished 5-step onboarding flow
@@ -223,7 +223,7 @@ Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with 
 | 5. Lead Management and Notifications | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 7. Billing Fix and Free Trial | 2/2 | Complete   | 2026-03-15 | - |
-| 8. Lead Automation | 1/2 | In Progress|  | - |
+| 8. Lead Automation | 2/2 | Complete | 2026-03-15 | - |
 | 9. Onboarding Expansion | v2.0 | 0/? | Not started | - |
 | 10. Guided Tour and Conversion Emails | v2.0 | 0/? | Not started | - |
 | 11. Custom Search and Polish | v2.0 | 0/? | Not started | - |
