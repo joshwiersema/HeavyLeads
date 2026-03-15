@@ -6,6 +6,10 @@ import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import { getFilteredLeads } from "@/lib/leads/queries";
 import {
+  getOrgPipelineStatus,
+  shouldAutoTrigger,
+} from "@/lib/leads/pipeline-status";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -15,6 +19,10 @@ import {
 import { LeadCard } from "./lead-card";
 import { LeadCardSkeleton } from "./lead-card-skeleton";
 import { LeadFilters } from "./lead-filters";
+import { DashboardEmptyState } from "@/components/dashboard/empty-state";
+import { PipelineProgress } from "@/components/dashboard/pipeline-progress";
+import { RefreshLeadsButton } from "@/components/dashboard/refresh-leads-button";
+import { AutoTrigger } from "@/components/dashboard/auto-trigger";
 import Link from "next/link";
 
 export const metadata = {
@@ -32,12 +40,11 @@ export default async function DashboardPage({
 
   if (!session) return null;
 
+  const orgId = session.session.activeOrganizationId!;
+
   // Get company profile for active org
   const profile = await db.query.companyProfiles.findFirst({
-    where: eq(
-      companyProfiles.organizationId,
-      session.session.activeOrganizationId!
-    ),
+    where: eq(companyProfiles.organizationId, orgId),
   });
 
   // Guard: missing HQ coordinates
@@ -130,10 +137,27 @@ export default async function DashboardPage({
         ? maxProjectSize
         : undefined,
     userId: session.user.id,
-    organizationId: session.session.activeOrganizationId!,
+    organizationId: orgId,
   });
 
+  // Get pipeline status for progress indicator and empty state context
+  const pipelineStatus = await getOrgPipelineStatus(orgId);
+
+  // Check if we should auto-trigger the pipeline (first-login detection)
+  const needsAutoTrigger =
+    await shouldAutoTrigger(orgId, leads.length) && !pipelineStatus.isRunning;
+
   const effectiveRadius = parsedRadius ?? serviceRadius;
+
+  // Determine if active filters are applied (for empty state context)
+  const hasFilters = !!(
+    keyword ||
+    dateFrom ||
+    dateTo ||
+    (minProjectSize != null && !isNaN(minProjectSize)) ||
+    (maxProjectSize != null && !isNaN(maxProjectSize)) ||
+    (parsedEquipment && parsedEquipment.length > 0)
+  );
 
   // Count active filters for display
   const activeFilterParts: string[] = [];
@@ -147,14 +171,23 @@ export default async function DashboardPage({
 
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Lead Feed</h1>
-        <p className="text-muted-foreground">
-          {leads.length} lead{leads.length !== 1 ? "s" : ""} within{" "}
-          {effectiveRadius} miles{filterSummary}
-        </p>
+      {/* Auto-trigger pipeline for first-login */}
+      {needsAutoTrigger && <AutoTrigger />}
+
+      {/* Page header with Refresh Leads button */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Lead Feed</h1>
+          <p className="text-muted-foreground">
+            {leads.length} lead{leads.length !== 1 ? "s" : ""} within{" "}
+            {effectiveRadius} miles{filterSummary}
+          </p>
+        </div>
+        <RefreshLeadsButton />
       </div>
+
+      {/* Pipeline progress indicator */}
+      {pipelineStatus.isRunning && <PipelineProgress />}
 
       {/* Two-column layout: filters + cards */}
       <div className="flex flex-col gap-6 lg:flex-row">
@@ -171,31 +204,11 @@ export default async function DashboardPage({
         {/* Lead card feed */}
         <div className="flex-1">
           {leads.length === 0 ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>No leads found</CardTitle>
-                <CardDescription>
-                  No leads match your current filters. Try adjusting your search
-                  to see more results.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
-                  <li>Expand your search radius</li>
-                  <li>Clear equipment filters to see all lead types</li>
-                  <li>
-                    Check your{" "}
-                    <Link
-                      href="/settings"
-                      className="font-medium text-primary underline underline-offset-4 hover:text-primary/80"
-                    >
-                      company settings
-                    </Link>{" "}
-                    to verify your service area
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
+            <DashboardEmptyState
+              hasFilters={hasFilters}
+              pipelineRunning={pipelineStatus.isRunning}
+              hasEverHadLeads={pipelineStatus.hasEverRun}
+            />
           ) : (
             <Suspense fallback={<LeadCardSkeleton />}>
               <div className="space-y-4">

@@ -27,8 +27,8 @@ describe("PipelineProgress", () => {
   it('renders "Searching for leads" text', () => {
     render(<PipelineProgress />);
 
-    expect(
-      screen.getByText(/searching for leads/i)
-    ).toBeInTheDocument();
+    const matches = screen.getAllByText(/searching for leads in your area/i);
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0]).toBeInTheDocument();
   });
 });
