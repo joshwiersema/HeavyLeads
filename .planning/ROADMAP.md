@@ -143,11 +143,11 @@ Plans:
   3. Dashboard displays a trial countdown banner showing days remaining (e.g., "5 days left in your trial")
   4. User whose trial has expired is redirected to the billing page with "Trial ended" messaging and a subscribe call-to-action
   5. Setup fee is not charged during trial checkout -- it is charged only when the user converts to a paid subscription after trial ends
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 07-01: TBD
-- [ ] 07-02: TBD
+- [ ] 07-01-PLAN.md -- Fix Stripe customer creation, configure 7-day free trial, conditional setup fee logic, and trial status utility
+- [ ] 07-02-PLAN.md -- Trial countdown banner in dashboard layout and trial-ended messaging on billing page
 
 ### Phase 8: Lead Automation
 **Goal**: Leads appear automatically every day, new users see leads within minutes of onboarding, and the dashboard is never a blank page
@@ -222,7 +222,7 @@ Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with 
 | 4. Multi-Source Expansion | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 5. Lead Management and Notifications | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
-| 7. Billing Fix and Free Trial | v2.0 | 0/? | Not started | - |
+| 7. Billing Fix and Free Trial | v2.0 | 0/2 | Not started | - |
 | 8. Lead Automation | v2.0 | 0/? | Not started | - |
 | 9. Onboarding Expansion | v2.0 | 0/? | Not started | - |
 | 10. Guided Tour and Conversion Emails | v2.0 | 0/? | Not started | - |
