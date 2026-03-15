@@ -124,6 +124,38 @@ Deferred beyond v2.0.
 
 ## Traceability
 
+### v1.0 (Complete)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| DATA-01 | Phase 2 | Complete |
+| DATA-02 | Phase 4 | Complete |
+| DATA-03 | Phase 4 | Complete |
+| DATA-04 | Phase 4 | Complete |
+| DATA-05 | Phase 2 | Complete |
+| DATA-06 | Phase 4 | Complete |
+| DATA-07 | Phase 2 | Complete |
+| LEAD-01 | Phase 3 | Complete |
+| LEAD-02 | Phase 3 | Complete |
+| LEAD-03 | Phase 3 | Complete |
+| LEAD-04 | Phase 3 | Complete |
+| LEAD-05 | Phase 3 | Complete |
+| LEAD-06 | Phase 3 | Complete |
+| UX-01 | Phase 3 | Complete |
+| UX-02 | Phase 5 | Complete |
+| UX-03 | Phase 5 | Complete |
+| UX-04 | Phase 5 | Complete |
+| UX-05 | Phase 3 | Complete |
+| UX-06 | Phase 5 | Complete |
+| PLAT-01 | Phase 1 | Complete |
+| PLAT-02 | Phase 1 | Complete |
+| PLAT-03 | Phase 1 | Complete |
+| PLAT-04 | Phase 1 | Complete |
+| PLAT-05 | Phase 6 | Complete |
+| PLAT-06 | Phase 1 | Complete |
+
+### v2.0
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | BILL-01 | Phase 7 | Pending |
@@ -136,23 +168,24 @@ Deferred beyond v2.0.
 | AUTO-03 | Phase 8 | Pending |
 | AUTO-04 | Phase 8 | Pending |
 | AUTO-05 | Phase 8 | Pending |
+| PLSH-02 | Phase 8 | Pending |
 | ONBD-01 | Phase 9 | Pending |
 | ONBD-02 | Phase 9 | Pending |
 | ONBD-03 | Phase 9 | Pending |
-| ONBD-04 | Phase 9 | Pending |
-| ONBD-05 | Phase 9 | Pending |
-| SRCH-01 | Phase 10 | Pending |
-| SRCH-02 | Phase 10 | Pending |
-| SRCH-03 | Phase 10 | Pending |
-| PLSH-01 | Phase 11 | Pending |
-| PLSH-02 | Phase 11 | Pending |
+| ONBD-04 | Phase 10 | Pending |
+| ONBD-05 | Phase 10 | Pending |
+| PLSH-01 | Phase 10 | Pending |
+| SRCH-01 | Phase 11 | Pending |
+| SRCH-02 | Phase 11 | Pending |
+| SRCH-03 | Phase 11 | Pending |
 | PLSH-03 | Phase 11 | Pending |
 
 **Coverage:**
-- v2.0 requirements: 18 total
-- Mapped to phases: 18
-- Unmapped: 0 ✓
+- v1.0 requirements: 25 total, 25 complete
+- v2.0 requirements: 21 total
+- Mapped to phases: 21
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13 (v1.0)*
-*Last updated: 2026-03-15 after v2.0 milestone requirements*
+*Last updated: 2026-03-15 after v2.0 roadmap creation*
