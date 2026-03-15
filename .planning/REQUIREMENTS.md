@@ -48,11 +48,11 @@ Requirements for production rework milestone. Each maps to roadmap phases.
 
 ### Billing Fix & Trial
 
-- [ ] **BILL-01**: Fix Stripe customer creation error on signup (create org-level customer, not user-level)
-- [ ] **BILL-02**: User starts a 7-day free trial via Stripe Checkout with credit card
+- [x] **BILL-01**: Fix Stripe customer creation error on signup (create org-level customer, not user-level)
+- [x] **BILL-02**: User starts a 7-day free trial via Stripe Checkout with credit card
 - [ ] **BILL-03**: Dashboard shows trial countdown banner with days remaining
 - [ ] **BILL-04**: Expired trial redirects to billing page with "Trial ended" messaging and subscribe CTA
-- [ ] **BILL-05**: Setup fee is NOT charged during trial — only on conversion to paid
+- [x] **BILL-05**: Setup fee is NOT charged during trial — only on conversion to paid
 
 ### Onboarding
 
@@ -158,11 +158,11 @@ Deferred beyond v2.0.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BILL-01 | Phase 7 | Pending |
-| BILL-02 | Phase 7 | Pending |
+| BILL-01 | Phase 7 | Complete |
+| BILL-02 | Phase 7 | Complete |
 | BILL-03 | Phase 7 | Pending |
 | BILL-04 | Phase 7 | Pending |
-| BILL-05 | Phase 7 | Pending |
+| BILL-05 | Phase 7 | Complete |
 | AUTO-01 | Phase 8 | Pending |
 | AUTO-02 | Phase 8 | Pending |
 | AUTO-03 | Phase 8 | Pending |

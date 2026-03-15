@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Production Rework
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-03-15T19:00:00.000Z"
-last_activity: 2026-03-15 -- Roadmap created for v2.0
+status: executing
+stopped_at: "Completed 07-01-PLAN.md"
+last_updated: "2026-03-15T20:07:12.000Z"
+last_activity: 2026-03-15 -- Completed 07-01 billing fix and free trial config
 progress:
   total_phases: 5
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
+  percent: 10
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 7 of 11 (Billing Fix and Free Trial) -- first v2.0 phase
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-15 -- v2.0 roadmap created (Phases 7-11)
+Plan: 1 of 2 complete
+Status: Executing
+Last activity: 2026-03-15 -- Completed 07-01 (billing fix, trial config, setup fee logic)
 
-Progress: [##########..........] 55% (v1.0 complete, v2.0 starting)
+Progress: [###########.........] 57% (v1.0 complete, v2.0 Phase 7 Plan 01 done)
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 15 (v1.0)
+- Total plans completed: 16 (15 v1.0 + 1 v2.0)
 - Average duration: ~7 min
-- Total execution time: ~1.7 hours
+- Total execution time: ~1.8 hours
 
 **By Phase (v1.0):**
 
@@ -50,9 +50,12 @@ Progress: [##########..........] 55% (v1.0 complete, v2.0 starting)
 | 5. Lead Management | 3 | ~21 min | ~7 min |
 | 6. Billing | 2 | ~14 min | ~7 min |
 
+| 7. Billing Fix & Trial | 1 (of 2) | ~4 min | ~4 min |
+
 **Recent Trend:**
 - v1.0 average: ~7 min/plan
-- Trend: Stable
+- v2.0 so far: ~4 min/plan
+- Trend: Faster
 
 ## Accumulated Context
 
@@ -61,7 +64,10 @@ Progress: [##########..........] 55% (v1.0 complete, v2.0 starting)
 Key decisions affecting v2.0:
 - Stripe-native free trial WITH credit card via Stripe Checkout (not application-level no-CC trial)
 - Existing subscription table already has trialStart, trialEnd, status columns supporting "trialing" status
-- createCustomerOnSignUp must be set to false; create org-level customers explicitly
+- createCustomerOnSignUp set to false; org-level customers created lazily by plugin (BILL-01 fix applied)
+- Exported STRIPE_PLUGIN_CONFIG and SUBSCRIPTION_PLANS constants for testability (07-01)
+- Extracted buildCheckoutSessionParams as pure function in billing.ts for direct unit testing (07-01)
+- Trial checkout returns empty params so plugin handles defaults; setup fee only for post-trial conversion (07-01)
 - Vercel Cron replaces dead node-cron for daily scraping
 - nextstepjs for guided tour (driver.js as fallback)
 - @vercel/blob for logo upload
@@ -72,7 +78,7 @@ None yet.
 
 ### Blockers/Concerns
 
-- Stripe customer creation fails on production signup -- Phase 7 fixes this first
+- ~~Stripe customer creation fails on production signup~~ -- FIXED in 07-01 (createCustomerOnSignUp: false)
 - Scraper has no automated scheduling -- Phase 8 addresses this
 - nextstepjs React 19 compatibility unverified -- Phase 10 concern, driver.js fallback ready
 - Vercel function timeout risk for 8 sequential adapters -- Phase 8 may need parallelization
@@ -80,5 +86,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: v2.0 roadmap created, ready to plan Phase 7
+Stopped at: Completed 07-01-PLAN.md
 Resume file: None

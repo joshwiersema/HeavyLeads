@@ -146,7 +146,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Fix Stripe customer creation, configure 7-day free trial, conditional setup fee logic, and trial status utility
+- [x] 07-01-PLAN.md -- Fix Stripe customer creation, configure 7-day free trial, conditional setup fee logic, and trial status utility
 - [ ] 07-02-PLAN.md -- Trial countdown banner in dashboard layout and trial-ended messaging on billing page
 
 ### Phase 8: Lead Automation
