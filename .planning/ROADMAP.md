@@ -159,11 +159,11 @@ Plans:
   3. User can click "Refresh Leads" to trigger an on-demand pipeline run, rate-limited to once per hour per organization
   4. Scraper API routes are secured (CRON_SECRET for cron requests, session auth for user-triggered requests)
   5. Dashboard shows an informative empty state with messaging when no leads exist yet, instead of a blank page
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 08-01: TBD
-- [ ] 08-02: TBD
+- [ ] 08-01-PLAN.md -- Pipeline runs schema, Vercel Cron GET route with CRON_SECRET auth, secured user-trigger POST route with DB rate limiting, vercel.json cron config
+- [ ] 08-02-PLAN.md -- First-login pipeline auto-trigger, pipeline progress indicator, Refresh Leads button, context-aware dashboard empty state
 
 ### Phase 9: Onboarding Expansion
 **Goal**: New companies provide professional details and invite their team during a polished 5-step onboarding flow
@@ -223,7 +223,7 @@ Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with 
 | 5. Lead Management and Notifications | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 7. Billing Fix and Free Trial | 2/2 | Complete   | 2026-03-15 | - |
-| 8. Lead Automation | v2.0 | 0/? | Not started | - |
+| 8. Lead Automation | v2.0 | 0/2 | Not started | - |
 | 9. Onboarding Expansion | v2.0 | 0/? | Not started | - |
 | 10. Guided Tour and Conversion Emails | v2.0 | 0/? | Not started | - |
 | 11. Custom Search and Polish | v2.0 | 0/? | Not started | - |
