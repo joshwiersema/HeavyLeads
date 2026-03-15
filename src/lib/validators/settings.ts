@@ -8,7 +8,10 @@ export const accountSettingsSchema = z.object({
 export type AccountSettingsInput = z.infer<typeof accountSettingsSchema>;
 
 export const companySettingsSchema = z.object({
-  hqAddress: z.string().min(5, "Please enter a valid address"),
+  street: z.string().min(3, "Street address is required"),
+  city: z.string().min(2, "City is required"),
+  state: z.string().length(2, "Select a state"),
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/, "Enter a valid ZIP code"),
   equipmentTypes: z
     .array(z.string())
     .min(1, "Select at least one equipment type"),

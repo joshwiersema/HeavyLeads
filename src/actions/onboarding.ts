@@ -3,7 +3,11 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
-import { onboardingSchema, type OnboardingFormData } from "@/lib/validators/onboarding";
+import {
+  onboardingSchema,
+  composeAddress,
+  type OnboardingFormData,
+} from "@/lib/validators/onboarding";
 import { geocodeAddress } from "@/lib/geocoding";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -19,9 +23,10 @@ export async function completeOnboarding(data: OnboardingFormData) {
 
   const validated = onboardingSchema.parse(data);
 
-  const { lat, lng, formattedAddress } = await geocodeAddress(
-    validated.hqAddress
-  );
+  // Compose structured fields into a single address string for geocoding
+  const fullAddress = composeAddress(validated);
+
+  const { lat, lng, formattedAddress } = await geocodeAddress(fullAddress);
 
   await db.insert(companyProfiles).values({
     organizationId: session.session.activeOrganizationId,

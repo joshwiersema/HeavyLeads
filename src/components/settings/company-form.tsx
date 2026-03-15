@@ -7,12 +7,20 @@ import {
   companySettingsSchema,
   type CompanySettingsInput,
 } from "@/lib/validators/settings";
+import { US_STATES } from "@/lib/validators/onboarding";
 import { updateCompanyProfile } from "@/actions/settings";
 import { EQUIPMENT_TYPES } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -23,7 +31,10 @@ import {
 
 interface CompanyFormProps {
   initialData: {
-    hqAddress: string;
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
     equipmentTypes: string[];
     serviceRadius: number;
   };
@@ -35,11 +46,15 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
     register,
     handleSubmit,
     control,
+    setValue,
+    watch,
     formState: { errors, isDirty, isSubmitting },
   } = useForm<CompanySettingsInput>({
     resolver: zodResolver(companySettingsSchema),
     defaultValues: initialData,
   });
+
+  const stateValue = watch("state") ?? "";
 
   async function onSubmit(data: CompanySettingsInput) {
     try {
@@ -68,10 +83,17 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label className="text-muted-foreground">
-              Headquarters Address
-            </Label>
-            <p className="mt-1 text-sm">{initialData.hqAddress || "Not set"}</p>
+            <Label className="text-muted-foreground">Address</Label>
+            <p className="mt-1 text-sm">
+              {initialData.street ? (
+                <>
+                  {initialData.street}<br />
+                  {initialData.city}, {initialData.state} {initialData.zip}
+                </>
+              ) : (
+                "Not set"
+              )}
+            </p>
           </div>
 
           <div>
@@ -93,12 +115,8 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
           </div>
 
           <div>
-            <Label className="text-muted-foreground">
-              Service Radius
-            </Label>
-            <p className="mt-1 text-sm">
-              {initialData.serviceRadius} miles
-            </p>
+            <Label className="text-muted-foreground">Service Radius</Label>
+            <p className="mt-1 text-sm">{initialData.serviceRadius} miles</p>
           </div>
         </CardContent>
       </Card>
@@ -116,18 +134,60 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="hqAddress">Headquarters Address</Label>
-            <Input
-              id="hqAddress"
-              placeholder="123 Main St, City, State, ZIP"
-              {...register("hqAddress")}
-            />
-            {errors.hqAddress && (
-              <p className="text-sm text-destructive">
-                {errors.hqAddress.message}
-              </p>
-            )}
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Headquarters Address</Label>
+
+            <div className="space-y-2">
+              <Label htmlFor="street">Street Address</Label>
+              <Input
+                id="street"
+                placeholder="123 Main St"
+                {...register("street")}
+              />
+              {errors.street && (
+                <p className="text-sm text-destructive">{errors.street.message}</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-6 gap-3">
+              <div className="col-span-3 space-y-2">
+                <Label htmlFor="city">City</Label>
+                <Input id="city" placeholder="Dallas" {...register("city")} />
+                {errors.city && (
+                  <p className="text-sm text-destructive">{errors.city.message}</p>
+                )}
+              </div>
+
+              <div className="col-span-1 space-y-2">
+                <Label htmlFor="state">State</Label>
+                <Select
+                  value={stateValue}
+                  onValueChange={(val) => setValue("state", val ?? "", { shouldValidate: true, shouldDirty: true })}
+                >
+                  <SelectTrigger id="state">
+                    <SelectValue placeholder="TX" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {US_STATES.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.value}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {errors.state && (
+                  <p className="text-sm text-destructive">{errors.state.message}</p>
+                )}
+              </div>
+
+              <div className="col-span-2 space-y-2">
+                <Label htmlFor="zip">ZIP Code</Label>
+                <Input id="zip" placeholder="75201" maxLength={10} {...register("zip")} />
+                {errors.zip && (
+                  <p className="text-sm text-destructive">{errors.zip.message}</p>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">

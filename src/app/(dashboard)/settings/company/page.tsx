@@ -6,6 +6,32 @@ import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import { CompanyForm } from "@/components/settings/company-form";
 
+/**
+ * Try to parse a Google-formatted address into structured fields.
+ * Example: "123 Main St, Dallas, TX 75201, USA" → { street, city, state, zip }
+ * Falls back to putting the whole address in the street field if parsing fails.
+ */
+function parseAddress(address: string): {
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+} {
+  const parts = address.split(",").map((p) => p.trim());
+
+  if (parts.length >= 3) {
+    const street = parts[0];
+    const city = parts[1];
+    // "TX 75201" or "TX 75201, USA"
+    const stateZip = parts[2].split(" ").filter(Boolean);
+    const state = stateZip[0] || "";
+    const zip = stateZip[1] || "";
+    return { street, city, state, zip };
+  }
+
+  return { street: address, city: "", state: "", zip: "" };
+}
+
 export default async function CompanySettingsPage() {
   const session = await auth.api.getSession({
     headers: await headers(),
@@ -15,7 +41,6 @@ export default async function CompanySettingsPage() {
     redirect("/sign-in");
   }
 
-  // Get company profile
   const profile = await db.query.companyProfiles.findFirst({
     where: eq(
       companyProfiles.organizationId,
@@ -23,17 +48,22 @@ export default async function CompanySettingsPage() {
     ),
   });
 
-  // Get member role to determine admin status
   const member = await auth.api.getActiveMember({
     headers: await headers(),
   });
 
   const isAdmin = member?.role === "owner" || member?.role === "admin";
 
+  // Parse existing address into structured fields for the form
+  const parsed = parseAddress(profile?.hqAddress ?? "");
+
   return (
     <CompanyForm
       initialData={{
-        hqAddress: profile?.hqAddress ?? "",
+        street: parsed.street,
+        city: parsed.city,
+        state: parsed.state,
+        zip: parsed.zip,
         equipmentTypes: profile?.equipmentTypes ?? [],
         serviceRadius: profile?.serviceRadiusMiles ?? 50,
       }}

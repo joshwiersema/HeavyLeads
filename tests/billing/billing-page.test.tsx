@@ -5,6 +5,11 @@ import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
 import { TrialEndedCard } from "@/components/billing/trial-ended-card";
 
+// Mock ensureStripeCustomer server action
+vi.mock("@/actions/billing", () => ({
+  ensureStripeCustomer: vi.fn().mockResolvedValue({ customerId: "cus_test" }),
+}));
+
 // Mock authClient for client components
 const mockUpgrade = vi.fn();
 const mockBillingPortal = vi.fn();

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { ensureStripeCustomer } from "@/actions/billing";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -20,6 +21,15 @@ export function SubscribeButton({
   const handleSubscribe = async () => {
     setLoading(true);
     try {
+      // Pre-create Stripe customer on the org if one doesn't exist.
+      // This bypasses the plugin's fragile customers.search path.
+      const customerResult = await ensureStripeCustomer();
+      if (customerResult.error) {
+        console.error("[checkout] Customer creation failed:", customerResult.error);
+        toast.error(`Billing setup failed: ${customerResult.error}`);
+        return;
+      }
+
       const { data, error } = await authClient.subscription.upgrade({
         plan: "standard",
         successUrl: `${window.location.origin}/dashboard`,

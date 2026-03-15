@@ -9,6 +9,7 @@ import {
   companySettingsSchema,
   type CompanySettingsInput,
 } from "@/lib/validators/settings";
+import { composeAddress } from "@/lib/validators/onboarding";
 import { geocodeAddress } from "@/lib/geocoding";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
@@ -25,15 +26,10 @@ export async function updateAccount(data: AccountSettingsInput) {
 
   const validated = accountSettingsSchema.parse(data);
 
-  // Update user name via Better Auth
   await auth.api.updateUser({
     body: { name: validated.name },
     headers: await headers(),
   });
-
-  // Note: Email changes require verification flow in production.
-  // For now, we only update the name. Email change can be added
-  // as a future enhancement with Better Auth's email update flow.
 
   revalidatePath("/settings/account");
 
@@ -49,7 +45,6 @@ export async function updateCompanyProfile(data: CompanySettingsInput) {
     throw new Error("Unauthorized");
   }
 
-  // Check admin role -- defense in depth
   const member = await auth.api.getActiveMember({
     headers: await headers(),
   });
@@ -59,6 +54,9 @@ export async function updateCompanyProfile(data: CompanySettingsInput) {
   }
 
   const validated = companySettingsSchema.parse(data);
+
+  // Compose structured fields into address string
+  const fullAddress = composeAddress(validated);
 
   // Get current profile to check if address changed
   const currentProfile = await db.query.companyProfiles.findFirst({
@@ -70,11 +68,11 @@ export async function updateCompanyProfile(data: CompanySettingsInput) {
 
   let hqLat = currentProfile?.hqLat ?? 0;
   let hqLng = currentProfile?.hqLng ?? 0;
-  let hqAddress = validated.hqAddress;
+  let hqAddress = fullAddress;
 
   // Re-geocode if address changed
-  if (currentProfile?.hqAddress !== validated.hqAddress) {
-    const geocoded = await geocodeAddress(validated.hqAddress);
+  if (currentProfile?.hqAddress !== fullAddress) {
+    const geocoded = await geocodeAddress(fullAddress);
     hqLat = geocoded.lat;
     hqLng = geocoded.lng;
     hqAddress = geocoded.formattedAddress;

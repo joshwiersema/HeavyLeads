@@ -23,7 +23,7 @@ import { StepEquipment } from "./step-equipment";
 import { StepRadius } from "./step-radius";
 
 const STEPS = [
-  { component: StepLocation, label: "Location", fields: ["hqAddress"] as const },
+  { component: StepLocation, label: "Location", fields: ["street", "city", "state", "zip"] as const },
   { component: StepEquipment, label: "Equipment", fields: ["equipmentTypes"] as const },
   { component: StepRadius, label: "Radius", fields: ["serviceRadius"] as const },
 ] as const;
@@ -36,7 +36,10 @@ export function OnboardingWizard() {
   const methods = useForm<OnboardingFormData>({
     resolver: zodResolver(onboardingSchema),
     defaultValues: {
-      hqAddress: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
       equipmentTypes: [],
       serviceRadius: 50,
     },
