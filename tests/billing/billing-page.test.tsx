@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/re
 import { BillingStatus } from "@/components/billing/billing-status";
 import { SubscribeButton } from "@/components/billing/subscribe-button";
 import { ManageBillingButton } from "@/components/billing/manage-billing-button";
+import { TrialEndedCard } from "@/components/billing/trial-ended-card";
 
 // Mock authClient for client components
 const mockUpgrade = vi.fn();
@@ -220,5 +221,24 @@ describe("ManageBillingButton", () => {
     await waitFor(() => {
       expect(screen.getByText("Redirecting...")).toBeInTheDocument();
     });
+  });
+});
+
+describe("TrialEndedCard", () => {
+  it("renders 'Your Trial Has Ended' heading", () => {
+    render(<TrialEndedCard organizationId="org-123" />);
+    expect(screen.getByText("Your Trial Has Ended")).toBeInTheDocument();
+  });
+
+  it("renders messaging about subscribing to continue access", () => {
+    render(<TrialEndedCard organizationId="org-123" />);
+    expect(
+      screen.getByText(/subscribe.*continue/i)
+    ).toBeInTheDocument();
+  });
+
+  it("renders SubscribeButton for conversion CTA", () => {
+    render(<TrialEndedCard organizationId="org-123" />);
+    expect(screen.getByText("Start Free Trial")).toBeInTheDocument();
   });
 });
