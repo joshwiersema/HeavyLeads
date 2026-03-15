@@ -1,228 +1,178 @@
 # Project Research Summary
 
-**Project:** HeavyLeads — Multi-Tenant SaaS Lead Intelligence Platform
-**Domain:** Web scraping + lead generation SaaS for heavy machinery dealers and rental companies
-**Researched:** 2026-03-13
+**Project:** HeavyLeads v2.0 Production Rework
+**Domain:** B2B SaaS lead intelligence platform (construction/heavy machinery)
+**Researched:** 2026-03-15
 **Confidence:** HIGH
 
 ## Executive Summary
 
-HeavyLeads is a data pipeline product with a SaaS frontend — not a CRUD app with scraping bolted on. The core insight from research is that the scraping and enrichment engine IS the product; the web dashboard is simply the window into it. No competitor in the construction lead generation space (Dodge, ConstructConnect, Building Radar, Construction Monitor) targets heavy machinery dealers specifically. The differentiated value proposition is equipment-need inference: automatically mapping "12-story hotel construction" to "likely needs excavators, boom lifts, cranes, telehandlers." That mapping intelligence, combined with multi-source data aggregation, is the moat.
+HeavyLeads v2.0 is a production rework of an existing B2B SaaS lead generation platform targeting heavy machinery businesses. The application already has a functional base stack (Next.js 16, Better Auth, Stripe, Drizzle/Neon, Crawlee, shadcn/ui), but it has a critical production blocker: the Stripe customer creation flow is broken due to a user-level vs. organization-level customer mismatch. Beyond that fix, v2.0 needs to add a no-credit-card free trial, expand onboarding from 3 to 5 steps with company details and team invites, automate daily lead generation via Vercel Cron (replacing dead `node-cron` code), trigger a first-login lead scrape so new users are never dropped on an empty dashboard, and add a custom search page and guided product tour. The only new npm packages required are `@vercel/blob` (logo upload) and `nextstepjs + motion` (product tour) — everything else builds on the existing stack.
 
-The recommended approach is a monoglot TypeScript monorepo (Next.js 16 + Drizzle ORM + PostgreSQL/PostGIS + BullMQ + Crawlee) deployed on Railway. The architecture follows a pipeline-first pattern: scrape globally into a shared lead pool, enrich and deduplicate, then match leads to tenants in a final step. This means scraping cost scales with the number of sources, not with the number of customers — a critical efficiency that must be baked into the data model on day one. Multi-tenancy uses shared-schema isolation with PostgreSQL row-level security and must be established before the first customer is onboarded.
+The single most important architectural decision is how free trials work. The `@better-auth/stripe` plugin does not support checkout-free trials (GitHub issue #4631, closed as "not planned"), so the trial subscription must be created directly in the database at onboarding completion, bypassing Stripe Checkout entirely. This is safe because the plugin's existing `getActiveSubscription()` guard already recognizes `status: "trialing"`, and the subscription table already has `trialStart`/`trialEnd` columns. The trial is enforced purely at the application layer with a `trialEnd > now` check — no Stripe involvement until the user converts to a paid plan. This approach is simpler, faster, and fully under our control.
 
-The top risks are operational rather than technical. Municipality permit data exists across 20,000+ jurisdictions with no standard format — national coverage is a years-long infrastructure investment. Scoping to the customer's actual geographic region (starting with Sioux Center, IA and surrounding metros) is non-negotiable for launch. Silent scraper failures delivering stale data are the single fastest way to destroy product trust. And multi-tenant data leakage between competing equipment dealers would be immediately catastrophic. Both require defense-in-depth from day one, not as retrofits.
+The core execution risk is the scraper pipeline exceeding Vercel's 5-minute function timeout when 8 adapters run sequentially. The current `node-cron` scheduler is dead code on Vercel's serverless infrastructure and must be replaced with a `vercel.json` cron configuration. If adapter execution time proves problematic, the fix is `Promise.allSettled()` parallelization. The second major risk is the first-login user experience: new users who complete onboarding and land on an empty dashboard while the scraper runs will abandon immediately. The fire-and-forget + client polling pattern with a purposeful loading state ("Finding leads near Austin, TX...") is the mitigation — it must be built as part of the scraper trigger work, not as an afterthought.
 
 ## Key Findings
 
 ### Recommended Stack
 
-The stack is deliberately monoglot TypeScript throughout. Scraping (Crawlee + Playwright), job processing (BullMQ + Redis), API (Next.js App Router), database (PostgreSQL via Drizzle ORM), and validation (Zod) all share one language, one type system, and one package manager. This eliminates the coordination cost of polyglot architectures and allows the scraper, API, and dashboard to share Drizzle schemas and TypeScript types directly.
+The existing stack is well-chosen and requires minimal additions. Three new packages are needed: `@vercel/blob` for logo storage (native Vercel integration, serves via CDN, avoids the 4.5MB serverless body limit), `nextstepjs` for the guided tour (built specifically for Next.js App Router), and `motion` as a required peer dependency. Vercel Cron requires no new package — it is a `vercel.json` configuration change plus a new API route. The free trial and scraper trigger features require no new packages at all.
 
-PostgreSQL with PostGIS is the only correct database choice here. The product needs both relational integrity (tenants, subscriptions, lead assignments) and flexible document storage (heterogeneous permit schemas vary wildly by municipality) — JSONB columns cover the latter. PostGIS ST_DWithin for radius filtering is a core requirement that cannot be handled in application code at scale. Better Auth 1.5.x (which absorbed Auth.js/NextAuth in Sept 2025) handles multi-tenancy with its organization plugin out of the box.
-
-**Core technologies:**
-- **Next.js 16.x**: Full-stack framework with App Router — Turbopack default, React 19.2 + React Compiler, API routes for webhooks
-- **PostgreSQL 16 + PostGIS**: Primary database — ACID for billing, JSONB for flexible lead schemas, PostGIS for radius filtering
-- **Drizzle ORM 0.45.x**: TypeScript ORM — 10-20% overhead vs raw SQL (not Prisma's 2-4x), SQL-like queries don't fight PostGIS operations
-- **Redis 7.x (Upstash)**: Job queues + caching + rate limiting — HTTP API works in serverless contexts
-- **Crawlee 3.16.x**: Web scraping framework — built-in queuing, retries, proxy rotation, anti-bot evasion, TypeScript-native
-- **BullMQ 5.71.x**: Job queue + scheduler — cron scheduling, job dependencies for multi-stage pipelines, exponential backoff
-- **Better Auth 1.5.x**: Authentication — organization plugin provides multi-tenant RBAC, invitations, org switching out of the box
-- **OpenAI GPT-4o-mini**: Entity extraction and lead classification via Structured Outputs — $0.15/1M input tokens
-- **Stripe SDK v17+**: Subscription billing + setup fees — native support for "one-time setup fee + subscription" model
-- **Railway**: Application hosting — visual canvas for web app + worker processes, usage-based pricing ($5-20/month early stage)
+**Core technology additions:**
+- `@vercel/blob`: Company logo upload and CDN storage — avoids Vercel's 4.5MB serverless body limit; logos served directly from Vercel's CDN
+- `nextstepjs ^2.2.0`: Guided dashboard tour — native Next.js App Router support, declarative step definitions, cross-page routing; fallback is driver.js (1.4.0) if stability issues arise
+- `motion ^11.x`: Required peer dependency for nextstepjs animations — do NOT install "framer-motion", use "motion" (renamed in v11)
+- `vercel.json` (config, not a package): Vercel Cron daily scrape at 06:00 UTC — replaces dead `node-cron` scheduler; sends GET requests to API route
+- New environment variables: `BLOB_READ_WRITE_TOKEN` (auto-created via Vercel Blob store) and `CRON_SECRET` (random 16+ char string added in Vercel project settings)
 
 ### Expected Features
 
-The market gap is unambiguous: all major construction lead services (Dodge, ConstructConnect, Building Radar) serve general contractors and subcontractors. None are built for equipment dealers. HeavyLeads wins not by having more leads but by having the right intelligence layer — equipment-need inference — that makes construction project data actionable for equipment sales reps.
+**Must have (table stakes):**
+- Free 7-day trial with no credit card — every modern B2B SaaS; missing this loses ~50% of potential signups
+- Trial countdown banner in dashboard — users need to know days remaining; without it, trial end is a surprise
+- Trial expiry gate — expired trial + no subscription redirects to billing; ungated expired trials train users to never pay
+- Company details onboarding step — company name, website, phone, logo, industry segment establish organizational identity
+- Empty state with progress on first login — dashboard with zero leads looks broken; users leave within 30 seconds
+- Automatic daily lead refresh via Vercel Cron — the core value proposition ("fresh leads every morning") fails without automation
+- On-demand refresh button — power users expect to trigger a manual data update
 
-**Must have (table stakes) — v1 launch:**
-- Daily lead feed dashboard — users expect "open and see what's new"; stale data = immediate churn
-- Geographic filtering (radius from dealer HQ) — more intuitive than state-based for regional equipment dealers
-- Equipment type/project type filtering — showing irrelevant leads wastes trust; THIS IS THE PRODUCT
-- Lead detail view — project info, location map, contacts, estimated equipment needs, source attribution
-- Company onboarding wizard — set HQ, equipment types, service radius to configure the feed
-- Auth + multi-tenant accounts — company-level accounts with user seats, role-based access
-- Lead status tracking (New/Contacted/Won/Lost) — seeds conversion data needed for future scoring models
-- Daily email digest — sales reps live in email; "X new leads today" with top 5 and link to dashboard
-- Data freshness indicators — show discovered date and age badges; staleness destroys trust
+**Should have (competitive differentiators):**
+- First-login scraper trigger — ConstructConnect/PlanHub show results instantly from massive databases; HeavyLeads must close this gap; users who complete onboarding and see a populated dashboard convert at dramatically higher rates
+- Team invite step in onboarding — getting the whole team on board during the trial window is the highest-leverage conversion tactic
+- Guided dashboard tour (nextstepjs, 6 steps) — reduces time-to-value from minutes to seconds; competitors have no guided onboarding
+- Custom search page — search by location/keyword/project type beyond org defaults; reuses existing `getFilteredLeads()` with overridden lat/lng
+- Pre-expiry conversion emails at 3 days, 1 day, and expiry day
 
-**Should have (differentiators) — v1.x after validation:**
-- Equipment-need inference (rule-based first, ML later) — the "magic" that justifies the product; start with taxonomy mapping
-- Bid board scraping — second data source after permit pipeline is stable
-- News/press release scraping — third source, broadens coverage
-- Multi-source deduplication — required once 2+ sources are active; same project on permits + news + bid boards
-- Outreach talking points — template-based in v1.x, LLM-powered in v2; NOT automated outreach
-- Saved searches and bookmarks — users will request this within the first month
-- Advanced search and filtering — keyword, value range, date range, project phase
-
-**Defer (v2+) — after product-market fit:**
-- Google dorking / deep web discovery — high value but high legal scrutiny; validate PMF first
-- Fleet expansion detection — separate data pipeline (job postings, press releases); validate project leads first
-- CRM integration (Salesforce, HubSpot) — explicitly scoped to v2 in project requirements
-- ML lead scoring — needs conversion data from v1 lead status tracking before training
-- Contact enrichment — cross-referencing with LinkedIn and company websites
-- Mobile native app — responsive web works on mobile; native doubles development cost
-- Permit-to-equipment timeline mapping — requires project phase detection; complex
+**Defer to v2.1+:**
+- One-time 3-day trial extension (auto-granted) — worth building only after seeing conversion metrics
+- Onboarding checklist widget — nice to have after core onboarding works
+- Smart conversion triggers based on usage analytics — requires analytics foundation first
+- Custom search scheduling — depends on custom search proving valuable in v2.0
 
 ### Architecture Approach
 
-HeavyLeads is a data ingestion and enrichment system, not a typical SaaS app. The pipeline-first architecture is mandatory: scrape globally into a tenant-agnostic lead pool, enrich through sequential stages (parse -> geocode -> equipment tag -> deduplicate), then match to tenants as the final step. This means scraping cost is O(sources), not O(sources × tenants). A new tenant immediately sees historical leads matching their profile with no additional scraping cost.
-
-The monorepo structure (`apps/web/` + `packages/db/` + `packages/core/` + `packages/scrapers/`) allows the web app and scraper workers to share Drizzle schemas and business logic while deploying as separate processes. The web app runs on Railway as a Next.js service; scraper workers run as separate long-running Railway services (bypassing Vercel's 60s function timeout). All communicate through shared PostgreSQL and Redis.
+The v2.0 features integrate cleanly with the existing component structure because the codebase already has all foundational pieces in place: the subscription table has trial columns, `getActiveSubscription()` already accepts trialing status, the onboarding wizard uses an extensible `STEPS` array, the scraper pipeline is stateless and idempotent, and the existing `getFilteredLeads()` function already accepts the parameters needed for custom search. The primary architectural changes are a direct-DB-write trial creation (bypassing plugin checkout), two new wizard steps by extending the STEPS array, a Vercel Cron GET endpoint replacing `node-cron`, and a fire-and-forget + polling mechanism for first-login scraping.
 
 **Major components:**
-1. **Scraper Workers** — Crawlee-based workers per source type (permits, bid boards, news), fetch and store raw HTML/JSON only, then enqueue enrichment jobs; each source type has its own BullMQ queue
-2. **Enrichment Pipeline** — sequential stages: Parser -> Geocoder -> Equipment Tagger -> Contact Extractor -> Deduplicator; each stage is independently retryable via separate queues
-3. **Tenant Matcher** — after enrichment, scores each lead against all tenant profiles and writes to `tenant_leads` join table; re-runs on tenant onboarding to backfill history
-4. **Lead Service + PostGIS** — tenant-scoped queries using ST_DWithin for radius filtering and array overlap for equipment type matching; sub-second with proper indexes
-5. **Job Scheduler** — BullMQ cron at 2 AM daily fans out source URLs to per-type queues; entire pipeline takes 1-4 hours depending on source count
-6. **Next.js Web App** — App Router with server components for dashboard performance, API routes for tenant-scoped lead queries, webhook handlers for Stripe
+1. **Trial subscription creation** — new `createTrialSubscription()` server action writes directly to the subscription table with `status: "trialing"` and `trialEnd: now + 7 days`; no Stripe Checkout involved
+2. **Dashboard guard update** — `getActiveSubscription()` updated to exclude expired trials (`trialEnd < now`), handling all 5 subscription states: active, trialing, past_due, paused, canceled
+3. **Vercel Cron endpoint** — new `GET /api/cron/scrape` route with `CRON_SECRET` auth; existing pipeline code reused unchanged; `export const maxDuration = 300`
+4. **First-login trigger + polling** — `triggerFirstScrape()` server action fires pipeline async; client polls `/api/leads/count` every 10s; dashboard shows purposeful loading state until leads appear
+5. **Expanded onboarding wizard** — two new steps (StepCompanyDetails, StepTeamInvites) inserted into existing STEPS array; team invites are non-blocking client-side calls, not part of form schema
+6. **Custom search** — new `/dashboard/search` page calls existing `getFilteredLeads()` with geocoded user-specified location instead of HQ coordinates; no new query logic needed
 
 ### Critical Pitfalls
 
-1. **Municipality format chaos** — 20,000 permitting jurisdictions with zero standard format; build a scraper adapter framework with pluggable configs before writing any scrapers; start with 50-mile radius from customer HQ, not national coverage; investigate Shovels.ai API before building custom scrapers for every jurisdiction
+1. **createCustomerOnSignUp user/org mismatch** — `createCustomerOnSignUp: true` creates a user-level Stripe customer during signup, but subscriptions use `referenceId: organizationId`. This is almost certainly the current production blocker (confirmed via GitHub #3670, #2440). Fix: set `createCustomerOnSignUp: false`; create organization-level customers explicitly during onboarding.
 
-2. **Silent scraper failures delivering stale leads** — scrapers return HTTP 200 but collect garbage after site redesigns; implement data quality gates (validate record counts against historical baselines, alert on <80% expected volume), HTML fingerprinting to detect DOM changes, and freshness tracking (`scraped_at`, `source_last_updated`) on every lead record from day one
+2. **Setup fee charged during free trial checkout** — the existing `getCheckoutSessionParams` adds `PRICES.setupFee` for "first-time" subscribers. A trial IS a first-time subscription, so this fires and charges users $499+ for what was marketed as a free trial. Fix: exclude setup fee line items when the checkout is for a trial; charge setup fee only at trial-to-paid conversion via `onTrialEnd` callback.
 
-3. **Multi-tenant data leakage** — missing `WHERE tenant_id` clauses between competing equipment dealers in the same region would be catastrophic; enforce isolation at both database level (PostgreSQL RLS) AND application level (middleware sets tenant context on every request); prefix ALL cache keys with `tenant:{id}:`; write automated cross-tenant isolation tests that run in CI
+3. **Vercel Cron route must use GET, not POST** — Vercel Cron sends GET requests only. The existing `/api/scraper/run` is POST-only. A new `/api/cron/scrape` GET route with `CRON_SECRET` auth is required; the existing POST route remains for user-triggered runs with session auth.
 
-4. **Legal exposure from ToS-protected sources** — conflating "publicly visible" with "legally free to scrape"; classify every data source before building scrapers: Tier 1 (government permit portals — safe), Tier 2 (news sites — respect robots.txt), Tier 3 (Dodge/ConstructConnect — requires licensing, do not scrape); robots.txt compliance must be a hard framework constraint
+4. **First-login + cron race condition creates duplicate leads** — if a new user signs up near the daily cron time, both triggers run concurrently. The non-permit dedup uses check-then-insert (not atomic), causing duplicates. Fix: add a unique constraint on `(source_id, external_id)` and use `onConflictDoNothing()` for all lead inserts.
 
-5. **Infrastructure cost overrun from headless browsers** — each Playwright instance consumes 200-500MB RAM; classify sites upfront: static HTML (Cheerio — 10x cheaper), JS-rendered (Playwright — necessary but expensive), API-available (cheapest); track cost-per-lead by source; never use headless browsers for sites that don't require JavaScript rendering
+5. **trialStart/trialEnd stay NULL in database** — known Better Auth Stripe plugin bug (GitHub #4046, #2345): trial date fields fail to persist after checkout. The recommended direct-DB-write approach sidesteps this bug, but must be verified after implementation with a direct database query.
 
 ## Implications for Roadmap
 
-The architecture research prescribes the build order explicitly: data model before application, auth before features, scraping pipeline before enrichment, enrichment before tenant matching. The pitfalls research adds the constraint that legal review, adapter framework design, and tenant isolation architecture must happen before the first line of scraper code is written. The features research confirms a clear MVP scope: permit scraping + equipment inference + lead feed is the minimum to validate the core value proposition.
+Based on the dependency graph across all four research files, five phases emerge naturally. The critical path is: fix the Stripe production blocker first, then automate lead generation, then polish the user experience.
 
-### Phase 0: Legal and Data Source Strategy
+### Phase 1: Stripe Fix + Free Trial Foundation
+**Rationale:** The Stripe customer creation bug is a production blocker — no new user can successfully complete signup. Everything else in v2.0 is built on top of a working auth/billing flow. The free trial system must be designed in this same phase because it touches the same subscription table and guard logic as the Stripe fix; splitting them would require touching the same files twice.
+**Delivers:** Working signup flow; 7-day no-CC trial via direct DB write; trial countdown banner; trial expiry gate redirecting to billing; trial-aware billing page showing "X days remaining" vs. "Trial expired" vs. "Active" states
+**Addresses:** Free trial (table stakes), trial countdown, trial expiry gate, updated billing page
+**Avoids:** createCustomerOnSignUp mismatch (Pitfall 1), setup fee during trial (Pitfall 11), trial status guard failures (Pitfall 2), trialStart/trialEnd NULL bug (Pitfall 3), trial abuse (Pitfall 4)
 
-**Rationale:** PITFALLS.md is unambiguous — data source legal classification must happen before development begins. Scraping Dodge or ConstructConnect without a license is a recoverable mistake technically but potentially business-ending legally.
-**Delivers:** Written data source inventory with tier classification (government/news/commercial); legal sign-off on scraping strategy; list of Tier 1 permit sources to target for launch geography; decision on Shovels.ai API vs. direct permit scraping
-**Avoids:** Legal exposure (Pitfall 3), scraping commercial aggregators without licenses
-**Research flag:** Not needed — this is a legal/business task, not an engineering research question
+### Phase 2: Vercel Cron + Automated Lead Generation
+**Rationale:** The core value proposition of HeavyLeads — fresh leads delivered automatically — does not work in production because `node-cron` is dead code on Vercel. This phase replaces it with Vercel Cron and adds the first-login trigger that ensures new users see leads within minutes of completing onboarding. This is the single highest-impact v2.0 feature for trial conversion. It must come before onboarding expansion so that the improved onboarding flows into a populated dashboard.
+**Delivers:** `vercel.json` Vercel Cron daily job at 06:00 UTC; secured `/api/cron/scrape` GET endpoint; first-login trigger with fire-and-forget + polling; "Finding leads near [city]..." loading state; on-demand refresh button with rate limiting; informative empty state
+**Addresses:** Automatic daily lead refresh (table stakes), first-login lead trigger (differentiator), on-demand refresh (table stakes), empty state (table stakes)
+**Avoids:** Unauthenticated scraper endpoint (Pitfall 9), cron timeout from sequential adapters (Pitfall 5), first-login + cron race condition duplicates (Pitfall 6), blocking first login on scraper completion (Pitfall 10)
 
-### Phase 1: Foundation (Data Layer + Auth + Infrastructure)
+### Phase 3: Professional Onboarding Expansion
+**Rationale:** With a working trial flow and a populated dashboard, the onboarding wizard can be safely extended. Existing users need migration defaults for new schema fields. The team invite step depends on the `sendInvitationEmail` callback being wired into auth.ts. Logo upload uses client-side direct upload to Vercel Blob, sidestepping the 4.5MB serverless body limit. This phase comes after automated lead generation because the improved onboarding immediately flows into the first-login trigger — users completing the new 5-step wizard land on a dashboard that starts populating leads right away.
+**Delivers:** 5-step onboarding wizard (company details, location, equipment, radius, team invites); company logo upload via Vercel Blob client-side direct upload; team invite flow with email; accept-invite page; team management settings page; migration for existing v1 users with sensible defaults
+**Addresses:** Company details step (table stakes), team invite differentiator, logo upload
+**Avoids:** Image upload body size limit (Pitfall 8), onboarding expansion breaking existing users (Pitfall 7), invite step blocking onboarding completion (Architecture anti-pattern 3)
 
-**Rationale:** Everything downstream depends on getting the data model right. Tenant isolation and the canonical lead schema cannot be retrofitted cheaply. The ARCHITECTURE.md build order confirms this must come first.
-**Delivers:** PostgreSQL + PostGIS schema (tenants, users, leads, tenant_leads join table, scrape_sources config); Drizzle ORM setup with migrations; Better Auth multi-tenant auth (org creation, RBAC, invitation workflows); Docker Compose local dev environment; skeleton Next.js app with authenticated routes
-**Addresses:** Auth + multi-tenancy (P1 feature), company onboarding wizard shell
-**Avoids:** Multi-tenant data leakage (Pitfall 5) — RLS policies and tenant-aware middleware must be in this phase; lead deduplication data model failures (Pitfall 6) — canonical Project entity designed here
-**Research flag:** Standard patterns — PostgreSQL RLS, Better Auth organization plugin, Drizzle migrations are well-documented
+### Phase 4: Guided Tour + Pre-Expiry Emails
+**Rationale:** The guided tour depends on the dashboard having leads to show — it must fire after the first-login trigger has populated data. Pre-expiry emails depend on a working trial system (Phase 1) and a reliable daily cron (Phase 2) to trigger the checks. Both are conversion-maximizing polish features that have no upstream blockers other than Phases 1-3 being complete.
+**Delivers:** nextstepjs dashboard tour (6 steps: lead feed, lead card, filters, lead detail, bookmarks, saved searches); `hasSeenTour` flag preventing re-trigger; pre-expiry conversion emails at 3 days, 1 day, and expiry via Resend and daily cron check
+**Addresses:** Guided dashboard tour (differentiator), pre-expiry conversion emails (table stakes)
+**Avoids:** Showing tour on empty dashboard (dependency failure), emails blocking other flows on Resend errors
 
-### Phase 2: Scraping Infrastructure + Permit Pipeline
-
-**Rationale:** No leads without a data pipeline. This is the hardest and most iterative component. The scraper adapter framework must be established before ANY scrapers are built — this is the Phase 1 pitfall trap.
-**Delivers:** Crawlee-based scraper framework with pluggable adapter pattern; BullMQ job queue with per-source queues; raw data storage (filesystem/S3 reference); initial permit scrapers for 3-5 jurisdictions in launch geography; basic Parser -> Geocoder -> Equipment Tagger -> Deduplicator pipeline; BullMQ scheduler with 2 AM daily cron
-**Addresses:** Permit data scraping pipeline (P1), equipment-need inference rule-based (P1 differentiator)
-**Avoids:** Municipality format chaos (Pitfall 1) — adapter framework prevents monolithic scraper brittleness; scraper maintenance burden (Pitfall 4) — configuration-driven from day one; infrastructure cost overrun (Pitfall 7) — tiered HTTP vs headless browser strategy implemented here; raw data store anti-pattern — raw HTML preserved for reprocessing
-**Research flag:** Needs deeper research — specific permit portal platforms (Accela, CivicPlus) and their scraping characteristics; Shovels.ai API vs direct scraping cost-benefit for launch geography
-
-### Phase 3: Lead Feed + Tenant Dashboard
-
-**Rationale:** Once raw leads are flowing through the pipeline, connect them to tenant-specific views. This is where the product becomes usable by an actual sales rep.
-**Delivers:** Tenant Matcher (scores and assigns leads to tenants based on equipment profile + radius); lead feed dashboard with TanStack Table (list view, age badges, equipment type + geographic filtering); lead detail view with project info, location map, equipment needs, source attribution; company onboarding wizard (HQ location, equipment types, service radius); tenant onboarding backfill job (new tenant sees historical leads immediately); data freshness indicators throughout UI
-**Addresses:** Daily lead feed dashboard (P1), geographic filtering (P1), equipment type filtering (P1), lead detail view (P1), company onboarding wizard (P1), data freshness indicators (P1)
-**Avoids:** Silent scraper failures (Pitfall 2) — freshness indicators surface stale data to users; UX pitfall of showing every scraped record as a lead — quality threshold filtering applied in Tenant Matcher
-**Research flag:** Standard patterns for Next.js dashboard UIs; PostGIS ST_DWithin queries are well-documented
-
-### Phase 4: Lead Management + Email Notifications
-
-**Rationale:** Core table-stakes features that make the daily workflow complete for a sales rep. These depend on the lead feed being stable and validated.
-**Delivers:** Lead status tracking (New/Contacted/Won/Lost) with persistence; daily email digest (transactional email via Postmark/SendGrid — NOT application server SMTP); saved searches and bookmarks; basic keyword search and filtering; data quality monitoring dashboard (scraper success rates, lead counts by source, freshness metrics)
-**Addresses:** Lead status tracking (P1), daily email digest (P1), saved searches (P2), search + filtering (P2)
-**Avoids:** Silent scraper failures (Pitfall 2 — full monitoring/alerting as Phase 4 deliverable); SMTP deliverability gotcha (use transactional email service from day one)
-**Research flag:** Standard patterns — BullMQ for email job scheduling, Postmark/SendGrid integration is well-documented
-
-### Phase 5: Billing + Operational Readiness
-
-**Rationale:** Billing and operational tooling are important but not blockers for validating the core product value. Per ARCHITECTURE.md build order, these come last.
-**Delivers:** Stripe subscription billing with "one-time setup fee + recurring" model via Checkout; webhook handlers for subscription lifecycle events (activated, cancelled, payment failed); admin dashboard for scraper health monitoring (red/yellow/green per source); source management UI (add/remove scrape sources via config); security hardening (API rate limiting, audit logging for contact data access, generic scraper user-agent strings)
-**Addresses:** Subscription billing, operational monitoring
-**Avoids:** Infrastructure cost overrun (cost-per-lead dashboard); security mistakes (Pitfall — no rate limiting on HeavyLeads API itself); scraper identification via user-agent headers
-**Research flag:** Stripe Checkout for "setup fee + subscription" pattern may need verification — confirm line items configuration for combined one-time + recurring in a single Checkout session
-
-### Phase 6: Multi-Source Expansion + Enrichment Upgrade
-
-**Rationale:** After Phase 1-5 validate the core value prop with permit data, expand data sources. Deduplication engine becomes critical once 2+ sources are active.
-**Delivers:** Bid board scrapers (second data source); news/press release scrapers (third source); multi-signal deduplication engine (geocoded address proximity + project type + entity name fuzzy matching); outreach talking points (template-based for v1, LLM-powered upgrade path); lead export (CSV) for CRM import; advanced filtering (value range, date range, project phase)
-**Addresses:** Bid board scraping (P2), news scraping (P2), multi-source deduplication (P2), outreach talking points (P2), lead export (P2)
-**Avoids:** Lead deduplication failures (Pitfall 6) — multi-signal dedup vs URL-only; deduplication anti-pattern (merge-not-delete strategy retains all source references)
-**Research flag:** Fuzzy matching library selection (fuzz.js vs others) and deduplication threshold tuning requires experimentation; outreach talking point templates need domain expert review
+### Phase 5: Custom Search
+**Rationale:** Custom search is the most architecturally independent feature — it reuses `getFilteredLeads()` with overridden coordinates and adds a new `/dashboard/search` page. It is listed last because it requires the pipeline to be working reliably (Phase 2) before adding user-initiated pipeline runs, and requires the trial system (Phase 1) for proper rate limiting differentiation between trial and paid users.
+**Delivers:** `/dashboard/search` page with location/keyword/project type form; geocoded location override into existing `getFilteredLeads()`; search result display reusing lead-card component; "save this search" extending saved_searches table with `searchLat`/`searchLng`/`searchLocation` columns; rate limits (3/day trial, 10/day paid) with remaining quota shown in UI
+**Addresses:** Custom search (differentiator)
+**Avoids:** Duplicate query logic (Architecture anti-pattern 5), unbounded custom searches causing scraper rate bans
 
 ### Phase Ordering Rationale
 
-- Phase 0 before any code: Legal exposure is the only unrecoverable pitfall. Everything else can be fixed with engineering time.
-- Phase 1 before Phase 2: The data model and tenant isolation architecture cannot be retrofitted. Schema changes at Phase 3 cost 10x more than getting them right at Phase 1.
-- Phase 2 before Phase 3: The dashboard is meaningless without data. The scraping pipeline is the highest-risk component and needs the most iteration time.
-- Phase 3 before Phase 4: Email notifications and lead management features require a working, validated lead feed. Building them in parallel risks building on an unstable foundation.
-- Phase 5 last (except billing): Billing and ops tooling are necessary for launch but do not affect product-market fit validation. Core product value is proven before payment infrastructure is complete.
-- Phase 6 after Phase 1-5: Multi-source expansion requires a stable foundation. Deduplication logic built before sources are proven wastes effort.
+- Phase 1 must come first: it fixes the production blocker and establishes the trial data model that all subsequent phases depend on for guard logic and user state.
+- Phase 2 comes before onboarding expansion: the expanded wizard flows directly into the first-login trigger — users must land on a populating dashboard, not an empty one. Building onboarding before fixing the scraper would create an improved flow that still ends in disappointment.
+- Phase 3 depends on Phase 1 being complete (trial active before onboarding completes) and Phase 2 being complete (first-login trigger available to fire after onboarding).
+- Phase 4 depends on Phase 3 (tour requires leads from first-login trigger) and Phase 1 (trial dates for email scheduling).
+- Phase 5 is independent of Phases 3-4 and could be parallelized with Phase 4 if resources allow.
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2 (Scraping Infrastructure):** Specific permit portal platforms (Accela, CivicPlus, OpenGov) have different scraping characteristics and anti-bot postures. Research specific platforms for the 5-10 launch jurisdiction targets. Also research Shovels.ai API pricing at expected query volume vs. cost of direct scraping.
-- **Phase 5 (Billing):** Stripe Checkout line items for combined one-time setup fee + recurring subscription in a single session — verify this is supported in the current Stripe API version before designing the billing flow.
+Phases likely needing deeper research during planning:
+- **Phase 2:** First-login trigger has several edge cases (concurrent cron + user trigger, Vercel function timeout, partial pipeline results) that warrant specific task-level design before implementation. The idempotency strategy (unique constraint vs. `scraper_runs` table) should be decided before writing code. Also verify the actual Vercel plan to confirm Hobby vs. Pro limits.
+- **Phase 2:** Pipeline duration on production Vercel is unknown until tested. Must instrument adapters with timing logs after first deployment. If total duration exceeds 240s (leaving 60s buffer under the 300s Hobby limit), parallelize adapters with `Promise.allSettled()` before declaring the phase complete.
 
-Phases with well-documented patterns (skip deep research):
-- **Phase 1 (Foundation):** PostgreSQL RLS, Better Auth organization plugin, Drizzle migrations, and Docker Compose local dev are thoroughly documented with many production examples.
-- **Phase 3 (Lead Feed):** Next.js App Router dashboard patterns, TanStack Table, PostGIS ST_DWithin queries — all well-documented with production examples.
-- **Phase 4 (Lead Management + Email):** BullMQ cron jobs and transactional email integration (Postmark/SendGrid) are standard patterns with extensive documentation.
+Phases with standard patterns (skip research-phase):
+- **Phase 1:** The Stripe fix and direct-DB-write trial approach are fully specified in ARCHITECTURE.md with exact code samples. No new research needed.
+- **Phase 3:** Onboarding wizard extension via STEPS array is documented in ARCHITECTURE.md. Vercel Blob client upload pattern is from official docs.
+- **Phase 4:** nextstepjs integration is a straightforward provider + steps config. Pre-expiry email is a standard cron-triggered Resend call.
+- **Phase 5:** Custom search is a parameter override on an existing query function with low implementation risk.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Official release blogs, npm registry, and vendor documentation for every technology. Version compatibility matrix verified across all packages. |
-| Features | MEDIUM-HIGH | Direct competitor research from public pricing/feature pages. Equipment dealer persona inferred from project requirements and industry context rather than primary customer research. |
-| Architecture | HIGH | Pipeline-first data architecture corroborated by Shovels.ai, ConstructionMonitor, and AWS multi-tenant SaaS guides. PostGIS patterns verified against official documentation. |
-| Pitfalls | HIGH | Multiple corroborating sources across legal, technical, and domain dimensions. hiQ v. LinkedIn ruling and CFAA analysis from legal sources. Multi-tenant leakage patterns from OWASP and production post-mortems. |
+| Stack | HIGH | All new packages verified against official Vercel and library documentation. nextstepjs is MEDIUM confidence (newer library), but driver.js fallback is HIGH confidence. |
+| Features | HIGH | Free trial UX patterns verified across multiple B2B SaaS sources. Competitor analysis confirms table stakes. Feature prioritization is grounded in dependency analysis, not opinion. |
+| Architecture | HIGH | Integration patterns verified against Better Auth GitHub issues, Vercel Cron docs, and existing codebase analysis. Direct-DB trial approach confirmed safe by subscription table schema inspection. |
+| Pitfalls | HIGH | All critical pitfalls traced to specific GitHub issues and official documentation. These are confirmed bugs and constraints, not speculative risks. |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **Customer persona validation:** The equipment dealer persona (daily lead feed, morning review workflow, high-touch sales culture) is inferred from project requirements and indirect research. Should be validated with 3-5 conversations with actual equipment sales reps at New Tec or similar dealers before committing to UX decisions.
-
-- **Specific jurisdiction scraper complexity:** Research confirms the 20,000-jurisdiction problem exists but cannot predict the specific complexity of target jurisdictions (Iowa counties, South Dakota, surrounding metros) without actually examining those portal systems. Phase 2 should begin with a 2-3 day scraper spike against actual target jurisdictions before estimating scope.
-
-- **Shovels.ai API cost-benefit:** The research recommends investigating Shovels.ai (170M+ permits, API-first) as a potential alternative or supplement to direct permit scraping. Pricing at expected query volumes (covering target geography) has not been evaluated. This could significantly simplify Phase 2 if Shovels covers the target markets at acceptable cost.
-
-- **Equipment taxonomy definition:** The equipment-need inference engine requires a well-designed taxonomy mapping project types to equipment categories. This is described as "the product intelligence" but the actual taxonomy has not been researched. Domain expert input (from New Tec or similar) is required before implementing the rule-based tagging system.
-
-- **Data freshness SLA:** The product value proposition depends on "fresh daily leads." What does "fresh" mean for the target customer? Same-day? Within 24 hours? Within 48 hours? This defines scraper scheduling requirements (2 AM daily cron may not be sufficient for some use cases) and is a customer research question, not an engineering one.
+- **nextstepjs React 19 compatibility**: MEDIUM confidence. The library is designed for Next.js App Router but its maturity with React 19 is unverified at scale. Validate in a spike before committing to it in Phase 4. Driver.js is the confirmed fallback with zero React dependency.
+- **Pipeline actual duration on production Vercel**: Unknown until Phase 2 runs in production. Must instrument each adapter with timing logs. If total duration exceeds 240s, parallelize adapters before declaring Phase 2 complete.
+- **Better Auth Stripe plugin version pinning**: The direct-DB-write trial approach is safe at current plugin version (`^1.5.5`) but could break on upgrades if the schema changes. Pin `@better-auth/stripe` version in package.json during Phase 1 and document the constraint.
+- **Resend free tier limits**: Free tier is 100 emails/day. Pre-expiry emails (3 per trial user) plus team invites plus daily digest could approach this limit at scale. Verify the Resend plan before Phase 4 ships.
+- **Organization-scoped trial timing**: The `onCustomerCreate` hook fires during signup, but the recommended direct-DB-write trial approach fires at onboarding completion (after org creation). This is the correct order — verify the organization ID is available in the `completeOnboarding()` action context before writing the subscription row.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Next.js 16 release blog](https://nextjs.org/blog/next-16) — Turbopack stability, React 19.2, React Compiler
-- [Crawlee GitHub + docs](https://crawlee.dev/js) — v3.16.x feature set, anti-bot, TypeScript-native
-- [BullMQ docs + npm](https://docs.bullmq.io) — v5.71.x, job dependencies, cron scheduling
-- [Better Auth docs](https://better-auth.com/) — v1.5.5, organization plugin, Auth.js merger
-- [Drizzle ORM npm](https://www.npmjs.com/package/drizzle-orm) — v0.45.1 confirmed
-- [Zod npm](https://www.npmjs.com/package/zod) — v4.3.6, Drizzle integration
-- [Tailwind CSS v4 release blog](https://tailwindcss.com/blog/tailwindcss-v4) — Rust engine, CSS-native config
-- [PostGIS ST_DWithin documentation](https://postgis.net/documentation/tips/st-dwithin/) — spatial radius filtering
-- [WorkOS multi-tenant architecture guide](https://workos.com/blog/developers-guide-saas-multi-tenant-architecture) — shared-schema patterns
-- [BullMQ architecture docs](https://docs.bullmq.io/guide/architecture) — job queue architecture
-- [OWASP Multi-Tenant Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html) — isolation patterns
+- [Vercel Cron Jobs documentation](https://vercel.com/docs/cron-jobs) — configuration, expressions, security, idempotency
+- [Vercel Cron Management](https://vercel.com/docs/cron-jobs/manage-cron-jobs) — CRON_SECRET, duration limits, no-retry behavior, production-only
+- [Vercel Function Duration](https://vercel.com/docs/functions/configuring-functions/duration) — Hobby 300s max, Pro 800s max with Fluid Compute
+- [Vercel Blob documentation](https://vercel.com/docs/vercel-blob) — server and client upload patterns, 4.5MB limit workaround
+- [Vercel Blob Server Upload](https://vercel.com/docs/vercel-blob/server-upload) — server action pattern, BLOB_READ_WRITE_TOKEN, 4.5MB limit
+- [Better Auth Stripe plugin](https://better-auth.com/docs/plugins/stripe) — freeTrial config, subscription lifecycle, organization support
+- [Better Auth Organization Plugin](https://better-auth.com/docs/plugins/organization) — inviteMember API, sendInvitationEmail, invitation acceptance flow
+- [Stripe trial periods](https://docs.stripe.com/billing/subscriptions/trials) — trial_period_days, payment_method_collection, trial_settings
+- [Stripe free trial checkout](https://docs.stripe.com/payments/checkout/free-trials) — no-card trial setup
 
 ### Secondary (MEDIUM confidence)
-- [Building Radar lead generation tools comparison](https://www.buildingradar.com/construction-blog/best-lead-generation-tools-for-construction-sales-2025) — competitor feature analysis
-- [Dodge Construction Central](https://www.construction.com/solutions/dodge-construction-central/) — feature set and pricing
-- [ConstructConnect](https://www.constructconnect.com/) — feature set and pricing
-- [Construction Monitor](https://www.constructionmonitor.com/) — permit data approach
-- [Shovels.ai API](https://www.shovels.ai/api) — permit data aggregation, potential Tier 1 source
-- [Drizzle vs Prisma benchmarks (Bytebase)](https://www.bytebase.com/blog/drizzle-vs-prisma/) — ORM performance comparison
-- [Neon pricing breakdown (Vela)](https://vela.simplyblock.io/articles/neon-serverless-postgres-pricing-2026/) — cost modeling
-- [Railway vs Render comparison (Northflank)](https://northflank.com/blog/railway-vs-render) — hosting decision
-- [hiQ v. LinkedIn case analysis (ZwillGen)](https://www.zwillgen.com/alternative-data/hiq-v-linkedin-wrapped-up-web-scraping-lessons-learned/) — legal precedent
-- [Silent scraper failures analysis (Medium)](https://medium.com/@arman-bd/web-scraping-monitoring-the-silent-data-quality-crisis-no-one-talks-about-9949a2b5a361) — 37% silent failure statistic
-- [LLM web scraping maintenance reduction (ScrapeGraph)](https://scrapegraphai.com/blog/llm-web-scraping) — 70% maintenance reduction claim
-- [Web scraping challenges 2025 (GroupBWT)](https://groupbwt.com/blog/challenges-in-web-scraping/) — anti-bot, legal, maintenance landscape
+- [GitHub #4631: Trial without checkout](https://github.com/better-auth/better-auth/issues/4631) — confirmed no official API for checkout-free trials; closed "not planned"
+- [GitHub #4046: trialStart/trialEnd not updated](https://github.com/better-auth/better-auth/issues/4046) — trial dates NULL bug confirmed
+- [GitHub #6863: hasEverTrialed uses wrong subscription](https://github.com/better-auth/better-auth/issues/6863) — trial abuse prevention bug via findOne vs findMany
+- [GitHub #3670: Duplicate customers on signup](https://github.com/better-auth/better-auth/issues/3670) — createCustomerOnSignUp conflict
+- [GitHub #2440: subscription.upgrade creates new customer](https://github.com/better-auth/better-auth/issues/2440) — duplicate customer creation
+- [NextStep.js](https://nextstepjs.com/) — product tour library for Next.js App Router, declarative steps API
+- [OnboardJS: 5 best React onboarding libraries 2026](https://onboardjs.com/blog/5-best-react-onboarding-libraries-in-2025-compared) — library comparison confirming driver.js as proven fallback
+- Various B2B SaaS sources on free trial UX best practices (Userpilot, Maxio, Encharge) — directional, not precise on statistics
+
+### Tertiary (LOW confidence)
+- Competitor analysis sources (PlanHub, ConstructConnect comparisons) — directional only; competitor features may have changed since publication
 
 ---
-*Research completed: 2026-03-13*
+*Research completed: 2026-03-15*
 *Ready for roadmap: yes*

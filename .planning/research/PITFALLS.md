@@ -1,320 +1,389 @@
-# Pitfalls Research
+# Pitfalls Research: v2.0 Feature Additions to HeavyLeads
 
-**Domain:** Web scraping / lead generation SaaS for heavy machinery industry
-**Researched:** 2026-03-13
-**Confidence:** HIGH (multiple corroborating sources across legal, technical, and domain dimensions)
+**Domain:** Adding free trials, expanded onboarding, automated scraping, and async triggers to an existing Better Auth + Stripe + Vercel + Neon SaaS application
+**Researched:** 2026-03-15
+**Confidence:** HIGH (verified against official docs, GitHub issues, and codebase analysis)
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: Municipality Data Format Chaos (The 20,000 Jurisdiction Problem)
+### Pitfall 1: createCustomerOnSignUp Creates User-Level Customer, But Subscriptions Are Organization-Level
 
 **What goes wrong:**
-There are over 20,000 permitting jurisdictions in the U.S. Each uses different formats, different web platforms (Accela, CivicPlus, OpenGov, custom portals, even paper-only systems), different field names, and different data structures. Teams assume they can build a "universal scraper" and discover after months that every county is a snowflake. Building a scraper for Des Moines tells you nothing about how Sioux Falls structures its permits. Companies like Shovels and BuildZoom have spent years and significant capital building scraping infrastructure for ~2,000 jurisdictions -- and that is still only 10% coverage.
+The existing `auth.ts` has `createCustomerOnSignUp: true` which creates a Stripe customer linked to the **user** table (`user.stripeCustomerId`). But subscriptions use `referenceId: organizationId` and `customerType: "organization"` (see `subscribe-button.tsx` line 22-23). This mismatch means: (a) the user-level customer is created on signup but never actually used for checkout, (b) when `subscription.upgrade` is called with `customerType: "organization"`, the plugin creates a **second** Stripe customer for the organization, and (c) the user-level customer sits orphaned in Stripe. This is almost certainly the root cause of the production `createCustomerOnSignUp` failure -- the plugin tries to create a user-level customer during signup, but the organization may not exist yet (it is created during the signup flow), causing a timing issue.
 
 **Why it happens:**
-Developers prototype against a few municipality sites, see it working, and extrapolate. The first 10 scrapers come easily; the next 100 reveal the true variance. There is no federal standard for permit data -- each Authority Having Jurisdiction (AHJ) uses its own forms, even within the same state.
+`createCustomerOnSignUp` fires during the auth signup hook, which runs before the organization is fully created and linked. The plugin's `organization: { enabled: true }` setting means organizations should get their own customers, but the user-level customer creation fires first regardless.
 
 **How to avoid:**
-- Start with a narrow geographic scope tied to actual customer locations (e.g., 50-mile radius from New Tec's HQ in Sioux Center, IA). Do NOT attempt national coverage at launch.
-- Build a scraper framework with pluggable adapters, not monolithic scrapers. Each municipality gets its own adapter that normalizes into a shared schema.
-- Prioritize jurisdictions by customer demand, not by ease of scraping.
-- Investigate aggregated data APIs first (Census Building Permits Survey, HUD SOCDS database, Shovels API, BuildZoom data) before building custom scrapers for individual municipalities.
-- Accept that some jurisdictions will require manual data entry or semi-automated approaches.
+1. Set `createCustomerOnSignUp: false` in `auth.ts` -- the user-level customer is never used since subscriptions are organization-scoped.
+2. Instead, create the Stripe customer for the organization explicitly during onboarding completion or when the user first hits the billing page, using `getCustomerCreateParams` on the organization.
+3. Alternatively, keep `createCustomerOnSignUp: true` but configure `getCustomerCreateParams` to handle the organization context, and add error handling that gracefully fails if the Stripe API call errors during signup.
 
 **Warning signs:**
-- "It works for these 5 cities" being treated as evidence of national scalability.
-- No shared data schema defined before building individual scrapers.
-- Scraper count growing without a corresponding framework for managing them.
-- Zero coverage tracking (what percentage of target municipalities are actually scraped).
+- Stripe dashboard shows customers with no subscriptions (orphaned user-level customers)
+- Signup works locally but fails in production (different Stripe key environments)
+- Error logs show "Failed to create customer" during registration
 
-**Phase to address:**
-Phase 1 (Foundation/MVP). The scraper architecture and adapter pattern must be established before the first scraper is built. Geographic scope constraints must be a day-one product decision.
+**Phase to address:** Phase 1 (Fix Stripe customer creation) -- this is the production blocker
 
 ---
 
-### Pitfall 2: Silent Scraper Failures Delivering Stale or Empty Leads
+### Pitfall 2: Free Trial Status Not Recognized by Dashboard Guards
 
 **What goes wrong:**
-Scrapers return HTTP 200 but yield zero or garbage data. A website redesigns, a CSS class changes, a CAPTCHA appears, pagination shifts to infinite scroll -- and the scraper keeps "running successfully" while collecting nothing. Analysis of 3 million+ scraping requests found 37% of "silent fails" could have been prevented with request-level validation. The lead feed shows yesterday's data (or worse, last week's data) and nobody notices until a sales rep calls a lead and discovers the project broke ground two months ago. For a product whose core value proposition is "fresh daily leads," stale data destroys trust permanently.
+The existing `getActiveSubscription()` in `billing.ts` already checks for `status: "trialing"` alongside `status: "active"`. This is correct. However, the **real danger** is in the trial-to-paid conversion flow. When a trial ends and the user has not provided payment info, Stripe sets the subscription status to `past_due` or `canceled` or `paused` (depending on `trial_settings.end_behavior.missing_payment_method`). The `getActiveSubscription()` function does NOT check for `past_due` or `paused`, so the user gets hard-locked out of the dashboard with no explanation -- the billing page shows "Subscribe" instead of "Your trial ended, add payment to continue."
 
 **Why it happens:**
-Teams monitor scraper uptime (is the job running?) but not scraper output quality (is the data correct and fresh?). Website changes are silent and gradual. There is no alerting on data volume drops, schema violations, or content staleness.
+Developers implement free trials by adding the trial creation flow but forget to handle the **five** distinct states a trial subscription moves through: `trialing` -> `past_due` (payment failed) -> `active` (payment succeeded) OR `canceled` (gave up) OR `paused` (no payment method). The existing binary guard logic (`subscription ? show dashboard : show subscribe`) does not distinguish between "never subscribed," "trial expired," and "payment failed."
 
 **How to avoid:**
-- Implement data quality gates at the pipeline level: validate record counts per source against historical baselines, reject runs that produce <80% of expected volume, alert on schema violations (missing required fields).
-- Build freshness tracking into every lead record: `scraped_at`, `source_last_updated`, `lead_age_days`. Surface staleness in the UI.
-- Set up HTML fingerprinting or DOM structure checksums on target sites. When the structure changes, alert immediately rather than silently failing.
-- Run daily data quality reports: records scraped by source, null/empty field rates, deduplication hit rates.
-- Implement a "confidence score" per lead that degrades with age and incomplete data.
+1. Extend `getActiveSubscription()` or create a separate `getSubscriptionState()` function that returns a discriminated union: `{ state: "none" | "trialing" | "active" | "past_due" | "trial_expired" | "canceled" }`.
+2. Update the dashboard layout guard and billing page to show different UI for each state.
+3. Configure `trial_settings.end_behavior.missing_payment_method: "pause"` in Stripe so trial-ended subscriptions are recoverable without creating a new subscription.
+4. Add a grace period banner: "Your trial ended 2 days ago. Add payment to keep your leads."
 
 **Warning signs:**
-- No monitoring dashboard for scraper output (only job scheduler health).
-- Lead counts from a source suddenly drop to zero with no alert.
-- Users reporting "I already knew about that project" -- leads are too old to be useful.
-- No `scraped_at` timestamps in the data model.
+- QA tests pass for "new user signs up and sees dashboard" but nobody tests "trial ends, user returns next week"
+- Billing page always shows "Subscribe Now" even for users who had a trial
+- Users report being asked to pay the setup fee again after trial ends
 
-**Phase to address:**
-Phase 1 (MVP) for basic freshness tracking; Phase 2 (Monitoring/Quality) for comprehensive observability. Data quality monitoring is not a nice-to-have -- it is as critical as the scraping itself.
+**Phase to address:** Phase 1 (Free trial implementation) -- must be designed from the start, not bolted on
 
 ---
 
-### Pitfall 3: Legal Exposure from Scraping Terms-of-Service-Protected Sources
+### Pitfall 3: better-auth/stripe Plugin trialStart/trialEnd Fields Stay NULL in Database
 
 **What goes wrong:**
-The team scrapes bid boards, permit sites, or news outlets that explicitly prohibit scraping in their Terms of Service. While the hiQ v. LinkedIn ruling (Ninth Circuit, 2022) established that scraping publicly accessible data likely does not violate the CFAA, breach-of-contract claims based on ToS violations are a separate and very real legal risk. LinkedIn won summary judgment on breach of contract even after losing the CFAA argument. Additionally, scraping private/paywalled sources like Dodge Construction Network or BidClerk without a data license is both legally risky and ethically problematic.
+Known bug (GitHub issues #4046, #2345): When a checkout session completes with a free trial, the `@better-auth/stripe` plugin fails to persist `trial_start` and `trial_end` to the subscription table. The webhook handler's `onSubscriptionUpdated` function omits these fields from the SQL UPDATE. This means `subscription.trialStart` and `subscription.trialEnd` are always NULL in the database, even while the user is actively trialing.
 
 **Why it happens:**
-Teams conflate "publicly visible on the web" with "legally free to scrape." The hiQ ruling gets misinterpreted as blanket permission. Nobody reads the ToS of target sites. The distinction between public government data (generally safe) and private aggregator data (legally protected) is not understood.
+The plugin extracts `trial_start` and `trial_end` from the Stripe subscription object but the update payload does not include them. The code does `new Date(subscription.trial_start * 1000)` which returns `Invalid Date` when `trial_start` is undefined (it evaluates `undefined * 1000 = NaN`).
 
 **How to avoid:**
-- Categorize every data source into tiers:
-  - **Tier 1 (Safe):** Government-published public data (SAM.gov, county permit portals, Census data). No ToS restrictions on public records.
-  - **Tier 2 (Caution):** News sites, press releases. Check robots.txt, respect rate limits, attribute sources.
-  - **Tier 3 (License Required):** Dodge, BidClerk/ConstructConnect, DemandStar. These are commercial data providers -- negotiate data licensing agreements or use their APIs.
-- Implement robots.txt compliance in the scraper framework as a hard constraint, not optional.
-- Maintain a legal review checklist for each new data source before building a scraper.
-- Log all scraping activity with timestamps, request rates, and source URLs for compliance audit trails.
+1. Check the installed `@better-auth/stripe` version. If the fix (PR #5847 and related) is not in the installed version, apply a workaround.
+2. Workaround: Use the `onSubscriptionCreated` / `onSubscriptionUpdated` callbacks in the stripe plugin config to manually persist trial dates from the raw Stripe event.
+3. Alternative workaround: Query the Stripe API directly for trial dates rather than relying on the database fields.
+4. Test by creating a trial subscription, then immediately querying the database to verify `trial_start` and `trial_end` are populated.
 
 **Warning signs:**
-- No legal review process for new data sources.
-- Scraping Dodge/BidClerk/ConstructConnect without a license.
-- robots.txt parsing not implemented in the scraper framework.
-- No differentiation between government data and commercial aggregator data.
+- `SELECT trial_start, trial_end FROM subscription WHERE status = 'trialing'` returns all NULLs
+- "Days remaining in trial" UI shows NaN or negative numbers
+- Trial abuse prevention (`hasEverTrialed`) fails because it checks `trialStart` which is always NULL
 
-**Phase to address:**
-Phase 0 (Pre-development/Planning). Data source classification must happen before any code is written. Legal counsel review recommended for the data source strategy.
+**Phase to address:** Phase 1 (Free trial implementation) -- must be validated before shipping trial feature
 
 ---
 
-### Pitfall 4: Scraper Maintenance Consuming All Engineering Time
+### Pitfall 4: Trial Abuse via hasEverTrialed Check Using Wrong Subscription Set
 
 **What goes wrong:**
-The industry standard is that developers spend 20% of time building scrapers and 80% maintaining them. With municipality sites, this ratio is worse because government websites redesign without warning, switch CMS platforms, or go offline for maintenance. At 10-15 municipality scrapers, maintenance is manageable. At 100+, it becomes a full-time job. At 500+, it requires a dedicated team. The product roadmap stalls because all engineering capacity is absorbed by keeping existing scrapers alive.
+Known bug (GitHub issue #6863): The `@better-auth/stripe` plugin's trial abuse prevention is broken. When checking if a user has already used a trial, it calls `findOne()` to get a subscription record, then checks only that single record for trial history. If the user has a canceled subscription (with trial data) and a new incomplete subscription, `findOne()` may return the new incomplete one, which has no trial data. The system then incorrectly grants another free trial.
 
 **Why it happens:**
-Scrapers are built with brittle CSS selectors and XPath queries tied to specific DOM structures. No abstraction layer exists between the raw HTML and the normalized data. Each scraper is a one-off script rather than a configuration of a shared framework. There is no automated detection of when a scraper breaks -- someone discovers it manually days or weeks later.
+The plugin uses `findOne()` instead of `findMany()` when checking trial history, and the database may return any matching record (not necessarily the one with trial data).
 
 **How to avoid:**
-- Build scrapers as declarative configurations, not imperative scripts. Define what data to extract (field mappings), not how to navigate the DOM step-by-step.
-- Investigate LLM-powered scraping for unstructured or frequently-changing sites. Studies show LLM scrapers require 70% less maintenance than traditional scrapers when sites redesign.
-- Use tiered scraping strategies: static HTTP requests for simple sites (cheap), headless browsers only for JavaScript-rendered sites (expensive), API integrations where available (best).
-- Establish a scraper health dashboard that tracks success rate, data volume, and last-successful-run per source. Red/yellow/green status indicators.
-- Budget engineering capacity: plan for at least 40% of scraper-related engineering time being maintenance, not new development.
+1. Check if the installed version includes the fix for issue #6863.
+2. If not fixed, implement a custom trial abuse check: query ALL subscriptions for the organization's `referenceId` and check if ANY has `trialStart` set or `status = 'trialing'`.
+3. Add a `has_used_trial` boolean column to `company_profiles` or `organization` table as a denormalized flag, set it when trial starts, never unset it.
+4. The denormalized flag approach is actually more robust than relying on the plugin's check.
 
 **Warning signs:**
-- Every scraper is a standalone Python script with hardcoded selectors.
-- No shared scraper framework or adapter pattern.
-- Scraper failures discovered by users ("my feed is empty") not by monitoring.
-- Feature work blocked because developers are firefighting broken scrapers.
+- Users report being able to sign up for multiple free trials
+- Support tickets from users who accidentally got a second trial and were charged
 
-**Phase to address:**
-Phase 1 (Foundation). The scraper framework with adapter pattern, monitoring, and configuration-driven approach must be the first technical investment. Building scrapers on a bad foundation means rewriting everything later.
+**Phase to address:** Phase 1 (Free trial implementation) -- prevention must be in place before launch
 
 ---
 
-### Pitfall 5: Multi-Tenant Data Leakage
+### Pitfall 5: Vercel Cron Scraper Hits 300s Timeout With All Adapters Running Sequentially
 
 **What goes wrong:**
-Company A sees Company B's leads, saved searches, or custom filters. In a competitive industry where heavy machinery dealers in the same region are direct competitors, this is a trust-destroying, potentially lawsuit-triggering event. The most common cause is a missing `WHERE tenant_id = ?` clause in a database query. More subtle causes include shared cache keys without tenant prefixes (cache poisoning), async context leaks where a global variable holding tenant_id gets overwritten by a concurrent request, and connection pool contamination.
+The existing `pipeline.ts` runs adapters **sequentially** in a `for...of` loop (line 30-33). With 8+ adapters (Austin permits, Dallas permits, Atlanta permits, SAM.gov bids, ENR news, Construction Dive, PRNewswire, Google dorking), each involving HTTP scraping + geocoding with 25ms throttle per record, the total pipeline time easily exceeds 300 seconds (5 minutes). Vercel Functions have a default maxDuration of 300s on all plans (with Fluid Compute enabled). On the Hobby plan, 300s is also the maximum. On Pro, the maximum is 800s but requires explicit `maxDuration` configuration.
 
 **Why it happens:**
-Row-Level Security (RLS) policies look correct in testing with 1-2 tenants but fail under concurrency. Application code bypasses the ORM and runs raw queries without tenant filters. Developers test with a single tenant account and never verify isolation. Caching layers (Redis, in-memory) use keys like `leads:recent` instead of `tenant:123:leads:recent`.
+The `node-cron` scheduler in `scheduler.ts` is designed for a long-running Node.js process -- it will not work on Vercel's serverless infrastructure at all. Developers often miss that Vercel cron jobs are HTTP-triggered, not process-resident. The existing scheduler code is a dead end on Vercel.
 
 **How to avoid:**
-- Enforce tenant isolation at the database level (PostgreSQL Row-Level Security) AND the application level (middleware that sets tenant context on every request). Defense in depth -- never rely on a single layer.
-- Use a tenant-aware ORM scope/middleware that automatically appends `tenant_id` filters to every query. Make it impossible to write a query without tenant context.
-- Prefix ALL cache keys with `tenant:{id}:`. Audit cache usage patterns.
-- Write integration tests that specifically verify tenant isolation: create data for Tenant A, authenticate as Tenant B, assert zero results.
-- Include cross-tenant access checks in CI/CD pipeline as blocking tests.
+1. Replace `scheduler.ts` (node-cron) with a Vercel Cron configuration in `vercel.json` that hits an API route.
+2. Set `export const maxDuration = 300;` (or up to 800 on Pro) on the cron route handler.
+3. Break the pipeline into chunks: run permit adapters in one cron invocation, bid/news adapters in another, or use a fan-out pattern where the cron job dispatches individual adapter runs via `fetch()` to separate endpoints.
+4. Alternatively, run adapters in parallel with `Promise.allSettled()` instead of sequentially, which dramatically reduces wall-clock time (network I/O is the bottleneck, not CPU).
+5. Add per-adapter timeouts using `AbortController` so one slow/hung scraper does not kill the whole pipeline.
 
 **Warning signs:**
-- No automated tenant isolation tests in the test suite.
-- Cache keys that do not include tenant identifiers.
-- Any raw SQL queries in the codebase without tenant_id in the WHERE clause.
-- No middleware or ORM scope that enforces tenant context globally.
+- Vercel logs show 504 FUNCTION_INVOCATION_TIMEOUT on the cron endpoint
+- Some adapters run but later ones never execute (they were cut off)
+- Pipeline "succeeds" locally but fails in production
 
-**Phase to address:**
-Phase 1 (Foundation). Tenant isolation must be baked into the data layer from the first database migration. Retrofitting tenant isolation into an existing schema is extremely expensive and error-prone.
+**Phase to address:** Phase 3 (Automated scraping via Vercel Cron)
 
 ---
 
-### Pitfall 6: Lead Deduplication Failures Creating Noise
+### Pitfall 6: First-Login Scraper Trigger Races with Cron Job, Causing Duplicate Leads
 
 **What goes wrong:**
-The same construction project appears as 3-5 separate leads because it was found in a permit database, a bid board, a news article, and a Google search result. Each source describes the project differently: "Walmart Distribution Center - Phase 2" vs. "New warehouse construction, 500k sqft, Highway 75" vs. "Walmart expansion project - Sioux City." Without robust deduplication, the daily feed becomes noisy, untrustworthy, and eventually ignored by sales reps. Duplicate outreach to the same prospect by multiple reps is embarrassing and unprofessional.
+The plan is to trigger scraping on a user's first login so they see leads immediately. If a new user signs up at 05:55 UTC, their first-login trigger starts the pipeline. At 06:00 UTC (the scheduled cron time), the daily cron also starts the pipeline. Both are running concurrently against the same adapters and writing to the same `leads` table. While the dedup logic handles permit records (upsert on `sourceId + permitNumber`), non-permit records (bids, news, deep-web) use a check-then-insert pattern (lines 200-222 in `pipeline.ts`) which is NOT atomic -- two concurrent runs can both pass the "does this record exist?" check before either inserts.
 
 **Why it happens:**
-There is no universal identifier for construction projects. Names, addresses, and descriptions vary across sources. Naive deduplication (exact string match) misses 80%+ of duplicates. Fuzzy matching is hard to tune -- too aggressive and you merge distinct projects, too conservative and duplicates persist. The problem compounds over time as the database grows.
+The current dedup for non-permit records is: (1) SELECT to check existence, (2) INSERT if not found. This is a classic TOCTOU (time-of-check-time-of-use) race condition. In concurrent execution, both processes can execute step 1 before either reaches step 2, resulting in duplicate records.
 
 **How to avoid:**
-- Design a canonical "Project" entity from day one with fields for normalized address, project type, estimated value range, and key entities (owner, GC).
-- Implement multi-signal deduplication: geocoded address proximity + project type + value range + entity name similarity. Projects within 0.25 miles of the same type and similar description are likely duplicates.
-- Use a merge-not-delete strategy: when duplicates are detected, merge them into a single enriched record that retains all source references. More sources = higher confidence.
-- Build deduplication into the ingestion pipeline, not as a post-hoc cleanup job.
-- Surface "possible duplicate" flags for human review in ambiguous cases rather than auto-merging.
+1. Add a distributed lock mechanism: use a database advisory lock or a simple `pipeline_runs` table with a lock row. Before starting a pipeline run, attempt an atomic INSERT/UPDATE. If the lock is already held, skip or queue.
+2. Fix the non-permit dedup to use an atomic upsert: add a unique constraint on `(source_id, title)` or `(source_id, external_id)` in the leads table, then use `onConflictDoNothing()` instead of the check-then-insert pattern.
+3. For first-login triggers specifically, use an idempotency key (e.g., `organization_id + date`) and store it in a `scraper_runs` table. Check the key before starting.
+4. Rate-limit: if a pipeline ran for this organization within the last hour, skip the first-login trigger.
 
 **Warning signs:**
-- No canonical Project entity -- leads stored as flat records from individual sources.
-- Deduplication logic based only on exact string matching.
-- Users complaining about "seeing the same project multiple times."
-- No address geocoding in the data pipeline.
+- Dashboard shows duplicate leads with identical titles but different IDs
+- `leads` table row count spikes by 2x after adding first-login triggers
+- Users see the same lead twice in their feed
 
-**Phase to address:**
-Phase 1 (Data Model) for the canonical entity design; Phase 2 (Data Pipeline) for the deduplication engine. The data model decision is foundational and cannot be deferred.
+**Phase to address:** Phase 3 (First-login trigger implementation)
 
 ---
 
-### Pitfall 7: Underestimating Infrastructure Costs for Headless Browser Scraping
+### Pitfall 7: Expanding Onboarding Wizard Breaks Existing Users' Saved State
 
 **What goes wrong:**
-Many municipality permit portals and bid boards are JavaScript-heavy SPAs that require headless browser rendering (Playwright/Puppeteer). Each headless browser instance consumes 200-500MB RAM and significant CPU. At 50 concurrent scraping jobs, infrastructure costs balloon to hundreds of dollars per month. At scale (100+ municipalities scraped daily), costs can reach thousands per month -- potentially exceeding subscription revenue from early customers.
+The current `completeOnboarding` server action does a single `db.insert(companyProfiles)` with all fields at once. There is no partial-save mechanism. If the wizard is expanded from 3 steps to 5+ steps (adding company details, team invites, dashboard tour), and a user abandons mid-wizard, they have NO saved progress. Worse: if the onboarding schema validation changes (new required fields), existing users who completed onboarding with the old schema will have NULL values for the new fields. The dashboard layout checks `profile.onboardingCompleted` but not whether new fields are populated, so existing users bypass the new onboarding steps entirely.
 
 **Why it happens:**
-Teams prototype with a single Puppeteer instance on a dev machine and do not project infrastructure costs at production scale. Every site gets scraped with a headless browser even when a simple HTTP request would suffice. No cost-per-lead metrics are tracked.
+The current design treats onboarding as atomic: all-or-nothing. Adding steps to an atomic wizard without a migration strategy for existing users creates a schema mismatch.
 
 **How to avoid:**
-- Classify target sites by rendering requirements: static HTML (use HTTP requests with BeautifulSoup/Cheerio -- 10x cheaper), JavaScript-rendered (use headless browser -- necessary but expensive), API-available (use API -- cheapest and most reliable).
-- Use lightweight headless browser alternatives (Lightpanda claims 10x less resource usage than Chromium-based browsers).
-- Implement browser instance pooling and reuse rather than spawning fresh instances per job.
-- Track cost-per-lead metrics by source. If a municipality source costs $50/month in infrastructure but produces 2 leads/month, deprioritize it.
-- Consider scraping-as-a-service providers (ScrapingBee, Zyte, Bright Data) for the long tail of sites that are expensive to scrape in-house.
+1. Add a migration that sets sensible defaults for new fields on existing `company_profiles` rows.
+2. Consider an `onboardingVersion` field on `company_profiles` (e.g., `v1` for current 3-step, `v2` for expanded). Dashboard guard checks `onboardingVersion >= CURRENT_VERSION` instead of just `onboardingCompleted`.
+3. For mid-wizard abandonment: either keep the atomic approach (user must complete all steps) or add per-step persistence using PATCH updates to the company_profiles row.
+4. The atomic approach is simpler and fine for 5 steps -- do not over-engineer partial saves for a short wizard.
 
 **Warning signs:**
-- All scrapers use headless browsers regardless of whether the target site needs JavaScript rendering.
-- No infrastructure cost tracking per source/scraper.
-- Monthly cloud bills growing faster than subscriber revenue.
-- No tiered scraping strategy (HTTP vs headless vs API).
+- Existing users never see the new company details/team invite steps
+- New required fields are NULL for all pre-v2 organizations
+- Onboarding page redirects to dashboard immediately for existing users
 
-**Phase to address:**
-Phase 1 (Architecture) for the tiered scraping strategy; Phase 2 (Scale) for cost optimization. The architecture must support multiple scraping backends from the start.
+**Phase to address:** Phase 2 (Onboarding expansion)
+
+---
+
+### Pitfall 8: Image Upload for Company Logo Hits Vercel's 4.5MB Body Size Limit
+
+**What goes wrong:**
+Adding a company logo upload to onboarding means sending an image through a server action or API route. Vercel serverless functions have a hard 4.5MB request body limit. A user uploading a high-resolution company logo (common for print-quality logos) will get a `413 FUNCTION_PAYLOAD_TOO_LARGE` error with no helpful message.
+
+**Why it happens:**
+Server actions in Next.js process the request body on the server, which goes through the Vercel Function. The 4.5MB limit applies before the application code even runs.
+
+**How to avoid:**
+1. Use client-side direct upload to a storage service (Vercel Blob, Cloudinary, or S3 with presigned URLs). The image never touches the serverless function.
+2. With Vercel Blob: generate a client upload token via server action, then upload directly from the browser using `@vercel/blob/client`.
+3. Validate file size and type on the client BEFORE upload: max 2MB, accept only PNG/JPG/WebP/SVG.
+4. Resize/compress on the client using Canvas API or a library like `browser-image-compression` before upload.
+5. Store only the URL in `company_profiles.logo`, not the binary data.
+
+**Warning signs:**
+- Upload works locally (no Vercel body size limit in dev) but fails in production
+- Large logo files silently fail with a generic error
+- QA only tests with small test images
+
+**Phase to address:** Phase 2 (Onboarding expansion -- company details step)
+
+---
+
+### Pitfall 9: Cron Endpoint Exposed Without Authentication
+
+**What goes wrong:**
+The existing `/api/scraper/run` route (line 7 in route.ts: `// TODO: Add auth guard before production use`) has NO authentication. Anyone who discovers this URL can trigger the scraper pipeline, causing unnecessary geocoding API calls, database writes, and potential rate limit exhaustion on scraped sources. When converting to a Vercel Cron endpoint, the same vulnerability persists unless `CRON_SECRET` is explicitly checked.
+
+**Why it happens:**
+The route was built for development convenience and never secured. Converting it to a cron endpoint requires adding the `CRON_SECRET` check, but it is easy to forget because the cron config in `vercel.json` feels like it "owns" the route.
+
+**How to avoid:**
+1. Add `CRON_SECRET` environment variable to Vercel project settings.
+2. Add authorization check as the first line of the cron route handler: `if (request.headers.get('authorization') !== \`Bearer ${process.env.CRON_SECRET}\`) return new Response('Unauthorized', { status: 401 });`
+3. For the "on-demand refresh" and "first-login trigger" endpoints (which are user-initiated, not cron-initiated), use session-based auth instead of `CRON_SECRET`.
+4. Verify by trying to `curl` the endpoint without the header in production -- it should return 401.
+
+**Warning signs:**
+- Vercel logs show scraper runs at unexpected times
+- Rate limit errors from scraped data sources
+- Unusual spikes in geocoding API costs
+
+**Phase to address:** Phase 3 (Automated scraping) -- must be done before deploying the cron route
+
+---
+
+### Pitfall 10: First-Login User Sees Empty Dashboard for 30+ Seconds While Scraper Runs
+
+**What goes wrong:**
+After onboarding, the user is redirected to billing, subscribes (or starts trial), then lands on the dashboard. The first-login trigger fires the scraper pipeline, which takes 30-120+ seconds to complete. During this entire time, the dashboard shows "No leads found" or a loading spinner. The user's first impression of the product -- the moment they should see value -- is a blank screen.
+
+**Why it happens:**
+The scraper pipeline is inherently slow (HTTP requests to external sources + geocoding). If the first-login trigger runs synchronously or the UI waits for it, the user experience is terrible. If it runs in the background, the user sees an empty state.
+
+**How to avoid:**
+1. **Do NOT block the dashboard on scraper completion.** Show a first-time user experience instead: "We are finding leads for you. This usually takes 1-2 minutes. You will see leads appear as we find them."
+2. Use an optimistic approach: pre-seed with a small number of demo/sample leads relevant to the user's equipment types and location, clearly labeled as "sample leads."
+3. Implement a polling mechanism or SSE (Server-Sent Events) on the dashboard that auto-refreshes the lead list as new leads are inserted.
+4. Fire the scraper trigger as early as possible -- ideally right after onboarding completes (before the user even reaches billing), so leads are accumulating while they go through the subscription flow.
+5. Prioritize one fast adapter first (e.g., SAM.gov bids which is an API call, not HTML scraping) to get some results quickly.
+
+**Warning signs:**
+- User analytics show high bounce rate on first dashboard visit
+- Support tickets: "I signed up but there are no leads"
+- Average time-to-first-lead exceeds 2 minutes
+
+**Phase to address:** Phase 3 (First-login trigger) -- UX design must be part of the trigger implementation, not an afterthought
+
+---
+
+### Pitfall 11: Setup Fee Charged During Free Trial Checkout
+
+**What goes wrong:**
+The existing `getCheckoutSessionParams` in `auth.ts` (lines 44-60) adds the `PRICES.setupFee` line item for first-time subscribers. When free trials are added, this logic will fire during trial checkout too, meaning the user gets charged $499 setup fee immediately even though the subscription itself is a free trial. This contradicts the "no credit card required" trial goal, or at minimum creates a terrible UX where "free trial" costs $499 upfront.
+
+**Why it happens:**
+The `isFirstTime` check (`!subscription?.stripeSubscriptionId`) is based on whether a subscription record exists, not on whether the user is starting a trial. A first trial IS a first-time subscription, so the setup fee gets added.
+
+**How to avoid:**
+1. Modify `getCheckoutSessionParams` to check whether the checkout is for a trial period. If `plan.freeTrial` is configured or the subscription will have a trial, exclude the setup fee line items entirely.
+2. Charge the setup fee only at the moment of trial-to-paid conversion, not at trial start. This can be done via a one-time invoice item added when the trial converts, using the `onTrialEnd` callback.
+3. Alternatively, if the business model requires the setup fee regardless of trial: make this crystal clear in the UI ("7-day free trial, then $499 setup + $199/mo") and require a payment method upfront despite the trial.
+
+**Warning signs:**
+- Stripe Checkout shows a $499 charge for what was marketed as a "free trial"
+- Trial conversion rate is near zero because users feel deceived
+- `payment_method_collection: "if_required"` does not work because there is a non-zero amount due
+
+**Phase to address:** Phase 1 (Free trial implementation)
 
 ---
 
 ## Technical Debt Patterns
 
-Shortcuts that seem reasonable but create long-term problems.
-
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Hardcoded CSS selectors per site | Fast initial scraper development | Every site change = manual fix. At 100+ scrapers, unmanageable | Never -- use configuration-driven selectors from day one |
-| Storing raw scraped HTML in the database | Easy debugging of parse failures | Database bloat, no structured querying, GDPR concerns with cached PII | MVP only -- move to structured storage within 2 months |
-| Single-database multi-tenancy without RLS | Simpler schema, faster development | One bad query = data leak between competitors | Acceptable for initial development, but add RLS before first customer |
-| Skipping address geocoding | Faster pipeline, no geocoding API costs | Cannot do radius-based filtering (core feature), cannot deduplicate by proximity | Never -- radius filtering is a core requirement |
-| Monolithic scraping scheduler (one cron job runs all scrapers) | Simple deployment | One broken scraper blocks all others, no per-source monitoring, no retry isolation | MVP only -- move to per-source job isolation within Phase 2 |
-| Storing leads without source provenance | Simpler data model | Cannot trace data quality issues to specific sources, cannot calculate per-source ROI, cannot comply with attribution requirements | Never -- source tracking is essential for debugging and trust |
+| Keeping `node-cron` scheduler alongside Vercel Cron | No code changes needed | Dead code that confuses future developers; `node-cron` never fires on Vercel | Never -- remove `scheduler.ts` when adding Vercel Cron |
+| Using `company_profiles.onboardingCompleted` boolean instead of version tracking | Simple guard logic | Cannot detect users who completed old onboarding and need new steps | Only for MVP if no existing users need migration |
+| Check-then-insert dedup for non-permit leads | Simpler than adding unique constraints | Race condition duplicates under concurrent pipeline runs | Never once concurrent runs exist (first-login + cron) |
+| Storing logo as base64 in `company_profiles.logo` text column | No external storage needed | Bloats database, slow queries, impossible to serve via CDN | Never -- always use object storage |
+| Hardcoding `PRICES.monthlySubscription` without trial variant | One price config | Cannot distinguish trial checkout from paid checkout in Stripe | Only if using Stripe's native `trial_period_days` on the same price |
+| Running all adapters in a single function invocation | Simple pipeline logic | Hits Vercel timeout limits as adapters are added | Acceptable until adapter count exceeds 3-4, then must split |
 
 ## Integration Gotchas
 
-Common mistakes when connecting to external services.
-
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Google Custom Search / Dorking | Exceeding Google's rate limits and getting the API key banned; also, relying on Google dorking queries for production-quality data | Use Google Custom Search API with proper rate limiting (100 queries/day free tier). Treat Google results as discovery signals, not primary data -- always verify against the source site |
-| Geocoding APIs (Google Maps, Mapbox) | Geocoding every address on every scrape run, burning through quota | Geocode once per unique address, cache aggressively. Budget for 10K-50K geocoding calls/month at launch |
-| SAM.gov Contract Data API | Treating SAM.gov as a real-time API; it has rate limits and data freshness lags | Use bulk data downloads for initial load, API for incremental updates. Expect 24-48 hour data lag. Handle API downtime gracefully |
-| Bid board sites (Dodge, ConstructConnect) | Scraping instead of licensing; assuming public display = free data | Contact sales for API/data feed licensing. These are commercial products with legal teams. Budget $500-2000/month for data access |
-| SMTP/Email services (for alerts) | Sending lead notification emails from application server IP; poor deliverability | Use a transactional email service (Postmark, SendGrid) from day one. Even for "we are not doing automated outreach," alert emails need to reach inboxes |
+| Better Auth + Stripe plugin | Assuming `createCustomerOnSignUp` works for organization-scoped subscriptions | Disable user-level auto-creation; create organization customers explicitly or via `getCustomerCreateParams` |
+| Better Auth + Stripe trials | Relying on `subscription.trialStart`/`trialEnd` database fields being populated | Verify with database query after first trial creation; implement fallback using Stripe API if fields are NULL |
+| Vercel Cron + Next.js | Using `node-cron` or in-process scheduling | Use `vercel.json` cron config pointing to API route handlers; in-process schedulers do not persist across serverless invocations |
+| Vercel Cron + Security | Deploying cron endpoint without `CRON_SECRET` check | Always validate `Authorization: Bearer ${CRON_SECRET}` header; Vercel sends this automatically |
+| Vercel Functions + File Upload | Routing file uploads through server actions | Use client-side direct upload (Vercel Blob client upload, S3 presigned URLs); server function only generates upload token |
+| Stripe Checkout + Free Trial | Setting `trial_period_days` without `payment_method_collection: "if_required"` | Must set both: `subscription_data.trial_period_days: 7` AND `payment_method_collection: "if_required"` for no-card trial |
+| Stripe Trial + Existing Setup Fee | Applying setup fee during trial checkout (user pays $499 setup for a free trial) | Conditionally exclude setup fee line items when trial is active; only charge setup fee at trial-to-paid conversion |
+| Neon PostgreSQL + Advisory Locks | Using `pg_advisory_lock` for pipeline concurrency control | Neon supports advisory locks, but connections may be pooled; use `pg_advisory_xact_lock` (transaction-scoped) to prevent lock leaks |
+| Better Auth organization plugin + sign-in | Expecting `activeOrganizationId` to persist across sessions | It resets to NULL on new sign-in; must call `organization.setActive()` after login (already handled in `sign-in-form.tsx` lines 54-59, but easy to break) |
 
 ## Performance Traps
 
-Patterns that work at small scale but fail as usage grows.
-
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| Full-table scans on leads table | Dashboard load time >5 seconds | Index on `tenant_id`, `created_at`, `geography` (PostGIS), `equipment_type` from the start | 50K+ leads per tenant |
-| Synchronous scraping in request handlers | User triggers "refresh" and gets a timeout | All scraping is async (job queue). Users see last-completed results, not live scraping | Immediately -- never do synchronous scraping |
-| Geocoding on every API request for radius filtering | Slow dashboard, geocoding quota burn | Store lat/lng on leads at ingestion time, use PostGIS `ST_DWithin` for radius queries | 1K+ leads with radius filter active |
-| Loading all leads into frontend memory | Browser freezes on large feeds | Server-side pagination, virtual scrolling. Default to 50 leads per page | 500+ leads visible to a single tenant |
-| Single scraping worker process | Backlog grows, freshness degrades | Horizontal scaling with job queue (Redis + worker pool). Each source as an independent job | 20+ data sources scraped daily |
+| Sequential adapter execution in pipeline | Cron job times out; some adapters never run | Use `Promise.allSettled()` for parallel execution with individual error isolation | At 5+ adapters or when any single adapter takes >60s |
+| Geocoding every record individually with 25ms throttle | Pipeline takes 10+ minutes for 200 records (200 * 25ms = 5s just in throttle delays, plus API latency) | Batch geocode, cache results, skip already-geocoded records, use bulk geocoding API | At 100+ records per pipeline run |
+| `getActiveSubscription()` called on every page load in dashboard layout | Extra DB query on every navigation; slow dashboard | Cache subscription status in session or use middleware-level check with short TTL | At 50+ concurrent users |
+| Loading all leads in dashboard without pagination | Dashboard page crashes or takes 10+ seconds | Implement cursor-based pagination from day 1; limit to 25 leads per page | At 500+ leads in database |
+| Re-running full pipeline on "Refresh Leads" button | User hammers button, causing rate limit bans on scraped sources | Debounce to max 1 run per hour per organization; queue instead of immediate execution | Any user who clicks it twice |
 
 ## Security Mistakes
 
-Domain-specific security issues beyond general web security.
-
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Exposing scraped contact information (emails, phone numbers) without access control | Privacy violation, potential CCPA liability. Contact info scraped from public sources still has privacy implications | Gate contact info behind authentication. Log access to contact details. Include data provenance. Provide opt-out mechanism |
-| Storing scraping proxy credentials in environment variables accessible to all services | Compromised proxy accounts, IP bans, loss of scraping infrastructure | Isolate proxy credentials in a secrets manager (Vault, AWS Secrets Manager). Only scraping workers need proxy access |
-| No rate limiting on the HeavyLeads API itself | Competitor could scrape YOUR lead database, extracting the aggregated value you built | Implement API rate limiting, require authentication for all endpoints, monitor for unusual access patterns |
-| Tenant admin can export all data including other tenants' analytics | Full data breach through a legitimate feature | Export functions must be tenant-scoped at the query level, not filtered in the application layer. Test exports specifically for cross-tenant leakage |
-| Scraper user-agent strings identifying the service | Target sites block the service by name, competitors learn scraping targets | Use generic user-agent strings. Do not include "HeavyLeads" in any scraper request headers |
+| Unauthenticated scraper endpoint (`/api/scraper/run`) | Attackers can trigger unlimited scraper runs, exhausting geocoding API quota and getting IP banned from data sources | Add CRON_SECRET check for cron invocations; add session auth for user-triggered runs |
+| Scraper API route using POST without CSRF protection | Third-party sites could trigger scraping via form submission | Validate Origin header or use GET with auth header for cron jobs (Vercel Cron sends GET by default) |
+| Team invite during onboarding without email verification | Invite spoofing; wrong people gain access to organization | Verify inviter's email first; use signed invitation tokens with expiry |
+| Free trial without email verification | Bot signups creating thousands of trial accounts | Require email verification before trial starts; add rate limiting on signup endpoint |
+| Storing Stripe webhook secret in client-accessible env | Anyone can forge webhook events | Prefix with server-only convention; verify `STRIPE_WEBHOOK_SECRET` is not in `NEXT_PUBLIC_*` vars |
 
 ## UX Pitfalls
 
-Common user experience mistakes in this domain.
-
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| Showing every scraped record as a "lead" without quality filtering | Feed is 80% noise (residential permits, irrelevant small projects). Sales reps stop checking within a week | Apply relevance scoring: filter by project value threshold, equipment keywords, commercial/industrial classification. Show only leads above a quality threshold |
-| No indication of lead freshness or source | Reps cannot tell if a lead is 2 days old or 2 months old, or whether it came from a permit filing vs. a news article | Show `discovered_at` date prominently. Badge with source type. Color-code by freshness (green <3 days, yellow 3-7 days, red >7 days) |
-| Requiring complex setup before showing any value | User signs up, has to configure 15 equipment types and draw a service area on a map before seeing anything | Show sample leads immediately using default settings (all equipment, 100-mile radius from entered ZIP code). Let users refine filters after seeing value |
-| Geographic filtering that does not match how dealers think | Dealers think in terms of "drive time" and "my territory," not perfect circles | Start with radius (simpler to implement) but label it as "approximate." Plan for drive-time polygons in future iterations. Let users adjust radius easily |
-| Dashboard that requires scrolling through hundreds of leads | Overwhelm and decision paralysis. Sales reps want 5-15 actionable leads per day, not a firehose | Default to "Top picks" view with 10-15 highest-relevance leads. Provide "All leads" as a secondary view. Allow sorting by relevance, freshness, proximity |
+| Empty dashboard on first visit after signup | User thinks product is broken; immediate churn | Show "Setting up your leads..." state with progress indicator; optionally show sample leads |
+| No distinction between "no subscription" and "trial expired" on billing page | Confused user who already trialed sees "Subscribe Now" with no context | Show trial-aware messaging: "Your trial ended on [date]. Subscribe to continue." |
+| Onboarding wizard with no progress persistence | User who accidentally closes tab must restart from step 1 | For a 5-step wizard this is annoying but tolerable; add a "picking up where you left off" UX if steps exceed 7 |
+| Trial countdown not visible on dashboard | User does not know trial is ending; sudden paywall surprise | Show persistent banner: "3 days left in your free trial -- Subscribe now" |
+| Setup fee surprise after free trial | User expected "free trial" to mean no upfront cost, then sees $499 setup fee at conversion | Clearly communicate pricing during trial signup: "After your 7-day trial: $499 setup + $199/mo" |
+| "Refresh Leads" button with no feedback | User clicks, nothing visible happens for 30+ seconds | Show immediate loading state, stream results as they arrive, or show "Refresh queued -- new leads will appear shortly" |
 
 ## "Looks Done But Isn't" Checklist
 
-Things that appear complete but are missing critical pieces.
-
-- [ ] **Scraper "works":** Often missing error handling for network timeouts, CAPTCHAs, rate limiting, and empty responses -- verify scraper produces correct data for 7 consecutive days before calling it done
-- [ ] **Radius filtering "works":** Often missing geocoding for leads without lat/lng coordinates, edge cases at radius boundary, and performance at scale -- verify with PostGIS spatial index and 10K+ records
-- [ ] **Multi-tenancy "works":** Often missing cross-tenant isolation tests, tenant-scoped caching, and tenant-scoped background job isolation -- verify with automated tests that authenticate as Tenant B and assert zero visibility of Tenant A data
-- [ ] **Lead detail view "works":** Often missing source attribution, freshness indicators, contact info completeness flags, and "already contacted" status tracking -- verify with real scraped data, not seed data
-- [ ] **Daily feed "works":** Often missing deduplication against previously shown leads, timezone handling for "daily" definition, and handling of sources that do not update daily -- verify feed does not show the same lead on consecutive days
-- [ ] **Equipment type filtering "works":** Often missing synonym handling (excavator vs. backhoe vs. trackhoe), partial matches, and equipment inference from project descriptions -- verify with real permit text that uses non-standard terminology
-- [ ] **Onboarding "works":** Often missing validation of service radius (what if they enter 500 miles?), equipment type coverage checking, and first-run experience with zero leads -- verify the empty-state UX when no leads match their criteria
+- [ ] **Free trial:** trialStart and trialEnd are actually populated in the database after checkout -- not NULL (known better-auth/stripe bug)
+- [ ] **Free trial:** Trial-to-paid conversion does not re-charge the setup fee if it was already paid (or intentionally does charge it if that is the business model)
+- [ ] **Free trial:** `hasEverTrialed` check works across subscription cancellation/recreation cycles (known bug with single-subscription query)
+- [ ] **Free trial:** Stripe `payment_method_collection: "if_required"` is set so trial does not require credit card
+- [ ] **Free trial:** `trial_settings.end_behavior.missing_payment_method` is configured (cancel vs pause)
+- [ ] **Free trial:** Setup fee line items are NOT included in trial checkout params
+- [ ] **Dashboard guard:** Handles all subscription statuses: active, trialing, past_due, paused, canceled, incomplete (not just active + trialing)
+- [ ] **Onboarding:** Existing v1 users with `onboardingCompleted = true` either see new steps or have new fields populated via migration
+- [ ] **Onboarding:** Company logo upload works in production (not just localhost) -- test with 3MB+ image
+- [ ] **Onboarding:** New onboarding schema validates correctly for both new and returning users
+- [ ] **Cron job:** `CRON_SECRET` is set in Vercel project environment variables, not just `.env.local`
+- [ ] **Cron job:** `maxDuration` is explicitly exported in the cron route handler (default 300s may not be enough)
+- [ ] **Cron job:** Vercel plan supports the cron frequency needed (Hobby = once per day only, and invocation can be anywhere in the specified hour)
+- [ ] **Cron job:** Route handler uses GET method (Vercel Cron sends GET requests, existing route only handles POST)
+- [ ] **First-login trigger:** Cannot duplicate-fire if user refreshes dashboard rapidly after signup
+- [ ] **First-login trigger:** Idempotent -- running twice for same org+date produces no duplicates
+- [ ] **Scraper route:** Authentication check is present (not just the TODO comment)
+- [ ] **Sign-in flow:** `organization.setActive()` still runs after sign-in (required to prevent infinite redirect loop per existing comment in sign-in-form.tsx)
+- [ ] **node-cron scheduler:** `scheduler.ts` is removed or clearly deprecated when Vercel Cron is implemented
 
 ## Recovery Strategies
 
-When pitfalls occur despite prevention, how to recover.
-
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Municipality format chaos (built scrapers without adapter pattern) | HIGH | Freeze new scraper development. Define canonical schema. Build adapter framework. Port existing scrapers one at a time. Budget 2-4 weeks |
-| Silent scraper failures (stale data served for weeks) | MEDIUM | Add monitoring immediately. Audit all data for freshness. Flag stale leads in UI. Send customer communication acknowledging the issue. Budget 1 week |
-| Legal exposure (scraped ToS-protected source) | HIGH | Stop scraping the source immediately. Consult legal counsel. Delete scraped data if demanded. Negotiate licensing or find alternative source. Unpredictable timeline |
-| Scraper maintenance overwhelming dev team | MEDIUM | Triage scrapers by value (leads produced per month). Deprecate low-value scrapers. Invest in framework/tooling. Consider LLM-assisted scraping. Budget 2-3 weeks |
-| Multi-tenant data leakage | CRITICAL | Immediately take service offline. Audit all queries. Implement RLS if not present. Add isolation tests. Notify affected customers per breach notification requirements. Engage legal. Budget 1-2 weeks minimum, plus reputational damage |
-| Deduplication failures (noisy feed) | LOW | Add deduplication as a pipeline step. Backfill existing records with geocoding. Run dedup across historical data. Budget 1-2 weeks |
-| Infrastructure cost overrun | MEDIUM | Audit scrapers by cost-per-lead. Convert headless browser scrapers to HTTP where possible. Batch low-priority scrapes to off-peak hours. Evaluate scraping-as-a-service for expensive targets. Budget 1 week |
+| Duplicate Stripe customers (user + org) | LOW | Bulk-delete orphaned user-level customers in Stripe dashboard; remove `stripeCustomerId` from user rows not linked to any subscription |
+| NULL trialStart/trialEnd in database | LOW | Backfill from Stripe API: fetch all subscriptions with `status: trialing`, update database rows with correct timestamps |
+| Duplicate leads from race condition | MEDIUM | Write a one-time dedup script that groups by `(source_id, title)`, keeps the oldest, deletes others; update `lead_sources` foreign keys |
+| Existing users missing new onboarding fields | LOW | Database migration with sensible defaults; optional prompt to "complete your profile" on next login |
+| Scraper endpoint abused before securing | MEDIUM | Rotate geocoding API keys; check for anomalous lead data inserted by attackers; add rate limiting to new secured endpoint |
+| Trial abuse (users getting multiple trials) | HIGH | Audit Stripe for customers with multiple trial subscriptions; cannot easily claw back; implement `has_used_trial` flag immediately to prevent future abuse |
+| Vercel cron timeout killing pipeline | LOW | Split into multiple cron jobs or parallelize adapters; no data loss since interrupted adapters simply do not write |
+| Setup fee charged during trial | MEDIUM | Refund affected customers via Stripe dashboard; fix getCheckoutSessionParams to exclude fee during trial; communicate with affected users |
 
 ## Pitfall-to-Phase Mapping
 
-How roadmap phases should address these pitfalls.
-
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Municipality format chaos | Phase 1: Define scraper adapter framework and canonical data schema before building any scrapers | First 3 scrapers use the adapter pattern; adding a 4th scraper takes <2 hours |
-| Silent scraper failures | Phase 1: Basic freshness tracking; Phase 2: Full monitoring/alerting dashboard | Simulated scraper failure triggers alert within 1 hour; stale leads flagged in UI |
-| Legal exposure | Phase 0: Data source classification and legal review before development begins | Written data source inventory with tier classification; legal sign-off on Tier 2+ sources |
-| Scraper maintenance burden | Phase 1: Configuration-driven scraper framework; Phase 3: LLM-assisted scraping exploration | Time-to-build new scraper <4 hours; maintenance occupies <30% of scraper engineering time |
-| Multi-tenant data leakage | Phase 1: Tenant isolation in data layer from first migration | Automated CI test suite with cross-tenant assertions; zero cross-tenant query results |
-| Lead deduplication | Phase 1: Canonical Project entity; Phase 2: Multi-signal dedup engine | Duplicate rate <5% in daily feed as measured by manual audit of 50 random leads |
-| Infrastructure cost overrun | Phase 1: Tiered scraping architecture; Phase 2: Cost tracking per source | Cost-per-lead dashboard; no single source >$25/lead in infrastructure costs |
+| createCustomerOnSignUp user/org mismatch | Phase 1 (Fix Stripe) | Signup creates org-level customer; no orphaned user customers in Stripe |
+| Trial status not recognized by guards | Phase 1 (Free trial) | Test all 5 subscription states in dashboard layout; each shows appropriate UI |
+| trialStart/trialEnd NULL in database | Phase 1 (Free trial) | After trial checkout, query DB and verify both fields are non-NULL timestamps |
+| Trial abuse via hasEverTrialed | Phase 1 (Free trial) | Cancel trial, create new subscription, verify trial is NOT offered again |
+| Setup fee during trial checkout | Phase 1 (Free trial) | Start trial checkout; verify Stripe Checkout page shows $0 due today |
+| Onboarding expansion breaks existing users | Phase 2 (Onboarding) | Login as v1 user; verify they see new onboarding steps or have defaults populated |
+| Image upload body size limit | Phase 2 (Onboarding) | Upload 3MB logo in production Vercel deployment; verify success |
+| Vercel cron timeout | Phase 3 (Automated scraping) | Run pipeline in production with all adapters; verify it completes within maxDuration |
+| First-login race condition duplicates | Phase 3 (First-login trigger) | Trigger first-login and cron simultaneously; verify no duplicate leads |
+| Cron endpoint authentication | Phase 3 (Automated scraping) | `curl` cron endpoint without auth header; verify 401 response |
+| Empty dashboard on first login | Phase 3 (First-login trigger) | Complete signup flow end-to-end; verify dashboard shows meaningful content within 10 seconds |
 
 ## Sources
 
-- [Web Scraping Challenges & Compliance in 2025 - GroupBWT](https://groupbwt.com/blog/challenges-in-web-scraping/)
-- [Web Scraping in 2025: What Worked, What Broke, What's Next - Oxylabs](https://oxylabs.io/blog/web-scraping-in-2025-what-worked-what-broke-whats-next)
-- [Top Web Scraping Challenges in 2025 - ScrapingBee](https://www.scrapingbee.com/blog/web-scraping-challenges/)
-- [State of Web Scraping 2026 - Browserless](https://www.browserless.io/blog/state-of-web-scraping-2026)
-- [Is Web Scraping Legal in 2025? - Browserless](https://www.browserless.io/blog/is-web-scraping-legal)
-- [hiQ Labs v. LinkedIn - Wikipedia](https://en.wikipedia.org/wiki/HiQ_Labs_v._LinkedIn)
-- [Ninth Circuit Holds Data Scraping is Legal - California Lawyers Association](https://calawyers.org/privacy-law/ninth-circuit-holds-data-scraping-is-legal-in-hiq-v-linkedin/)
-- [hiQ v. LinkedIn Wrapped Up: Web Scraping Lessons - ZwillGen](https://www.zwillgen.com/alternative-data/hiq-v-linkedin-wrapped-up-web-scraping-lessons-learned/)
-- [Multi-Tenant Leakage: When Row-Level Security Fails - Medium](https://medium.com/@instatunnel/multi-tenant-leakage-when-row-level-security-fails-in-saas-da25f40c788c)
-- [Data Isolation in Multi-Tenant SaaS - Redis](https://redis.io/blog/data-isolation-multi-tenant-saas/)
-- [OWASP Multi-Tenant Security Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Multi_Tenant_Security_Cheat_Sheet.html)
-- [Tenant Data Isolation: Patterns and Anti-Patterns - Propelius](https://propelius.ai/blogs/tenant-data-isolation-patterns-and-anti-patterns)
-- [Silent Failures of Data Scraping - World Business Outlook](https://worldbusinessoutlook.com/the-silent-failures-of-data-scraping-why-accuracy-starts-with-infrastructure/)
-- [Web Scraping Monitoring: The Silent Data Quality Crisis - Medium](https://medium.com/@arman-bd/web-scraping-monitoring-the-silent-data-quality-crisis-no-one-talks-about-9949a2b5a361)
-- [How to Reduce Lead Duplication in Construction Sales - Building Radar](https://www.buildingradar.com/construction-blog/how-to-reduce-lead-duplication-in-construction-sales-databases)
-- [Construction CRM Data Management - Insycle](https://blog.insycle.com/construction-crm-data-management)
-- [Shovels Building Permit Database / API](https://www.shovels.ai/api)
-- [National Building Permit Database - BuildZoom](https://www.buildzoomdata.com/)
-- [Construction Bid Aggregator Guide 2026 - ConstructionBids.ai](https://constructionbids.ai/blog/construction-bid-aggregator-complete-guide)
-- [LLM Web Scraping: How AI Models Replace Scrapers - ScrapeGraph](https://scrapegraphai.com/blog/llm-web-scraping)
-- [DOs and DON'Ts of Web Scraping 2026 - Medium](https://medium.com/@datajournal/dos-and-donts-of-web-scraping-e4f9b2a49431)
+- [Better Auth Stripe Plugin Docs](https://better-auth.com/docs/plugins/stripe) -- trial config, createCustomerOnSignUp, organization support
+- [GitHub #3670: Duplicate customers on signup](https://github.com/better-auth/better-auth/issues/3670) -- createCustomerOnSignUp overwrites existing customer
+- [GitHub #4046: trialStart/trialEnd not updated](https://github.com/better-auth/better-auth/issues/4046) -- trial dates NULL after checkout
+- [GitHub #2345: Invalid time value on webhook](https://github.com/better-auth/better-auth/issues/2345) -- Date(undefined * 1000) error
+- [GitHub #6863: hasEverTrialed uses wrong subscription set](https://github.com/better-auth/better-auth/issues/6863) -- trial abuse via findOne vs findMany
+- [GitHub #2440: subscription.upgrade creates new customer every time](https://github.com/better-auth/better-auth/issues/2440) -- duplicate customer creation
+- [GitHub #4957: Subscription updates not persisting](https://github.com/better-auth/better-auth/issues/4957) -- webhook persistence failures
+- [Stripe Docs: Free Trial Configuration](https://docs.stripe.com/billing/subscriptions/trials) -- trial_period_days, payment_method_collection, trial_settings
+- [Stripe Docs: Checkout Free Trials](https://docs.stripe.com/payments/checkout/free-trials) -- no-card trial setup
+- [Vercel Docs: Cron Job Management](https://vercel.com/docs/cron-jobs/manage-cron-jobs) -- CRON_SECRET, duration limits, idempotency, concurrency
+- [Vercel Docs: Function Duration Limits](https://vercel.com/docs/functions/configuring-functions/duration) -- Hobby 300s max, Pro 800s max with Fluid Compute
+- [Vercel KB: 4.5MB Body Size Limit](https://vercel.com/kb/guide/how-to-bypass-vercel-body-size-limit-serverless-functions) -- file upload workarounds
+- [Vercel Docs: Vercel Blob Server Upload](https://vercel.com/docs/vercel-blob/server-upload) -- client-side direct upload pattern
 
 ---
-*Pitfalls research for: HeavyLeads -- Web scraping / lead generation SaaS for heavy machinery*
-*Researched: 2026-03-13*
+*Pitfalls research for: HeavyLeads v2.0 feature additions*
+*Researched: 2026-03-15*

@@ -1,227 +1,481 @@
-# Stack Research
+# Stack Research: v2.0 Feature Additions
 
-**Domain:** Multi-tenant SaaS -- Web Scraping + Lead Intelligence Platform (Heavy Machinery)
-**Researched:** 2026-03-13
+**Domain:** SaaS lead generation platform -- new feature stack additions
+**Researched:** 2026-03-15
 **Confidence:** HIGH
 
-## Recommended Stack
+## Existing Stack (DO NOT re-add)
 
-### Core Technologies
+Already installed and validated in v1.0. Listed here only as integration reference:
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Next.js | 16.x | Full-stack framework (App Router) | Current stable. Turbopack default for 10x faster dev refresh, React 19.2 + React Compiler built in, Server Components for dashboard performance, API routes for webhook handlers. The SaaS boilerplate ecosystem is centered on Next.js -- more production templates, auth integrations, and billing examples than any alternative. |
-| TypeScript | 5.x | Type safety across entire codebase | Non-negotiable for a multi-service app where scrapers, API, and UI share types. Catches malformed lead data shapes at compile time, not in production. |
-| PostgreSQL | 16+ | Primary database | ACID transactions for billing/subscription data, JSONB columns for flexible scraped lead schemas (permits vary wildly by municipality), PostGIS extension for geographic radius filtering (core requirement), row-level security patterns for multi-tenancy. The project needs relational integrity (tenants, users, subscriptions, leads) AND flexible document storage (heterogeneous scrape results) -- PostgreSQL handles both. |
-| Redis | 7.x | Job queues, caching, rate limiting | Required by BullMQ for job scheduling. Also serves as scrape result cache (deduplication), rate limiter for outbound requests, and session store. |
-| Crawlee | 3.16.x | Web scraping framework | Purpose-built for exactly this use case. Unified API across HTTP (Cheerio), Playwright, and adaptive modes. Built-in request queuing, automatic retries, session management, proxy rotation, and anti-bot evasion. Eliminates months of building scraping infrastructure from scratch. TypeScript-native. |
-| Playwright | 1.58.x | Browser automation (via Crawlee) | Cross-browser headless rendering for JavaScript-heavy sites (bid boards, permit portals with dynamic search forms). Used through Crawlee's PlaywrightCrawler -- not directly. Preferred over Puppeteer because permit portals may use non-Chrome browsers and Playwright handles modern SPAs more reliably. |
+| Technology | Version | Role |
+|------------|---------|------|
+| Next.js | 16.1.6 | Framework |
+| React | 19.2.3 | UI |
+| Better Auth | ^1.5.5 | Auth + org plugin |
+| @better-auth/stripe | ^1.5.5 | Billing integration |
+| Stripe (stripe-js + stripe) | ^8.9.0 / ^20.4.1 | Payment processing |
+| Drizzle ORM | ^0.45.1 | Database ORM |
+| @neondatabase/serverless | ^1.0.2 | PostgreSQL driver |
+| Crawlee | ^3.16.0 | Web scraping |
+| react-hook-form + @hookform/resolvers | ^7.71.2 / ^5.2.2 | Form management |
+| zod | ^4.3.6 | Validation |
+| Resend + @react-email/components | ^6.9.3 / ^1.0.9 | Email |
+| shadcn/ui (base-ui) | ^1.3.0 | Component library |
+| sonner | ^2.0.7 | Toasts |
+| lucide-react | ^0.577.0 | Icons |
+| @vis.gl/react-google-maps | ^1.7.1 | Map display |
+| node-cron | ^4.2.1 | Scheduler (NOT usable on Vercel -- replaced by Vercel Cron) |
+| Vitest | ^4.1.0 | Testing |
 
-### Database & ORM
+---
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Drizzle ORM | 0.45.x | TypeScript ORM | 10-20% of raw SQL performance overhead (vs Prisma's 2-4x). ~7.4kb bundle (90% smaller than Prisma). No code generation step -- schema changes reflect instantly in the TypeScript API. SQL-like query builder means complex geo queries (PostGIS) and JSONB operations don't fight the ORM abstraction. |
-| Neon | -- | Managed PostgreSQL | Serverless PostgreSQL with autoscaling, database branching for dev/staging, scale-to-zero for cost efficiency in early stage. $0.35/GB-month storage after 2025 price cuts. Native Drizzle ORM support. Eliminates database ops overhead for a small team. |
-| Upstash Redis | -- | Managed Redis | HTTP-based API works in serverless/edge contexts (Next.js middleware). Pay-per-request pricing scales to zero when scraping isn't running. Free tier covers development. Supports BullMQ via standard Redis protocol. |
+## New Stack Additions
 
-### Authentication & Multi-Tenancy
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Better Auth | 1.5.x | Authentication framework | Auth.js/NextAuth merged under Better Auth's maintenance in Sept 2025. First-class organization plugin provides multi-tenant support out of the box: org creation, role-based access (owner/admin/member), invitation workflows, org switching. Built-in rate limiting, MFA, and password policies. Plugin architecture keeps core lightweight. Framework-agnostic if backend needs change later. |
-
-### Job Processing & Scheduling
-
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| BullMQ | 5.71.x | Job queue and scheduler | The standard for Node.js background jobs. Cron-based scheduling for daily scrape runs. Job dependencies for multi-stage pipelines (scrape -> parse -> enrich -> deduplicate -> store). Automatic retries with exponential backoff for flaky government sites. Rate limiting to respect robots.txt. Parent-child job relationships for complex scraping DAGs. Built on Redis Streams. |
-
-### Frontend & UI
+### 1. Vercel Blob -- Logo/Image Upload
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| Tailwind CSS | 4.2.x | Utility-first CSS | v4 is a Rust-based ground-up rewrite. 5x faster builds, 100x faster incremental. CSS-native @theme configuration (no JS config). The standard for modern React apps, especially with shadcn/ui. |
-| shadcn/ui | CLI v4 (Mar 2026) | Component library | Not a dependency -- copies components into your project for full control. Built on Radix UI primitives (accessible by default). CLI v4 adds AI agent compatibility, design system presets. Every SaaS boilerplate in the Next.js ecosystem uses shadcn/ui as the UI layer. |
-| TanStack Table | 8.x | Data table for lead dashboard | Headless, so it integrates with shadcn/ui styling. Sorting, filtering, pagination, column pinning built in. Handles 50K+ rows with virtualization. The lead feed dashboard is the core UI -- this is the right tool for it. |
-| Recharts | 3.8.x | Charts and data visualization | Declarative React components built on D3. Lightweight. Used for lead analytics, scraping activity dashboards, geographic distribution views. 3.6M+ weekly downloads -- battle-tested. |
+| @vercel/blob | latest | Company logo upload during onboarding | Native Vercel integration, zero config with Vercel deployment, direct next/image optimization support, public blob URLs served via CDN. No separate S3/Cloudinary needed. |
 
-### AI/NLP (Lead Enrichment)
+**Integration points:**
+- Server Actions: `put()` from `@vercel/blob` in a Next.js server action
+- Public store: logos are non-sensitive, public access is appropriate
+- Size limit: 4.5 MB per server upload (sufficient for logos; client upload API available for larger files)
+- Environment variable: `BLOB_READ_WRITE_TOKEN` (auto-created when connecting Blob store in Vercel dashboard)
+- The `organization` table already has a `logo` text column -- store the blob URL there
+
+**Usage pattern (server action):**
+```typescript
+"use server";
+import { put } from "@vercel/blob";
+
+export async function uploadLogo(formData: FormData) {
+  const file = formData.get("logo") as File;
+  const blob = await put(`logos/${orgId}/${file.name}`, file, {
+    access: "public",
+  });
+  return blob.url; // Store in organization.logo column
+}
+```
+
+**Why not alternatives:**
+
+| Alternative | Why Not |
+|-------------|---------|
+| Cloudinary | Extra service, SDK, API keys. Overkill for logo upload. |
+| AWS S3 + @aws-sdk/client-s3 | Requires IAM config, CORS setup. Vercel Blob is simpler for Vercel-deployed apps. |
+| uploadthing | Additional dependency + third-party service. Vercel Blob is first-party. |
+| Local filesystem | Does not work on Vercel (ephemeral filesystem in serverless). |
+
+**Confidence:** HIGH -- Official Vercel product, documented integration with Next.js server actions.
+
+---
+
+### 2. Free Trial Billing -- No New Dependencies
+
+**No new packages required.** The existing `@better-auth/stripe` plugin and `stripe` SDK already support everything needed.
+
+**Approach: Use `onCustomerCreate` hook for no-credit-card trials**
+
+The project requirement is "no credit card required to explore." The Better Auth Stripe plugin's built-in `freeTrial` config works via Stripe Checkout, which still presents a checkout session to the user (even if `payment_method_collection: 'if_required'` skips card collection). For a truly frictionless experience -- sign up, complete onboarding, start using the app immediately -- the recommended pattern is to use the `onCustomerCreate` hook to create a Stripe subscription with a trial directly via the Stripe API, bypassing checkout entirely.
+
+This approach was validated by a community solution on the Better Auth GitHub (issue #4631, comment by @michalkow, Dec 2025) and follows Stripe's documented `subscriptions.create` API with `trial_period_days`.
+
+**Configuration change in existing `src/lib/auth.ts`:**
+```typescript
+stripe({
+  stripeClient,
+  stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+  createCustomerOnSignUp: true,
+  subscription: {
+    enabled: true,
+    plans: [
+      {
+        name: "standard",
+        priceId: PRICES.monthlySubscription,
+        freeTrial: {
+          days: 7,
+          onTrialEnd: async ({ subscription }, ctx) => {
+            // Send "trial ending" email via Resend
+          },
+          onTrialExpired: async (subscription, ctx) => {
+            // Send "trial expired, upgrade now" email via Resend
+          },
+        },
+      },
+    ],
+    // Existing getCheckoutSessionParams for setup fee stays as-is
+    // It handles post-trial upgrade checkout (where we DO want payment)
+    getCheckoutSessionParams: async ({ plan, subscription }) => {
+      const isFirstTime = !subscription?.stripeSubscriptionId;
+      if (isFirstTime) {
+        return {
+          params: {
+            line_items: [
+              { price: plan.priceId, quantity: 1 },
+              { price: PRICES.setupFee, quantity: 1 },
+            ],
+          },
+        };
+      }
+      return {};
+    },
+  },
+  onCustomerCreate: async ({ stripeCustomer, user }, ctx) => {
+    // Create subscription with 7-day trial, NO payment method required
+    const sub = await stripeClient.subscriptions.create({
+      customer: stripeCustomer.id,
+      items: [{ price: PRICES.monthlySubscription, quantity: 1 }],
+      trial_period_days: 7,
+      trial_settings: {
+        end_behavior: { missing_payment_method: "cancel" },
+      },
+    });
+
+    // Write subscription record via Better Auth adapter
+    await ctx.context.adapter.create({
+      model: "subscription",
+      data: {
+        stripeCustomerId: stripeCustomer.id,
+        referenceId: user.id, // Will need to be org ID for org-scoped billing
+        status: sub.status, // "trialing"
+        plan: "standard",
+        periodEnd: new Date(sub.items.data[0]?.current_period_end! * 1000),
+        periodStart: new Date(sub.items.data[0]?.current_period_start! * 1000),
+        stripeSubscriptionId: sub.id,
+        cancelAtPeriodEnd: sub.cancel_at_period_end,
+        trialStart: sub.trial_start ? new Date(sub.trial_start * 1000) : null,
+        trialEnd: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
+      },
+    });
+  },
+  organization: { enabled: true },
+})
+```
+
+**Key Stripe parameters:**
+- `trial_period_days: 7` -- sets a 7-day trial
+- `trial_settings.end_behavior.missing_payment_method: "cancel"` -- auto-cancel if no card added by trial end
+- No checkout session redirect -- subscription created server-side on user registration
+- Existing subscription table already has `trialStart`/`trialEnd` columns (verified in schema)
+
+**Trial abuse prevention:** Built into the Better Auth Stripe plugin -- users can only get one trial per account across all plans.
+
+**Alternative approach (if checkout flow is acceptable):**
+Instead of `onCustomerCreate`, use `getCheckoutSessionParams` to add trial params to the checkout session:
+```typescript
+params: {
+  subscription_data: { trial_period_days: 7 },
+  payment_method_collection: "if_required",
+}
+```
+This still sends the user through Stripe Checkout but skips card collection. Simpler code but more friction.
+
+**Confidence:** HIGH -- Stripe's trial API is mature and well-documented. The `onCustomerCreate` pattern is community-validated. Subscription schema already has trial columns.
+
+---
+
+### 3. Guided Product Tour -- NextStep.js
 
 | Technology | Version | Purpose | Why Recommended |
 |------------|---------|---------|-----------------|
-| OpenAI API (GPT-4o-mini) | Latest | Entity extraction, lead classification | Structured Outputs mode extracts equipment types, project details, contact info, and estimated equipment needs from scraped text in a validated JSON schema. gpt-4o-mini is cost-effective for high-volume extraction (~$0.15/1M input tokens). Classify leads by relevance score. Generate outreach talking points. |
-| Zod | 4.3.x | Schema validation | 14x faster string parsing vs v3. Validates scraped data, API inputs, and OpenAI structured output schemas. Drizzle ORM integrates Zod validators directly (drizzle-zod now built into drizzle-orm package). Single validation library across the entire stack. |
+| nextstepjs | ^2.2.0 | Dashboard walkthrough after onboarding | Built specifically for Next.js App Router. Provides `NextStepProvider` + `NextStep` wrapper that integrates natively with React component tree. Supports cross-page routing, custom card components, and analytics callbacks. |
+| motion | ^11.x | Animation engine (peer dep for NextStep) | Required peer dependency for NextStep.js animations. Formerly called "framer-motion", renamed to "motion" in v11+. |
 
-### Payments & Billing
+**Why NextStep.js over alternatives:**
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Stripe | SDK v17+ | Subscription billing + one-time setup fees | Checkout with mode=subscription handles trial periods, failed payment retries (Smart Retries), dunning emails, proration. Supports the project's "one-time setup fee + subscription" model via Stripe Checkout line items. Webhook-based architecture fits Next.js API routes. |
+| Library | Version | Weekly DLs | Pros | Cons |
+|---------|---------|-----------|------|------|
+| **nextstepjs** | 2.2.0 | ~10K | Native Next.js App Router support, declarative steps, cross-page routing, custom cards, zero deps beyond motion | Newer library, smaller community |
+| driver.js | 1.4.0 | ~200K | Lightweight (zero deps), mature, framework-agnostic | No React hooks/context. Manual useEffect + ref wiring. |
+| react-joyride | 6.x | ~340K | Most battle-tested, large community | Heavier bundle. React 19 compatibility unverified. |
+| shepherd.js | 14.x | ~100K | Framework-agnostic with React wrapper | Extra abstraction layer over vanilla JS lib. |
+| intro.js | 7.x | ~50K | Lightweight | Commercial license required for SaaS use. |
 
-### Proxy Infrastructure
+**NextStep.js advantages for this project:**
+1. **Native Next.js App Router support** -- wraps in `layout.tsx`, works across route changes
+2. **Zero dependencies beyond Motion** -- minimal bundle impact
+3. **Declarative step definition** -- steps are data objects with `selector`, `title`, `content`, `side`
+4. **Event callbacks** -- `onStepChange`, `onComplete` for tracking tour completion in the `company_profiles` table
+5. **Custom card components** -- can use existing shadcn/ui Card styles for visual consistency
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Oxylabs OR Bright Data | -- | Residential proxy rotation | Government permit sites and bid boards often block datacenter IPs. Residential proxies provide real IP addresses that pass anti-bot checks. Oxylabs: 175M+ IP pool, 99.95% success rate. Bright Data: largest network, granular geo-targeting (useful for region-specific permit sites). Budget $7-10/GB. Start with Oxylabs for simplicity; switch to Bright Data if specific municipality sites need advanced unblocking. |
+**Setup:**
+```bash
+npm install nextstepjs motion
+```
 
-### Deployment
+**Usage pattern:**
+```tsx
+// app/(dashboard)/layout.tsx
+import { NextStepProvider, NextStep } from "nextstepjs";
+import { dashboardTourSteps } from "@/lib/tour-steps";
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| Railway | -- | Application hosting | Visual project canvas groups web app + worker processes + databases. Best DX of any PaaS. Connects services visually, manages env vars across services, deploys everything together. Usage-based pricing ($5-20/month for early stage). Scraping workers run as separate Railway services alongside the Next.js app. |
-| Vercel | -- | Next.js frontend (alternative) | If deploying frontend separately from scraping workers. Native Next.js 16 support, edge functions, automatic preview deployments. Workers would still need Railway/Render for long-running scrape jobs (Vercel functions timeout at 60s on Pro). |
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <NextStepProvider>
+      <NextStep steps={dashboardTourSteps}>
+        {children}
+      </NextStep>
+    </NextStepProvider>
+  );
+}
+```
 
-### Development Tools
+```typescript
+// lib/tour-steps.ts
+import type { Tour } from "nextstepjs";
 
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| Biome | Linter + formatter | Replaces ESLint + Prettier in a single Rust-based tool. 10-100x faster. Opinionated defaults reduce config debates. |
-| Vitest | Unit/integration testing | Vite-native test runner. Compatible with Jest API but significantly faster. First-class TypeScript support. |
-| Playwright Test | E2E testing | Same Playwright used for scraping, also used for testing the dashboard UI. One browser automation tool for both purposes. |
-| Docker Compose | Local dev environment | Run PostgreSQL, Redis, and worker processes locally. Matches production topology. |
-| Drizzle Kit | Database migrations | Generates SQL migrations from Drizzle schema changes. Inspect/push commands for quick iteration. |
+export const dashboardTourSteps: Tour[] = [
+  {
+    tour: "dashboard-intro",
+    steps: [
+      {
+        title: "Your Lead Feed",
+        content: "Fresh construction leads appear here daily, filtered to your location and equipment types.",
+        selector: "#lead-list",
+        side: "right",
+        showControls: true,
+        showSkip: true,
+      },
+      {
+        title: "Filter Leads",
+        content: "Narrow results by project type, distance, or equipment relevance.",
+        selector: "#lead-filters",
+        side: "bottom",
+        showControls: true,
+        showSkip: true,
+      },
+      // ... more steps targeting existing dashboard elements
+    ],
+  },
+];
+```
 
-## Installation
+**Fallback:** If NextStep.js proves unstable with React 19 or Next.js 16, driver.js (1.4.0) is the backup. Same concept, more manual wiring with `useEffect` and CSS selectors. Installation: `npm install driver.js` + `import "driver.js/dist/driver.css"`.
+
+**Confidence:** MEDIUM -- NextStep.js is newer (lower adoption) but specifically designed for Next.js. The API is clean. If stability concerns arise during implementation, driver.js is the proven fallback.
+
+---
+
+### 4. Vercel Cron Jobs -- Replaces node-cron (No New Packages)
+
+**No new npm packages.** This is a configuration change + new API route.
+
+**Problem:** The existing `node-cron` scheduler (`src/lib/scraper/scheduler.ts`) does NOT work on Vercel:
+1. Vercel Functions are serverless -- no persistent process to run `cron.schedule()`
+2. The scheduler only runs during `next dev` but never in Vercel production
+3. This is why the dashboard is empty for new users -- scraper never runs automatically
+
+**Solution: Vercel Cron Jobs via `vercel.json`**
+
+Vercel Cron Jobs trigger HTTP GET requests to API routes on a schedule. The existing scraper API route at `/api/scraper/run` (currently POST, unauthenticated) needs to be restructured into a secured GET endpoint at `/api/cron/scrape`.
+
+**Configuration:**
+```json
+// vercel.json (new file at project root)
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}
+```
+
+**New API route:**
+```typescript
+// app/api/cron/scrape/route.ts
+import type { NextRequest } from "next/server";
+import { runPipeline } from "@/lib/scraper/pipeline";
+import { initializeAdapters } from "@/lib/scraper/adapters";
+import { getRegisteredAdapters, clearAdapters } from "@/lib/scraper/registry";
+
+export const maxDuration = 300; // 5 minutes (Hobby plan max with Fluid Compute)
+
+export async function GET(request: NextRequest) {
+  // Verify Vercel Cron secret
+  const authHeader = request.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  try {
+    initializeAdapters();
+    const adapters = getRegisteredAdapters();
+    const result = await runPipeline(adapters);
+    clearAdapters();
+    return Response.json(result);
+  } catch (error) {
+    clearAdapters();
+    return Response.json(
+      { error: error instanceof Error ? error.message : "Pipeline error" },
+      { status: 500 }
+    );
+  }
+}
+```
+
+**Plan constraints:**
+
+| Plan | Cron Jobs | Min Frequency | Max Duration (Fluid Compute) | Max Duration (No FC) |
+|------|-----------|---------------|------------------------------|----------------------|
+| Hobby | 2 | Once/day | 300s (5 min) | 60s |
+| Pro | 40 | Once/min | 800s (13 min) | 300s (5 min) |
+
+- Hobby plan: 2 cron jobs, once per day each. Sufficient for daily scraping + email digest.
+- Hobby timing caveat: Vercel may invoke within the specified hour (e.g., `0 6 * * *` could trigger 06:00-06:59). Pro plan invokes within the specified minute.
+- Timezone: Always UTC (existing scheduler uses UTC, so no change).
+- Fluid Compute (enabled by default): Gives 300s function duration on Hobby. Must stay enabled.
+- No retries: Vercel does not retry failed cron jobs. The existing per-adapter error isolation handles this.
+- Idempotency: Vercel may deliver duplicate events. The pipeline's deduplication layer already handles this.
+
+**Security:** Add `CRON_SECRET` environment variable (random 16+ char string) in Vercel project settings. Vercel automatically sends it as `Authorization: Bearer <CRON_SECRET>` header.
+
+**Disposition of node-cron:** The `src/lib/scraper/scheduler.ts` file should be deprecated. Keep `node-cron` in package.json temporarily for any local dev scripts, but it is not the production scheduling mechanism.
+
+**Confidence:** HIGH -- Vercel Cron is well-documented and matches the existing architecture. The pipeline is already stateless and idempotent.
+
+---
+
+### 5. On-Demand and First-Login Scraper Triggers -- No New Dependencies
+
+**No new packages.** New server actions that call the existing `runPipeline()` function.
+
+**On-demand "Refresh Leads" button:**
+- New server action: `refreshLeads(organizationId)` that calls `runPipeline()` with adapters filtered to the organization's location + equipment types
+- Protected by auth check (user must have active subscription or trial status "trialing")
+- Returns results summary for toast notification via sonner
+- `maxDuration` export on the server action or route: 300s
+
+**First-login trigger:**
+- After onboarding completes, the `completeOnboarding` server action triggers a pipeline run using the newly saved company profile (hqAddress, serviceRadius, equipmentTypes)
+- The user is redirected to the dashboard immediately; a loading state shows "Generating your first leads..."
+- Pipeline runs server-side; dashboard polls or uses a timestamp check to detect new leads
+
+**Duration constraint:** Both triggers are user-initiated Vercel Function calls. With Fluid Compute, Hobby plan allows 300s. The pipeline runs adapters sequentially; if total time exceeds 300s, the pipeline should be partitioned (run highest-priority adapters first, queue the rest).
+
+**Confidence:** HIGH -- Application logic only, no new stack dependencies.
+
+---
+
+### 6. Custom Search -- No New Dependencies
+
+**No new packages.** Custom search leverages existing Drizzle ORM queries and Crawlee adapters.
+
+**MVP approach (search stored leads):**
+- Query the existing `leads` table with location + keyword + project type filters
+- Use PostGIS-style distance calculation (or Drizzle ORM `sql` template for haversine formula)
+- New search form built with existing react-hook-form + zod + shadcn/ui
+- Fast response, no scraping delay
+
+**Future enhancement (trigger new scrape):**
+- Create parameterized adapter runs that accept user-specified location/keywords
+- More complex, but delivers results beyond pre-scraped data
+- Should be gated behind paid subscriptions (not trial)
+
+**Confidence:** HIGH -- All infrastructure exists.
+
+---
+
+## Installation Summary
+
+### New packages to install:
 
 ```bash
-# Core framework
-npm install next@latest react@latest react-dom@latest
+# Image upload for company logos
+npm install @vercel/blob
 
-# Database
-npm install drizzle-orm @neondatabase/serverless
-npm install -D drizzle-kit
-
-# Authentication
-npm install better-auth
-
-# Job queue
-npm install bullmq ioredis
-
-# Scraping
-npm install crawlee playwright
-
-# AI/Enrichment
-npm install openai zod
-
-# UI
-npm install tailwindcss @tailwindcss/vite
-npx shadcn@latest init
-npm install @tanstack/react-table recharts
-
-# Payments
-npm install stripe
-
-# Dev dependencies
-npm install -D typescript @types/node @types/react @biomejs/biome vitest @playwright/test
+# Guided product tour + animation engine
+npm install nextstepjs motion
 ```
+
+Three packages total. Everything else leverages existing stack.
+
+### Packages to remove (optional cleanup):
+
+```bash
+# node-cron is replaced by Vercel Cron for production
+# Can keep for local dev convenience, or remove entirely
+npm uninstall node-cron @types/node-cron
+```
+
+### Environment variables to add:
+
+| Variable | Source | Purpose |
+|----------|--------|---------|
+| `BLOB_READ_WRITE_TOKEN` | Vercel Dashboard (auto-created when connecting Blob store) | Vercel Blob authentication |
+| `CRON_SECRET` | Generate random 16+ char string, add in Vercel project settings | Secure cron job endpoint |
+
+### Files to create/modify:
+
+| File | Change |
+|------|--------|
+| `vercel.json` (new) | Add `crons` array for daily scrape schedule |
+| `src/lib/auth.ts` (modify) | Add `freeTrial` config to plan, add `onCustomerCreate` hook for no-checkout trial |
+| `src/app/api/cron/scrape/route.ts` (new) | Cron-triggered scraper endpoint (GET + CRON_SECRET auth) |
+| `src/lib/tour-steps.ts` (new) | Dashboard tour step definitions |
+| Dashboard layout (modify) | Wrap with `NextStepProvider` + `NextStep` |
+
+---
 
 ## Alternatives Considered
 
 | Recommended | Alternative | When to Use Alternative |
 |-------------|-------------|-------------------------|
-| Drizzle ORM | Prisma 7 (pure TS rewrite) | If team already knows Prisma. v7 removes Rust engine, but still has code generation step and larger bundles. Choose Prisma if you prefer schema-first workflow over SQL-like queries. |
-| Crawlee + Playwright | Scrapy (Python) | If scraping complexity outgrows Node.js and you need a dedicated Python scraping service. Scrapy has the largest plugin ecosystem for scraping. Would require a polyglot architecture (Python workers + Node.js app). Avoid unless JavaScript scraping hits hard limits. |
-| Better Auth | Clerk | If you want zero auth code. Clerk is a hosted auth service ($25+/month at scale) with excellent Next.js integration. Choose if time-to-market matters more than cost and control. Not recommended because the organization plugin in Better Auth covers multi-tenancy needs at zero per-user cost. |
-| PostgreSQL + PostGIS | MongoDB | If scraped data structure is truly unpredictable AND you don't need geographic queries. PostgreSQL's JSONB handles schema flexibility, and PostGIS is essential for radius-based filtering. MongoDB would require a separate geo solution. |
-| BullMQ | Temporal | If scraping workflows become extremely complex (100+ step DAGs with human approval steps, long-running sagas). Massive overkill for v1 -- BullMQ's parent-child jobs cover multi-stage scraping pipelines. Revisit if the system evolves to need workflow orchestration beyond job queues. |
-| Railway | Render | If you need first-class background worker service types and cron jobs as platform primitives. Render defines workers and cron as distinct service types (no manual setup). Choose Render if Railway's "everything is a service" model feels too freeform. |
-| Neon | Supabase | If you want a full backend-as-a-service (auth, realtime, storage) in addition to PostgreSQL. Supabase bundles more but has higher baseline cost and you'd be paying for features Better Auth already covers. |
-| Oxylabs | ScraperAPI / ScrapingBee | If you want scraping + proxy as a single API (send URL, get HTML). Simpler but less control. Higher per-request cost at scale. Choose for prototyping, switch to raw proxies + Crawlee when costs matter. |
-| GPT-4o-mini | Claude 3.5 Haiku | Comparable cost and performance for structured extraction. Claude may produce better results for nuanced construction terminology. Test both on real permit data during development. |
+| @vercel/blob | Cloudinary | If you need on-the-fly image transformations (resize, crop, filters) beyond what next/image provides. Adds third-party dependency. |
+| @vercel/blob | AWS S3 + @aws-sdk/client-s3 | If you move off Vercel or need advanced S3 features (lifecycle policies, versioning). |
+| nextstepjs | driver.js (1.4.0) | If bundle size is absolute priority. Works in React but requires manual useEffect + ref wiring. Zero deps, zero framework coupling. |
+| nextstepjs | react-joyride | If you need the most battle-tested solution (340K weekly downloads). Heavier bundle. Verify React 19 compatibility. |
+| Vercel Cron | Upstash QStash | If you need retry logic, delays, or message queuing beyond simple scheduled HTTP calls. Adds separate service but provides guaranteed delivery. |
+| Vercel Cron | Inngest | If the scraper evolves into a complex multi-step workflow with branching, retries, and observability. Overkill for a single daily job. |
+| onCustomerCreate hook | freeTrial config + Stripe Checkout | If you want users to go through Stripe Checkout for trials. Use `getCheckoutSessionParams` with `payment_method_collection: "if_required"` and `subscription_data.trial_period_days: 7`. More friction but simpler code, Stripe-hosted UI. |
+
+---
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| Puppeteer (standalone) | Chrome-only, no built-in queuing/retries/proxy rotation. You'd rebuild half of Crawlee's features manually. Google maintenance, not community-driven scraping tool. | Crawlee with PlaywrightCrawler |
-| Bull (v3/v4) | Legacy predecessor to BullMQ. No longer actively developed. BullMQ has better TypeScript support, Redis Streams backend, and job dependency trees. | BullMQ |
-| NextAuth.js / Auth.js (standalone) | Auth.js merged under Better Auth maintenance (Sept 2025). v5 was stuck in beta for years. Better Auth has proper plugin architecture, built-in rate limiting, and first-class organization/multi-tenant support. | Better Auth |
-| Mongoose + MongoDB | Adds unnecessary complexity. You need relational data (tenants, users, subscriptions, lead assignments) AND geographic queries (PostGIS). MongoDB would require a separate geo solution and you lose ACID for billing. | PostgreSQL + Drizzle ORM |
-| Selenium | Outdated, heavy, Java-oriented. 10x slower than Playwright for the same tasks. No modern TypeScript ecosystem integration. | Playwright via Crawlee |
-| node-cron / Agenda | Simple cron schedulers without job queuing, retries, rate limiting, or dependency chains. Fine for "run this every hour" but not for production scraping pipelines with error handling. | BullMQ |
-| Express.js | Separate server when Next.js App Router + API routes handle API needs. Adding Express creates two routing layers, two middleware stacks, and deployment complexity. | Next.js API Routes + Server Actions |
-| Tailwind CSS v3 | v4 is stable since Jan 2025. v3 uses JavaScript config (deprecated pattern). v4's Rust engine is 5-100x faster and uses CSS-native configuration. | Tailwind CSS v4 |
-| TypeORM / Sequelize | Heavy, class-based ORMs with poor TypeScript inference. TypeORM has known bugs that have been open for years. Both generate bloated queries. | Drizzle ORM |
+| node-cron in production on Vercel | Serverless has no persistent process. Only runs during `next dev`. This is why the scraper never triggers in production. | Vercel Cron Jobs (vercel.json) |
+| multer / formidable | Server-side file parsing libraries. Not needed with Vercel Blob's `put()` which accepts File/Blob directly from FormData in server actions. | @vercel/blob `put()` |
+| AWS S3 SDK | ~1MB bundle addition, requires IAM configuration. Overkill when Vercel Blob is first-party. | @vercel/blob |
+| intro.js | Requires commercial license for SaaS products. | nextstepjs or driver.js |
+| react-dropzone | Extra dependency for drag-and-drop file upload. A native `<input type="file">` with styled label provides adequate UX for single logo upload. | Native file input with CSS styling |
+| Custom setInterval scheduling | Same problem as node-cron on Vercel -- no persistent process. | Vercel Cron Jobs |
 
-## Stack Patterns by Variant
-
-**If scraping volume stays under 10K pages/day:**
-- Run CheerioCrawler (HTTP-only) for static permit pages -- 10x faster than browser rendering
-- Reserve PlaywrightCrawler for JavaScript-required bid boards only
-- Single Railway worker service handles all scraping
-- Datacenter proxies ($2-3/GB) may suffice, saving on residential proxy costs
-
-**If scraping volume exceeds 50K pages/day:**
-- Separate scraping workers by source type (permits, bid boards, news, deep web)
-- Each source type runs as its own Railway service with independent scaling
-- Must use residential proxies -- government sites will block datacenter IPs at this volume
-- Consider adding a dedicated Redis instance (not Upstash) for BullMQ at high throughput
-- Move from Neon to dedicated PostgreSQL (e.g., Railway managed Postgres) if write volume causes autoscale cost spikes
-
-**If AI enrichment costs become significant (>$100/month):**
-- Batch scraped text and process with GPT-4o-mini in bulk
-- Cache enrichment results -- same project description shouldn't be re-processed
-- Consider fine-tuning a smaller model on construction/equipment terminology for classification
-- Use Zod structured outputs to enforce schema and reduce retry costs from malformed responses
-
-**If deploying frontend and workers separately:**
-- Next.js app on Vercel (optimal Next.js hosting, preview deployments, edge caching)
-- Scraping workers + BullMQ on Railway (long-running processes, no function timeouts)
-- Both connect to Neon (PostgreSQL) and Upstash (Redis)
-- Use shared npm workspace for TypeScript types between packages
+---
 
 ## Version Compatibility
 
-| Package A | Compatible With | Notes |
-|-----------|-----------------|-------|
-| Next.js 16.x | React 19.2, Tailwind CSS 4.x, shadcn/ui CLI v4 | Turbopack is the default bundler. React Compiler enabled out of the box. |
-| Drizzle ORM 0.45.x | Neon serverless driver, PostgreSQL 16+, Zod 4.x | drizzle-zod validators now built into the main drizzle-orm package. Use @neondatabase/serverless as the driver. |
-| Crawlee 3.16.x | Playwright 1.58.x, Cheerio (bundled) | Crawlee pins its own Playwright version. Let Crawlee manage the Playwright dependency to avoid version conflicts. |
-| BullMQ 5.71.x | Redis 7.x, Upstash Redis, ioredis 5.x | Requires Redis 5+ (Streams support). Upstash is compatible via standard Redis protocol. Use ioredis as the connection library. |
-| Better Auth 1.5.x | Next.js 16.x, Drizzle ORM 0.45.x | Has a Drizzle adapter. Organization plugin requires explicit opt-in. |
-| Tailwind CSS 4.2.x | Next.js 16.x via @tailwindcss/vite | No more tailwind.config.js -- use @theme in CSS. PostCSS plugin deprecated in favor of Vite plugin. |
-| Zod 4.3.x | Drizzle ORM (built-in), OpenAI SDK | OpenAI SDK uses Zod for structured output schemas. Drizzle ORM integrates Zod validators. Single version across the stack. |
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| @vercel/blob | Next.js 16, Vercel deployment | Requires `BLOB_READ_WRITE_TOKEN` env var. Works with server actions and route handlers. Public and private store modes available. |
+| nextstepjs ^2.2.0 | React 19, Next.js 16 App Router | Requires `motion` as peer dependency. Provider + wrapper must be in a client component boundary. |
+| motion ^11.x | React 19 | Peer dependency for nextstepjs. Renamed from "framer-motion" in v11. Do NOT install "framer-motion" -- use "motion" package. |
+| Vercel Cron | Next.js 16, any Vercel plan | Hobby: 2 jobs, once/day max. Pro: 40 jobs, once/min. Triggers GET requests. Timezone always UTC. |
+| @better-auth/stripe freeTrial | better-auth ^1.5.5, stripe ^20.x | `freeTrial.days` on plan config. `onCustomerCreate` hook for no-checkout trial. `trialStart`/`trialEnd` columns already exist in subscription table. Trial abuse prevention is automatic. |
 
-## Architecture Note
-
-This stack is deliberately **monoglot TypeScript**. Scraping, API, UI, job processing, and schema validation all share one language, one type system, and one package manager. This is a deliberate choice:
-
-- **Against Python scraping:** Scrapy is more mature for pure scraping, but introducing Python creates a polyglot architecture with separate deployments, separate CI, separate type systems, and a message-passing boundary between scraper and app. For a small team shipping an MVP, the coordination cost outweighs Scrapy's advantages. Crawlee provides 90% of Scrapy's capabilities in TypeScript.
-
-- **Against microservices:** The scraper, API, and dashboard should share Drizzle schemas, Zod validators, and TypeScript types. Deploy as separate processes (Next.js app + BullMQ workers) within the same codebase (monorepo), not as separate services with API contracts between them.
+---
 
 ## Sources
 
-- [Next.js 16 release blog](https://nextjs.org/blog/next-16) -- Verified Turbopack stability, React 19.2, React Compiler. HIGH confidence.
-- [Next.js 16.1 release](https://nextjs.org/blog/next-16-1) -- Confirmed latest stable. HIGH confidence.
-- [Crawlee GitHub](https://github.com/apify/crawlee) -- Verified v3.16.x, feature set, Playwright/Cheerio support. HIGH confidence.
-- [Crawlee docs](https://crawlee.dev/js) -- Confirmed adaptive crawler, anti-bot features, TypeScript-native. HIGH confidence.
-- [BullMQ docs](https://docs.bullmq.io) -- Verified v5.71.x, job dependencies, cron scheduling, Redis Streams. HIGH confidence.
-- [BullMQ npm](https://www.npmjs.com/package/bullmq) -- Confirmed v5.71.0 published 2026-03-11. HIGH confidence.
-- [Drizzle ORM npm](https://www.npmjs.com/package/drizzle-orm) -- Confirmed v0.45.1. HIGH confidence.
-- [Drizzle vs Prisma comparison (Bytebase)](https://www.bytebase.com/blog/drizzle-vs-prisma/) -- Performance benchmarks, bundle size comparison. MEDIUM confidence.
-- [Drizzle vs Prisma (MakerKit)](https://makerkit.dev/blog/tutorials/drizzle-vs-prisma) -- Prisma 7 pure TS rewrite confirmed. MEDIUM confidence.
-- [Better Auth docs](https://better-auth.com/) -- Verified v1.5.5, organization plugin, multi-tenant features. HIGH confidence.
-- [Auth.js joins Better Auth announcement](https://better-auth.com/blog/authjs-joins-better-auth) -- Confirmed Sept 2025 merger. HIGH confidence.
-- [Better Auth organization plugin docs](https://better-auth.com/docs/plugins/organization) -- Verified RBAC, invitations, org switching. HIGH confidence.
-- [Neon serverless Postgres](https://neon.com/) -- Verified autoscaling, branching, $0.35/GB pricing. HIGH confidence.
-- [Neon pricing breakdown (Vela/Simplyblock)](https://vela.simplyblock.io/articles/neon-serverless-postgres-pricing-2026/) -- 2025 price cuts confirmed. MEDIUM confidence.
-- [Upstash Redis comparison](https://upstash.com/docs/redis/overall/compare) -- HTTP API, pay-per-request, BullMQ compatibility. HIGH confidence.
-- [Tailwind CSS v4 release blog](https://tailwindcss.com/blog/tailwindcss-v4) -- Rust engine, CSS-native config confirmed. HIGH confidence.
-- [shadcn/ui CLI v4 changelog](https://ui.shadcn.com/docs/changelog/2026-03-cli-v4) -- March 2026, AI agent skills, design presets. HIGH confidence.
-- [Zod v4 announcement (InfoQ)](https://www.infoq.com/news/2025/08/zod-v4-available/) -- 14x faster parsing, @zod/mini confirmed. MEDIUM confidence.
-- [Zod npm](https://www.npmjs.com/package/zod) -- Confirmed v4.3.6. HIGH confidence.
-- [Recharts npm](https://www.npmjs.com/package/recharts) -- Confirmed v3.8.0. HIGH confidence.
-- [Playwright npm](https://www.npmjs.com/package/playwright) -- Confirmed v1.58.2. HIGH confidence.
-- [Stripe Node.js SDK releases](https://github.com/stripe/stripe-node/releases) -- v17+ confirmed for 2026 API versions. MEDIUM confidence.
-- [PostgreSQL JSONB for SaaS (Medium)](https://medium.com/@hashbyt/postgresql-as-nosql-the-complete-guide-for-saas-leaders-1c772b8ed107) -- JSONB indexing, multi-tenant patterns. MEDIUM confidence.
-- [PostgreSQL vs MongoDB for web scraping (Data-Ox)](https://data-ox.com/comparison-postgresql-vs-mysql-vs-mongodb-for-web-scraping) -- Both viable; PostgreSQL wins for relational + flexible. MEDIUM confidence.
-- [Railway vs Render comparison (Northflank)](https://northflank.com/blog/railway-vs-render) -- Worker process differences, pricing models. MEDIUM confidence.
-- [Web scraping legal guide (McCarthy Law)](https://mccarthylg.com/is-web-scraping-legal-a-2025-breakdown-of-what-you-need-to-know/) -- Public government data scraping legality. MEDIUM confidence.
-- [Proxy comparison (ScrapingBee)](https://www.scrapingbee.com/blog/rotating-proxies/) -- Oxylabs, Bright Data pricing and pool sizes. MEDIUM confidence.
-- [OpenAI structured outputs cookbook](https://cookbook.openai.com/examples/named_entity_recognition_to_enrich_text) -- Entity extraction patterns. MEDIUM confidence.
+- [Vercel Cron Jobs documentation](https://vercel.com/docs/cron-jobs) -- Configuration, expressions, how cron triggers work. HIGH confidence.
+- [Managing Cron Jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs) -- CRON_SECRET security, duration limits, error handling, concurrency, idempotency. HIGH confidence.
+- [Vercel Functions Duration](https://vercel.com/docs/functions/configuring-functions/duration) -- maxDuration limits: Hobby 300s, Pro 800s with Fluid Compute (default). HIGH confidence.
+- [Vercel Blob documentation](https://vercel.com/docs/vercel-blob) -- Overview, public/private stores, SDK usage, CDN caching. HIGH confidence.
+- [Vercel Blob Server Upload](https://vercel.com/docs/vercel-blob/server-upload) -- Server action pattern, 4.5MB limit, BLOB_READ_WRITE_TOKEN. HIGH confidence.
+- [Vercel Blob Pricing](https://vercel.com/docs/vercel-blob/usage-and-pricing) -- Hobby: 1GB free storage, 10GB transfer. $0.023/GB-month after. HIGH confidence.
+- [Better Auth Stripe plugin](https://better-auth.com/docs/plugins/stripe) -- freeTrial config (days, callbacks), plan setup, trial abuse prevention. HIGH confidence.
+- [Better Auth issue #4631](https://github.com/better-auth/better-auth/issues/4631) -- Community solution for no-checkout trial via `onCustomerCreate` hook. Code example by @michalkow (Dec 2025). MEDIUM confidence (community pattern, not official docs, but code is clear and correct).
+- [Stripe free trial docs](https://docs.stripe.com/payments/checkout/free-trials) -- `payment_method_collection: "if_required"`, `subscription_data.trial_period_days`, `trial_settings.end_behavior`. HIGH confidence.
+- [Stripe trial periods](https://docs.stripe.com/billing/subscriptions/trials) -- `subscriptions.create` with `trial_period_days`. HIGH confidence.
+- [NextStep.js](https://nextstepjs.com/) -- Product tour library, Next.js App Router integration, step API, provider pattern. MEDIUM confidence (newer library).
+- [driver.js installation](https://driverjs.com/docs/installation) -- v1.4.0, npm install, CSS import, highlight API. HIGH confidence (mature library).
+- [5 Best React Onboarding Libraries 2026](https://onboardjs.com/blog/5-best-react-onboarding-libraries-in-2025-compared) -- Comparison of tour libraries. MEDIUM confidence (blog post).
 
 ---
-*Stack research for: HeavyLeads -- Multi-tenant SaaS Lead Intelligence Platform*
-*Researched: 2026-03-13*
+*Stack research for: HeavyLeads v2.0 feature additions*
+*Researched: 2026-03-15*
