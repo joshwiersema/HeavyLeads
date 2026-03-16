@@ -6,11 +6,11 @@ import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import { getActiveSubscription, getTrialStatus } from "@/lib/billing";
 import Link from "next/link";
-import { LayoutDashboard, Bookmark, Search, Settings } from "lucide-react";
 import { TrialBanner } from "@/components/billing/trial-banner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
+import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 
 export default async function DashboardLayout({
   children,
@@ -63,36 +63,7 @@ export default async function DashboardLayout({
             </Link>
           </div>
           <Separator />
-          <nav className="flex-1 space-y-1 p-4">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-            >
-              <LayoutDashboard className="size-4" />
-              Leads
-            </Link>
-            <Link
-              href="/dashboard/bookmarks"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-            >
-              <Bookmark className="size-4" />
-              Bookmarks
-            </Link>
-            <Link
-              href="/dashboard/saved-searches"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-            >
-              <Search className="size-4" />
-              Saved Searches
-            </Link>
-            <Link
-              href="/settings"
-              className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-            >
-              <Settings className="size-4" />
-              Settings
-            </Link>
-          </nav>
+          <SidebarNav />
         </div>
       </aside>
 

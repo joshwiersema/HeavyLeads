@@ -3,23 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Bookmark,
-  Search,
-  Settings,
-  Menu,
-  X,
-} from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { navLinks, isNavActive } from "./nav-links";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
-
-const navLinks = [
-  { href: "/dashboard", label: "Leads", icon: LayoutDashboard },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: Bookmark },
-  { href: "/dashboard/saved-searches", label: "Saved Searches", icon: Search },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
 
 export function MobileNav({ userName }: { userName?: string | null }) {
   const [open, setOpen] = useState(false);
@@ -72,26 +60,21 @@ export function MobileNav({ userName }: { userName?: string | null }) {
 
           {/* Nav links */}
           <nav className="flex-1 space-y-1 p-4">
-            {navLinks.map(({ href, label, icon: Icon }) => {
-              const isActive =
-                href === "/dashboard"
-                  ? pathname === "/dashboard"
-                  : pathname.startsWith(href);
-
-              return (
+            {navLinks.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
                   href={href}
                   onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground ${
-                    isActive ? "bg-accent text-accent-foreground" : ""
-                  }`}
+                  className={cn(
+                    "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+                    isNavActive(href, pathname) &&
+                      "bg-accent text-accent-foreground"
+                  )}
                 >
                   <Icon className="size-4" />
                   {label}
                 </Link>
-              );
-            })}
+              ))}
           </nav>
 
           <Separator />
