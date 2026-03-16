@@ -3,12 +3,13 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { companyProfiles } from "@/lib/db/schema/company-profiles";
+import { organizationProfiles } from "@/lib/db/schema/organization-profiles";
+import { leadEnrichments } from "@/lib/db/schema/lead-enrichments";
 import { eq } from "drizzle-orm";
-import { getLeadById, getLeadSources } from "@/lib/leads/queries";
+import { getLeadByIdScored, getLeadSources } from "@/lib/leads/queries";
+import type { LeadSource } from "@/lib/leads/queries";
 import { getLeadStatus } from "@/actions/lead-status";
 import { getBookmarkedLeads } from "@/actions/bookmarks";
-import type { LeadSource } from "@/lib/leads/queries";
 import Link from "next/link";
 import { ArrowLeft, ExternalLink, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -19,11 +20,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { LeadTimeline } from "./lead-timeline";
 import { LeadMap } from "./lead-map-dynamic";
 import { LeadStatusSelect } from "./lead-status-select";
 import { BookmarkButton } from "./bookmark-button";
-import type { EnrichedLead, InferredEquipment } from "@/lib/leads/types";
+import { ScoreBreakdown } from "./score-breakdown";
+import { EnrichmentCards } from "./enrichment-cards";
+import type { EnrichmentCardsProps } from "./enrichment-cards";
+import { SimilarLeads } from "./similar-leads";
+import type { FreshnessBadge as FreshnessBadgeType } from "@/lib/leads/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -33,11 +37,22 @@ export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
   const { id } = await params;
-  const lead = await getLeadById(id);
+
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+  if (!session) return { title: "Lead Not Found | LeadForge" };
+
+  const orgId = session.session.activeOrganizationId;
+  if (!orgId) return { title: "Lead Not Found | LeadForge" };
+
+  const lead = await getLeadByIdScored(id, orgId);
   if (!lead) {
-    return { title: "Lead Not Found | HeavyLeads" };
+    return { title: "Lead Not Found | LeadForge" };
   }
-  return { title: `${lead.address} | HeavyLeads` };
+  return {
+    title: `${lead.title ?? lead.address ?? "Lead"} | LeadForge`,
+  };
 }
 
 export default async function LeadDetailPage({ params }: PageProps) {
@@ -56,30 +71,35 @@ export default async function LeadDetailPage({ params }: PageProps) {
     notFound();
   }
 
-  // Get company profile for scoring context
-  const profile = await db.query.companyProfiles.findFirst({
-    where: eq(companyProfiles.organizationId, orgId),
+  // Fetch org profile for HQ coords and service radius (map overlay)
+  const profile = await db.query.organizationProfiles.findFirst({
+    where: eq(organizationProfiles.organizationId, orgId),
   });
 
-  const lead = await getLeadById(id, {
-    hqLat: profile?.hqLat ?? undefined,
-    hqLng: profile?.hqLng ?? undefined,
-    serviceRadiusMiles: profile?.serviceRadiusMiles ?? undefined,
-    dealerEquipment: profile?.equipmentTypes ?? undefined,
-  });
-
+  // Fetch scored lead
+  const lead = await getLeadByIdScored(id, orgId);
   if (!lead) {
     notFound();
   }
 
-  // Fetch status, bookmark state, and sources in parallel
-  const [status, bookmarkedIds, sources] = await Promise.all([
+  // Fetch status, bookmark state, sources, and enrichments in parallel
+  const [status, bookmarkedIds, sources, enrichmentRows] = await Promise.all([
     getLeadStatus(lead.id),
     getBookmarkedLeads(),
     getLeadSources(lead.id),
+    db
+      .select()
+      .from(leadEnrichments)
+      .where(eq(leadEnrichments.leadId, id)),
   ]);
 
   const isBookmarked = bookmarkedIds.includes(lead.id);
+
+  // Parse enrichment data safely
+  const enrichmentData = parseEnrichmentData(enrichmentRows);
+
+  // Industry tags from applicableIndustries
+  const industries = (lead.applicableIndustries as string[] | null) ?? [];
 
   return (
     <div className="space-y-6">
@@ -95,11 +115,20 @@ export default async function LeadDetailPage({ params }: PageProps) {
       {/* Header section */}
       <div className="space-y-2">
         <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">
-          {lead.address}
+          {lead.title ?? lead.address ?? "Untitled Lead"}
         </h1>
         <div className="flex flex-wrap items-center gap-2">
           <FreshnessBadge freshness={lead.freshness} />
-          <Badge variant="secondary">Score: {lead.score}</Badge>
+          <ScorePill score={lead.scoring.total} />
+          {industries.map((industry) => (
+            <Badge
+              key={industry}
+              variant="outline"
+              className="text-xs capitalize"
+            >
+              {industry.replace(/_/g, " ")}
+            </Badge>
+          ))}
           <LeadStatusSelect leadId={lead.id} currentStatus={status} />
           <BookmarkButton leadId={lead.id} isBookmarked={isBookmarked} />
         </div>
@@ -124,7 +153,12 @@ export default async function LeadDetailPage({ params }: PageProps) {
                 <LeadMap
                   lat={lead.lat}
                   lng={lead.lng}
-                  title={lead.formattedAddress ?? lead.address ?? "Unknown location"}
+                  title={lead.title ?? lead.address ?? "Unknown location"}
+                  hqLat={profile?.hqLat ?? undefined}
+                  hqLng={profile?.hqLng ?? undefined}
+                  serviceRadiusMiles={
+                    profile?.serviceRadiusMiles ?? undefined
+                  }
                 />
               ) : (
                 <div className="flex h-[300px] w-full items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/50">
@@ -192,9 +226,73 @@ export default async function LeadDetailPage({ params }: PageProps) {
                     </dd>
                   </div>
                 )}
+                {lead.sourceType && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      Source Type
+                    </dt>
+                    <dd className="mt-1">
+                      <SourceTypeBadge sourceType={lead.sourceType} />
+                    </dd>
+                  </div>
+                )}
+                {industries.length > 0 && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      Applicable Industries
+                    </dt>
+                    <dd className="mt-1 flex flex-wrap gap-1">
+                      {industries.map((ind) => (
+                        <Badge
+                          key={ind}
+                          variant="secondary"
+                          className="text-xs capitalize"
+                        >
+                          {ind.replace(/_/g, " ")}
+                        </Badge>
+                      ))}
+                    </dd>
+                  </div>
+                )}
+                {lead.deadline && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      Deadline
+                    </dt>
+                    <dd className="mt-1 text-sm">
+                      {formatDate(lead.deadline)}
+                    </dd>
+                  </div>
+                )}
+                {lead.severity && (
+                  <div>
+                    <dt className="text-sm font-medium text-muted-foreground">
+                      Severity
+                    </dt>
+                    <dd className="mt-1">
+                      <Badge
+                        variant={
+                          lead.severity === "critical"
+                            ? "destructive"
+                            : "secondary"
+                        }
+                        className="text-xs capitalize"
+                      >
+                        {lead.severity}
+                      </Badge>
+                    </dd>
+                  </div>
+                )}
               </dl>
             </CardContent>
           </Card>
+
+          {/* Enrichment cards */}
+          <EnrichmentCards
+            weather={enrichmentData.weather}
+            property={enrichmentData.property}
+            incentives={enrichmentData.incentives}
+          />
 
           {/* Source Attribution card -- supports single and multi-source leads */}
           <Card>
@@ -261,58 +359,44 @@ export default async function LeadDetailPage({ params }: PageProps) {
 
         {/* Right column */}
         <div className="lg:col-span-1 space-y-6">
-          {/* Equipment Needs card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Equipment Needs</CardTitle>
-              <CardDescription>
-                Inferred from project type and description
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {lead.inferredEquipment.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No specific equipment needs inferred
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {lead.inferredEquipment.map((eq) => (
-                    <EquipmentNeedItem key={eq.type} equipment={eq} />
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Timeline card */}
-          {lead.timeline.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Equipment Timeline</CardTitle>
-                <CardDescription>
-                  Projected equipment needs by phase
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <LeadTimeline timeline={lead.timeline} />
-              </CardContent>
-            </Card>
-          )}
-
           {/* Score Breakdown card */}
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Lead Score</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center gap-3">
-                <div className="text-3xl font-bold">{lead.score}</div>
-                <div className="text-sm text-muted-foreground">/ 100</div>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Based on equipment match, geographic proximity, and project
-                value.
-              </p>
+              <ScoreBreakdown scoring={lead.scoring} />
+            </CardContent>
+          </Card>
+
+          {/* Similar Leads card */}
+          {lead.lat != null && lead.lng != null && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Similar Leads</CardTitle>
+                <CardDescription>
+                  Nearby leads you may also be interested in
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <SimilarLeads
+                  leadId={lead.id}
+                  lat={lead.lat}
+                  lng={lead.lng}
+                  orgId={orgId}
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Bookmark & Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <LeadStatusSelect leadId={lead.id} currentStatus={status} />
+              <BookmarkButton leadId={lead.id} isBookmarked={isBookmarked} />
             </CardContent>
           </Card>
         </div>
@@ -321,12 +405,60 @@ export default async function LeadDetailPage({ params }: PageProps) {
   );
 }
 
+// -- Enrichment data parser --
+
+function parseEnrichmentData(
+  rows: { enrichmentType: string; data: string }[]
+): EnrichmentCardsProps {
+  let weather: EnrichmentCardsProps["weather"] = null;
+  let property: EnrichmentCardsProps["property"] = null;
+  let incentives: EnrichmentCardsProps["incentives"] = null;
+
+  const weatherRow = rows.find((e) => e.enrichmentType === "weather");
+  if (weatherRow) {
+    try {
+      weather = JSON.parse(weatherRow.data);
+    } catch {
+      // Invalid JSON -- ignore
+    }
+  }
+
+  const propertyRow = rows.find((e) => e.enrichmentType === "property");
+  if (propertyRow) {
+    try {
+      property = JSON.parse(propertyRow.data);
+    } catch {
+      // Invalid JSON -- ignore
+    }
+  }
+
+  const incentiveRows = rows.filter((e) => e.enrichmentType === "incentive");
+  if (incentiveRows.length > 0) {
+    const parsed: NonNullable<EnrichmentCardsProps["incentives"]> = [];
+    for (const row of incentiveRows) {
+      try {
+        const data = JSON.parse(row.data);
+        if (data.name && data.amount) {
+          parsed.push(data);
+        }
+      } catch {
+        // Invalid JSON -- skip
+      }
+    }
+    if (parsed.length > 0) {
+      incentives = parsed;
+    }
+  }
+
+  return { weather, property, incentives };
+}
+
 // -- Helper components --
 
 function FreshnessBadge({
   freshness,
 }: {
-  freshness: EnrichedLead["freshness"];
+  freshness: FreshnessBadgeType;
 }) {
   switch (freshness) {
     case "New":
@@ -342,35 +474,18 @@ function FreshnessBadge({
   }
 }
 
-function EquipmentNeedItem({ equipment }: { equipment: InferredEquipment }) {
-  return (
-    <div className="flex items-start gap-2">
-      <ConfidenceDot confidence={equipment.confidence} />
-      <div>
-        <div className="text-sm font-medium">{equipment.type}</div>
-        <div className="text-xs text-muted-foreground">{equipment.reason}</div>
-      </div>
-    </div>
-  );
-}
-
-function ConfidenceDot({
-  confidence,
-}: {
-  confidence: InferredEquipment["confidence"];
-}) {
-  const colorClass =
-    confidence === "high"
-      ? "bg-green-500"
-      : confidence === "medium"
-        ? "bg-yellow-500"
-        : "bg-gray-400";
+function ScorePill({ score }: { score: number }) {
+  const color =
+    score >= 70
+      ? "bg-green-100 text-green-800"
+      : score >= 40
+        ? "bg-yellow-100 text-yellow-800"
+        : "bg-gray-100 text-gray-800";
 
   return (
-    <div
-      className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${colorClass}`}
-      title={`${confidence} confidence`}
-    />
+    <Badge variant="secondary" className={`${color} text-xs`}>
+      Score: {score}
+    </Badge>
   );
 }
 
