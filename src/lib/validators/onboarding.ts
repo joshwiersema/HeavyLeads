@@ -1,6 +1,10 @@
 import { z } from "zod";
 import { EQUIPMENT_TYPES } from "@/types";
 
+// ---------------------------------------------------------------------------
+// Re-exports for backward compatibility (old wizard + completeOnboarding)
+// ---------------------------------------------------------------------------
+
 export { EQUIPMENT_TYPES };
 
 export const US_STATES = [
@@ -31,6 +35,8 @@ export const US_STATES = [
   { value: "WI", label: "Wisconsin" }, { value: "WY", label: "Wyoming" },
   { value: "DC", label: "District of Columbia" },
 ] as const;
+
+// ---- Legacy per-step schemas (old 3-step wizard) ----
 
 export const locationSchema = z.object({
   street: z.string().min(3, "Street address is required"),
@@ -76,4 +82,73 @@ export function composeAddress(fields: {
   zip: string;
 }): string {
   return `${fields.street}, ${fields.city}, ${fields.state} ${fields.zip}`;
+}
+
+// ---------------------------------------------------------------------------
+// New per-step schemas for the 6-step industry-aware wizard
+// ---------------------------------------------------------------------------
+
+export const industrySchema = z.object({
+  industry: z.enum(
+    ["heavy_equipment", "hvac", "roofing", "solar", "electrical"],
+    { message: "Please select your industry" },
+  ),
+});
+
+export const companyBasicsSchema = z.object({
+  companyName: z.string().min(2, "Company name is required").max(100),
+  companySize: z.string().min(1, "Select company size"),
+  yearsInBusiness: z.coerce.number().int().min(0).max(200).nullable(),
+  street: z.string().min(3, "Street address is required"),
+  city: z.string().min(2, "City is required"),
+  state: z.string().length(2, "Select a state"),
+  zip: z.string().regex(/^\d{5}(-\d{4})?$/, "Enter a valid ZIP code"),
+});
+
+export const serviceAreaSchema = z.object({
+  serviceRadiusMiles: z
+    .number()
+    .min(10, "Minimum 10 miles")
+    .max(500, "Maximum 500 miles"),
+  serviceAreaLat: z.number().nullable(),
+  serviceAreaLng: z.number().nullable(),
+});
+
+export const specializationsSchema = z.object({
+  specializations: z
+    .array(z.string())
+    .min(1, "Select at least one specialization"),
+  serviceTypes: z.array(z.string()).optional(),
+  certifications: z.array(z.string()).optional(),
+});
+
+export const leadPreferencesSchema = z.object({
+  minProjectValue: z.coerce.number().int().min(0).nullable(),
+  maxProjectValue: z.coerce.number().int().min(0).nullable(),
+  preferredLeadTypes: z
+    .array(z.string())
+    .min(1, "Select at least one lead type"),
+  alertFrequency: z.enum(["realtime", "daily", "weekly"]),
+});
+
+// Review step has no additional fields -- it just shows a summary.
+// We still export a schema so getStepSchema can return one uniformly.
+export const reviewSchema = z.object({});
+
+// ---------------------------------------------------------------------------
+// Step-index to schema mapping
+// ---------------------------------------------------------------------------
+
+const STEP_SCHEMAS: Record<number, z.ZodTypeAny> = {
+  0: industrySchema,
+  1: companyBasicsSchema,
+  2: serviceAreaSchema,
+  3: specializationsSchema,
+  4: leadPreferencesSchema,
+  5: reviewSchema,
+};
+
+/** Return the Zod schema for the given step index (0-based). */
+export function getStepSchema(step: number): z.ZodTypeAny {
+  return STEP_SCHEMAS[step] ?? reviewSchema;
 }
