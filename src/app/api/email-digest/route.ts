@@ -14,7 +14,7 @@ import { generateDigests } from "@/lib/email/digest-generator";
  */
 export async function POST(request: Request): Promise<NextResponse> {
   // Auth guard -- check CRON_SECRET if configured
-  const cronSecret = process.env.CRON_SECRET;
+  const cronSecret = (process.env.CRON_SECRET ?? "").trim();
   if (cronSecret) {
     const authHeader = request.headers.get("authorization");
     if (authHeader !== `Bearer ${cronSecret}`) {

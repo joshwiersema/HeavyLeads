@@ -37,8 +37,9 @@ export default async function DashboardLayout({
 
   // Email verification gate -- new users must verify before accessing dashboard.
   // Legacy users (created before the cutoff) are treated as pre-verified.
-  const isLegacyUser =
-    new Date(session.user.createdAt) < new Date(LEGACY_USER_CUTOFF);
+  const isLegacyUser = session.user.createdAt
+    ? new Date(session.user.createdAt) < new Date(LEGACY_USER_CUTOFF)
+    : true; // Treat users without createdAt as legacy (pre-existing)
   if (!session.user.emailVerified && !isLegacyUser) {
     redirect("/verify-email");
   }

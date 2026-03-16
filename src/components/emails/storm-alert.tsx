@@ -14,6 +14,7 @@ interface StormAlertEmailProps {
   userName: string;
   alerts: StormAlert[];
   dashboardUrl: string;
+  unsubscribeUrl?: string;
 }
 
 /** Maximum number of alerts shown inline in the email */
@@ -29,6 +30,7 @@ export function StormAlertEmail({
   userName,
   alerts,
   dashboardUrl,
+  unsubscribeUrl,
 }: StormAlertEmailProps) {
   const displayedAlerts = alerts.slice(0, MAX_INLINE_ALERTS);
   const extraCount = alerts.length - MAX_INLINE_ALERTS;
@@ -106,11 +108,19 @@ export function StormAlertEmail({
             </Link>
             <Text style={unsubscribeStyle}>
               You are receiving this because you have a roofing profile on
-              LeadForge. To manage notification preferences, visit your{" "}
-              <Link href={`${dashboardUrl}/settings`} style={linkStyle}>
-                account settings
-              </Link>
-              .
+              LeadForge.{" "}
+              {unsubscribeUrl ? (
+                <Link href={unsubscribeUrl} style={linkStyle}>
+                  Unsubscribe from storm alerts
+                </Link>
+              ) : (
+                <Link href={`${dashboardUrl}/settings`} style={linkStyle}>
+                  Manage notification preferences
+                </Link>
+              )}
+            </Text>
+            <Text style={canSpamStyle}>
+              LeadForge | United States
             </Text>
           </Section>
         </Container>
@@ -275,4 +285,10 @@ const unsubscribeStyle: React.CSSProperties = {
   color: "#9ca3af",
   fontSize: 12,
   marginTop: 16,
+};
+
+const canSpamStyle: React.CSSProperties = {
+  color: "#d1d5db",
+  fontSize: 11,
+  marginTop: 8,
 };
