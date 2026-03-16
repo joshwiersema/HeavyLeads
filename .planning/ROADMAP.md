@@ -216,7 +216,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 12. UI Polish | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 13. Schema Foundation | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 14. Industry Onboarding | v3.0 | 3/3 | Complete | 2026-03-16 |
-| 15. Scoring Engine & Lead Feed | 3/3 | Complete   | 2026-03-16 | - |
+| 15. Scoring Engine & Lead Feed | 3/3 | Complete    | 2026-03-16 | - |
 | 16. Cron & Scraper Architecture | v3.0 | 0/TBD | Not started | - |
 | 17. Storm Alerts & Weather | v3.0 | 0/TBD | Not started | - |
 | 18. Intelligence & Polish | v3.0 | 0/TBD | Not started | - |
