@@ -1,0 +1,15 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    { "idx": 0, "version": "7", "when": 1710600000000, "tag": "0000_create_postgis_extension", "breakpoints": true },
+    { "idx": 1, "version": "7", "when": 1710600001000, "tag": "0001_rename_company_profiles", "breakpoints": true },
+    { "idx": 2, "version": "7", "when": 1710600002000, "tag": "0002_add_org_profile_columns", "breakpoints": true },
+    { "idx": 3, "version": "7", "when": 1710600003000, "tag": "0003_add_org_industry", "breakpoints": true },
+    { "idx": 4, "version": "7", "when": 1710600004000, "tag": "0004_add_lead_columns", "breakpoints": true },
+    { "idx": 5, "version": "7", "when": 1710600005000, "tag": "0005_add_postgis_geometry", "breakpoints": true },
+    { "idx": 6, "version": "7", "when": 1710600006000, "tag": "0006_add_bookmark_columns", "breakpoints": true },
+    { "idx": 7, "version": "7", "when": 1710600007000, "tag": "0007_create_lead_enrichments", "breakpoints": true },
+    { "idx": 8, "version": "7", "when": 1710600008000, "tag": "0008_create_scraper_runs", "breakpoints": true }
+  ]
+}
