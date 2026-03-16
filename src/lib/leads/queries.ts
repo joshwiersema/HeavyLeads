@@ -22,7 +22,15 @@ import { inferEquipmentNeeds } from "./equipment-inference";
 import { scoreLead } from "./scoring";
 import { getFreshnessBadge } from "./types";
 import { mapTimeline } from "./timeline";
-import type { EnrichedLead, InferredEquipment } from "./types";
+import type { EnrichedLead, InferredEquipment, ScoredLead } from "./types";
+import { organization } from "@/lib/db/schema/auth";
+import { organizationProfiles } from "@/lib/db/schema/organization-profiles";
+import { scoreLeadForOrg } from "@/lib/scoring/engine";
+import type {
+  OrgScoringContext,
+  LeadScoringInput,
+} from "@/lib/scoring/types";
+import type { Industry } from "@/lib/onboarding/types";
 
 // -- Pure helper (exported for testability) --
 
@@ -682,4 +690,342 @@ export async function getLeadSources(leadId: string): Promise<LeadSource[]> {
     .orderBy(asc(leadSources.discoveredAt));
 
   return rows;
+}
+
+// ---------------------------------------------------------------------------
+// Cursor-based lead feed with per-org scoring (Phase 15)
+// ---------------------------------------------------------------------------
+
+export interface CursorPaginationParams {
+  /** Lead ID -- fetch leads after this ID */
+  cursor?: string;
+  /** Number of leads to return (default 20) */
+  limit?: number;
+}
+
+export interface GetLeadFeedParams extends CursorPaginationParams {
+  orgId: string;
+  userId: string;
+  // Filters
+  sourceTypes?: string[];
+  maxDistanceMiles?: number;
+  minValue?: number;
+  maxValue?: number;
+  projectTypes?: string[];
+  dateFrom?: Date;
+  dateTo?: Date;
+  matchingSpecializationsOnly?: boolean;
+  sortBy?: "score" | "distance" | "value" | "date";
+  keyword?: string;
+}
+
+export interface LeadFeedResult {
+  leads: ScoredLead[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+/** Internal batch size -- fetch more than requested so sorting works well */
+const CURSOR_BATCH_SIZE = 50;
+
+/**
+ * Builds an OrgScoringContext from the organization and profile tables.
+ * Returns null if the org or profile is not found.
+ */
+async function buildOrgScoringContext(
+  orgId: string
+): Promise<OrgScoringContext | null> {
+  // Fetch org for industry
+  const orgRows = await db
+    .select({ industry: organization.industry })
+    .from(organization)
+    .where(eq(organization.id, orgId))
+    .limit(1);
+
+  if (orgRows.length === 0) return null;
+
+  // Fetch profile for scoring parameters
+  const profileRows = await db
+    .select()
+    .from(organizationProfiles)
+    .where(eq(organizationProfiles.organizationId, orgId))
+    .limit(1);
+
+  if (profileRows.length === 0) return null;
+
+  const profile = profileRows[0];
+  const industry = (orgRows[0].industry ?? "heavy_equipment") as Industry;
+
+  return {
+    industry,
+    hqLat: profile.hqLat ?? 0,
+    hqLng: profile.hqLng ?? 0,
+    serviceRadiusMiles: profile.serviceRadiusMiles ?? 50,
+    specializations: profile.specializations ?? [],
+    preferredLeadTypes: profile.serviceTypes ?? [],
+    targetProjectValueMin: profile.targetProjectValueMin,
+    targetProjectValueMax: profile.targetProjectValueMax,
+  };
+}
+
+/**
+ * Converts a raw lead row into the LeadScoringInput shape expected by the
+ * scoring engine.
+ */
+function toLeadScoringInput(row: Record<string, unknown>): LeadScoringInput {
+  return {
+    lat: row.lat as number | null,
+    lng: row.lng as number | null,
+    projectType: row.projectType as string | null,
+    sourceType: row.sourceType as string,
+    applicableIndustries: (row.applicableIndustries as string[]) ?? [],
+    estimatedValue: row.estimatedValue as number | null,
+    valueTier: row.valueTier as string | null,
+    severity: row.severity as string | null,
+    deadline: row.deadline as Date | null,
+    scrapedAt: row.scrapedAt as Date,
+  };
+}
+
+/**
+ * Fetches leads using cursor-based pagination, scores each against the
+ * subscriber's org context, and returns sorted results with a cursor for
+ * the next page.
+ *
+ * This replaces the offset-based pagination for the main lead feed. The old
+ * getFilteredLeads and getFilteredLeadsWithCount functions remain for backward
+ * compatibility with bookmarks, digests, etc.
+ */
+export async function getFilteredLeadsCursor(
+  params: GetLeadFeedParams
+): Promise<LeadFeedResult> {
+  const {
+    orgId,
+    userId,
+    cursor,
+    limit = 20,
+    sourceTypes,
+    maxDistanceMiles,
+    minValue,
+    maxValue,
+    projectTypes,
+    dateFrom,
+    dateTo,
+    matchingSpecializationsOnly,
+    sortBy = "score",
+    keyword,
+  } = params;
+
+  // 1. Build org scoring context
+  const orgContext = await buildOrgScoringContext(orgId);
+  if (!orgContext) {
+    return { leads: [], nextCursor: null, hasMore: false };
+  }
+
+  const effectiveRadius = maxDistanceMiles ?? orgContext.serviceRadiusMiles * 1.5;
+
+  // 2. Build Haversine distance expression
+  const distanceExpr = sql<number>`
+    3959 * acos(
+      LEAST(1.0, GREATEST(-1.0,
+        cos(radians(${orgContext.hqLat}))
+        * cos(radians(${leads.lat}))
+        * cos(radians(${leads.lng}) - radians(${orgContext.hqLng}))
+        + sin(radians(${orgContext.hqLat}))
+        * sin(radians(${leads.lat}))
+      ))
+    )
+  `.mapWith(Number);
+
+  // 3. Build WHERE conditions
+  const conditions: SQL[] = [
+    isNotNull(leads.lat),
+    isNotNull(leads.lng),
+    sql`3959 * acos(
+      LEAST(1.0, GREATEST(-1.0,
+        cos(radians(${orgContext.hqLat}))
+        * cos(radians(${leads.lat}))
+        * cos(radians(${leads.lng}) - radians(${orgContext.hqLng}))
+        + sin(radians(${orgContext.hqLat}))
+        * sin(radians(${leads.lat}))
+      ))
+    ) <= ${effectiveRadius}`,
+  ];
+
+  // Cursor: fetch leads with ID > cursor for stable ordering
+  if (cursor) {
+    conditions.push(sql`${leads.id} > ${cursor}`);
+  }
+
+  // Source type filter
+  if (sourceTypes && sourceTypes.length > 0) {
+    conditions.push(inArray(leads.sourceType, sourceTypes));
+  }
+
+  // Value range filter
+  if (minValue != null) {
+    conditions.push(gte(leads.estimatedValue, minValue));
+  }
+  if (maxValue != null) {
+    conditions.push(lte(leads.estimatedValue, maxValue));
+  }
+
+  // Project type filter
+  if (projectTypes && projectTypes.length > 0) {
+    conditions.push(inArray(leads.projectType, projectTypes));
+  }
+
+  // Date range filter
+  if (dateFrom) {
+    conditions.push(gte(leads.scrapedAt, dateFrom));
+  }
+  if (dateTo) {
+    conditions.push(lte(leads.scrapedAt, dateTo));
+  }
+
+  // Matching specializations only: filter where applicableIndustries overlaps with org industry
+  if (matchingSpecializationsOnly) {
+    conditions.push(
+      sql`${leads.applicableIndustries} && ARRAY[${orgContext.industry}]::text[]`
+    );
+  }
+
+  // Keyword filter
+  if (keyword) {
+    const pattern = `%${keyword}%`;
+    conditions.push(
+      or(
+        ilike(leads.title, pattern),
+        ilike(leads.description, pattern),
+        ilike(leads.address, pattern)
+      )!
+    );
+  }
+
+  // 4. Build select fields with optional status and bookmark
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selectFields: Record<string, any> = {
+    ...getTableColumns(leads),
+    distance: distanceExpr,
+  };
+
+  selectFields.status = sql<string>`COALESCE(${leadStatuses.status}, 'new')`.as(
+    "lead_status"
+  );
+  selectFields.isBookmarked = sql<boolean>`${bookmarks.id} IS NOT NULL`.as(
+    "is_bookmarked"
+  );
+
+  // 5. Execute query
+  const rows = await db
+    .select(selectFields)
+    .from(leads)
+    .leftJoin(
+      leadStatuses,
+      and(
+        eq(leadStatuses.leadId, leads.id),
+        eq(leadStatuses.userId, userId),
+        eq(leadStatuses.organizationId, orgId)
+      )
+    )
+    .leftJoin(
+      bookmarks,
+      and(
+        eq(bookmarks.leadId, leads.id),
+        eq(bookmarks.userId, userId),
+        eq(bookmarks.organizationId, orgId)
+      )
+    )
+    .where(and(...conditions))
+    .orderBy(asc(leads.id))
+    .limit(CURSOR_BATCH_SIZE);
+
+  // 6. Score each lead
+  const scored: ScoredLead[] = (rows as Record<string, unknown>[]).map(
+    (row) => {
+      const leadInput = toLeadScoringInput(row);
+      const distanceMiles =
+        row.distance != null ? (row.distance as number) : null;
+      const scoring = scoreLeadForOrg(leadInput, orgContext, distanceMiles);
+
+      return {
+        ...row,
+        distance: distanceMiles,
+        scoring,
+        freshness: getFreshnessBadge(row.scrapedAt as Date),
+        status: row.status as string | undefined,
+        isBookmarked: row.isBookmarked as boolean | undefined,
+      } as ScoredLead;
+    }
+  );
+
+  // 7. Sort by requested dimension
+  scored.sort((a, b) => {
+    switch (sortBy) {
+      case "distance":
+        return (a.distance ?? Infinity) - (b.distance ?? Infinity);
+      case "value":
+        return (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
+      case "date":
+        return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+      case "score":
+      default:
+        if (b.scoring.total !== a.scoring.total)
+          return b.scoring.total - a.scoring.total;
+        return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+    }
+  });
+
+  // 8. Take the first `limit` leads
+  const result = scored.slice(0, limit);
+  const hasMore = rows.length === CURSOR_BATCH_SIZE;
+  const nextCursor =
+    hasMore && result.length > 0 ? result[result.length - 1].id : null;
+
+  return { leads: result, nextCursor, hasMore };
+}
+
+// ---------------------------------------------------------------------------
+// Single scored lead query (Phase 15)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches a single lead by ID and scores it against the subscriber's org context.
+ * Returns null if the lead or org profile is not found.
+ *
+ * Used by the lead detail page to show per-org scoring breakdown.
+ */
+export async function getLeadByIdScored(
+  id: string,
+  orgId: string
+): Promise<ScoredLead | null> {
+  const orgContext = await buildOrgScoringContext(orgId);
+  if (!orgContext) return null;
+
+  const rows = await db.select().from(leads).where(eq(leads.id, id)).limit(1);
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0] as Record<string, unknown>;
+
+  // Compute distance
+  let distanceMiles: number | null = null;
+  if (row.lat != null && row.lng != null) {
+    distanceMiles = haversineDistance(
+      orgContext.hqLat,
+      orgContext.hqLng,
+      row.lat as number,
+      row.lng as number
+    );
+  }
+
+  const leadInput = toLeadScoringInput(row);
+  const scoring = scoreLeadForOrg(leadInput, orgContext, distanceMiles);
+
+  return {
+    ...row,
+    distance: distanceMiles,
+    scoring,
+    freshness: getFreshnessBadge(row.scrapedAt as Date),
+  } as ScoredLead;
 }
