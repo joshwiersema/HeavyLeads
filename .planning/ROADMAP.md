@@ -231,10 +231,10 @@ Plans:
   1. The currently active page is visually highlighted in the desktop sidebar navigation
   2. The currently active page is visually highlighted in the mobile navigation drawer
   3. Nested routes (e.g., lead detail pages under /dashboard) correctly highlight their parent nav item
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 12-01: TBD
+- [ ] 12-01-PLAN.md -- Shared nav config with route matching, SidebarNav client component, mobile nav fix, and active-state tests
 
 ## Progress
 
@@ -254,4 +254,4 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 9. Regression Test Safety Net | v2.1 | 3/3 | Complete | 2026-03-16 |
 | 10. Query Optimizations | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 11. Forgot Password | v2.1 | Complete    | 2026-03-16 | 2026-03-16 |
-| 12. UI Polish | v2.1 | 0/? | Not started | - |
+| 12. UI Polish | v2.1 | 0/1 | Not started | - |
