@@ -24,6 +24,8 @@ import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { PipelineProgress } from "@/components/dashboard/pipeline-progress";
 import { RefreshLeadsButton } from "@/components/dashboard/refresh-leads-button";
 import { AutoTrigger } from "@/components/dashboard/auto-trigger";
+import { StormAlertBanner } from "@/components/dashboard/storm-alert-banner";
+import { getActiveStormAlertsForOrg } from "@/lib/storm-alerts/queries";
 import { Pagination } from "./pagination";
 import Link from "next/link";
 import type { Industry } from "@/lib/onboarding/types";
@@ -87,6 +89,10 @@ export default async function DashboardPage({
     columns: { industry: true },
   });
   const industry = (org?.industry ?? "heavy_equipment") as Industry;
+
+  // Fetch active storm alerts for this org (only for roofing industry)
+  const stormAlerts =
+    industry === "roofing" ? await getActiveStormAlertsForOrg(orgId) : [];
 
   // Parse filter and pagination params from URL
   const params = await searchParams;
@@ -232,6 +238,9 @@ export default async function DashboardPage({
 
       {/* Pipeline progress indicator */}
       {pipelineStatus.isRunning && <PipelineProgress />}
+
+      {/* Storm alert banner (roofing only) */}
+      {stormAlerts.length > 0 && <StormAlertBanner alerts={stormAlerts} />}
 
       {/* Two-column layout: filters + cards */}
       <div className="flex flex-col gap-6 lg:flex-row">

@@ -4,7 +4,11 @@ import { NwsStormAdapter } from "@/lib/scraper/adapters/nws-storm-adapter";
 import { FemaDisasterAdapter } from "@/lib/scraper/adapters/fema-disaster-adapter";
 import { db } from "@/lib/db";
 import { pipelineRuns } from "@/lib/db/schema/pipeline-runs";
-import { eq, and, gte } from "drizzle-orm";
+import { leads } from "@/lib/db/schema/leads";
+import { eq, and, gte, inArray } from "drizzle-orm";
+import { getRoofingSubscribersInStormArea } from "@/lib/storm-alerts/queries";
+import { getActiveStormAlertsForOrg } from "@/lib/storm-alerts/queries";
+import { sendStormAlertEmail } from "@/lib/email/send-storm-alert";
 
 export const maxDuration = 120;
 
@@ -78,11 +82,85 @@ export async function GET(request: NextRequest) {
       })
       .where(eq(pipelineRuns.id, run.id));
 
+    // --- Email dispatch to affected roofing subscribers ---
+    let emailsSent = 0;
+    try {
+      // Collect new lead IDs from all adapter results
+      const newLeadIds = result.results.flatMap((r) => r.newLeadIds ?? []);
+
+      if (newLeadIds.length > 0) {
+        // Fetch the newly created storm leads with coordinates
+        const newStormLeads = await db
+          .select({ id: leads.id, lat: leads.lat, lng: leads.lng })
+          .from(leads)
+          .where(
+            and(
+              inArray(leads.id, newLeadIds),
+              eq(leads.sourceType, "storm")
+            )
+          );
+
+        // Find unique subscribers affected by any of the new storm leads
+        const subscriberMap = new Map<
+          string,
+          { userId: string; userName: string; email: string; orgId: string }
+        >();
+
+        for (const lead of newStormLeads) {
+          if (lead.lat == null || lead.lng == null) continue;
+          const subscribers = await getRoofingSubscribersInStormArea(
+            lead.lat,
+            lead.lng
+          );
+          for (const sub of subscribers) {
+            // Deduplicate by userId so each user gets one email
+            if (!subscriberMap.has(sub.userId)) {
+              subscriberMap.set(sub.userId, {
+                userId: sub.userId,
+                userName: sub.userName,
+                email: sub.email,
+                orgId: sub.orgId,
+              });
+            }
+          }
+        }
+
+        // Send email to each unique subscriber with their org's active storm alerts
+        const dashboardUrl = (
+          process.env.NEXT_PUBLIC_APP_URL ?? "https://app.leadforge.com"
+        ).trim();
+
+        for (const sub of subscriberMap.values()) {
+          const alerts = await getActiveStormAlertsForOrg(sub.orgId);
+          if (alerts.length > 0) {
+            await sendStormAlertEmail(
+              sub.email,
+              sub.userName,
+              alerts,
+              dashboardUrl
+            );
+            emailsSent++;
+          }
+        }
+
+        console.log(
+          `[storm-cron] Sent ${emailsSent} storm alert emails to ${subscriberMap.size} subscribers`
+        );
+      }
+    } catch (emailError) {
+      // Email failures must not fail the cron
+      console.error(
+        "[storm-cron] Email dispatch error:",
+        emailError instanceof Error ? emailError.message : emailError
+      );
+    }
+
     return Response.json({
       success: true,
       runId: run.id,
       totalScraped,
       totalStored,
+      emailsSent,
       adapters: result.results.length,
       duration: result.completedAt.getTime() - result.startedAt.getTime(),
     });
