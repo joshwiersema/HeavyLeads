@@ -61,6 +61,8 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
       const result = await updateCompanyProfile(data);
       if (result.success) {
         toast.success("Company profile updated");
+      } else if (result.error) {
+        toast.error(result.error);
       }
     } catch (error) {
       toast.error(

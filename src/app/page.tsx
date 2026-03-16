@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -14,6 +13,14 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, Zap, BarChart3, Mail } from "lucide-react";
+
+/** Button-like link styles (avoids nesting <a><button>) */
+const linkBtn =
+  "inline-flex h-9 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/80";
+const linkBtnOutline =
+  "inline-flex h-9 items-center justify-center rounded-lg border border-border bg-background px-2.5 text-sm font-medium hover:bg-muted hover:text-foreground";
+const linkBtnGhost =
+  "inline-flex h-8 items-center justify-center rounded-lg px-2.5 text-sm font-medium hover:bg-muted hover:text-foreground";
 
 export default async function Home() {
   const session = await auth.api.getSession({
@@ -45,13 +52,11 @@ export default async function Home() {
       <header className="flex items-center justify-between border-b px-6 py-4">
         <span className="text-xl font-bold">HeavyLeads</span>
         <div className="flex items-center gap-3">
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm">
-              Sign In
-            </Button>
+          <Link href="/sign-in" className={linkBtnGhost}>
+            Sign In
           </Link>
-          <Link href="/sign-up">
-            <Button size="sm">Get Started</Button>
+          <Link href="/sign-up" className={linkBtn}>
+            Get Started
           </Link>
         </div>
       </header>
@@ -70,13 +75,11 @@ export default async function Home() {
           the right jobsite first.
         </p>
         <div className="flex gap-3">
-          <Link href="/sign-up">
-            <Button size="lg">Start Free Trial</Button>
+          <Link href="/sign-up" className={linkBtn}>
+            Start Free Trial
           </Link>
-          <Link href="/sign-in">
-            <Button size="lg" variant="outline">
-              Sign In
-            </Button>
+          <Link href="/sign-in" className={linkBtnOutline}>
+            Sign In
           </Link>
         </div>
       </section>
@@ -140,8 +143,8 @@ export default async function Home() {
         <p className="text-muted-foreground">
           Start your 7-day free trial. No credit card required.
         </p>
-        <Link href="/sign-up">
-          <Button size="lg">Get Started Free</Button>
+        <Link href="/sign-up" className={linkBtn}>
+          Get Started Free
         </Link>
       </section>
 

@@ -73,6 +73,8 @@ export function OnboardingWizard() {
         // subscription yet, so /dashboard would immediately redirect to
         // /billing anyway — causing a visible flash/glitch.
         router.push("/billing");
+      } else if (result.error) {
+        toast.error(result.error);
       }
     } catch (error) {
       toast.error(
