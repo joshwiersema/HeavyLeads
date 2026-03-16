@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: LeadForge Multi-Industry Platform
-status: defining_requirements
+status: ready_to_plan
 stopped_at: null
-last_updated: "2026-03-16T12:00:00.000Z"
-last_activity: 2026-03-16 -- Milestone v3.0 started
+last_updated: "2026-03-16T14:00:00.000Z"
+last_activity: 2026-03-16 -- Roadmap created for v3.0 (6 phases, 61 requirements)
 progress:
-  total_phases: 0
+  total_phases: 6
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** Defining requirements for v3.0
+**Current focus:** Phase 13 - Schema Foundation
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-16 — Milestone v3.0 started
+Phase: 13 of 18 (Schema Foundation) -- first phase of v3.0
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-16 -- Roadmap created for v3.0 milestone
+
+Progress: [░░░░░░░░░░] 0% (v3.0)
 
 ## Performance Metrics
 
@@ -37,6 +39,8 @@ Last activity: 2026-03-16 — Milestone v3.0 started
 - v2.0: 2 phases, 4 plans, ~0.3 hours
 - v2.1: 4 phases, 8 plans, ~0.6 hours
 
+**v3.0:** No plans executed yet.
+
 ## Accumulated Context
 
 ### Decisions
@@ -44,12 +48,13 @@ Last activity: 2026-03-16 — Milestone v3.0 started
 Key decisions carried forward:
 - Permit upsert uses sql`excluded.column_name` for correct Drizzle conflict updates
 - Geocoding returns null coords (not 0,0) when API key missing
-- Lead query uses FETCH_MULTIPLIER = 4 (will be replaced by cursor-based pagination in v3.0)
 - Org slug gets random suffix to prevent collision
 - Stripe customer creation uses idempotency key per org
-- Never add side-effect imports to db/index.ts or auth.ts — caused production 500
+- Never add side-effect imports to db/index.ts or auth.ts -- caused production 500
 - Resend client instantiated inside callbacks, not at module top level
 - Shared nav-links.ts config consumed by both sidebar and mobile nav
+- Query-time scoring (not insert-time) -- same lead scores differently per subscriber
+- Expand-then-contract migration discipline -- every schema change additive with defaults/backfills
 
 ### Pending Todos
 
@@ -57,12 +62,14 @@ None yet.
 
 ### Blockers/Concerns
 
-- Custom Resend domain status unknown — password reset emails may land in spam without SPF/DKIM
+- Custom Resend domain status unknown -- password reset emails may land in spam without SPF/DKIM
 - Schema push needed: `npx drizzle-kit push` to apply leads_source_url_dedup_idx partial unique index
-- Database migration strategy for v3.0 schema changes needs careful planning (preserve existing data)
+- Drizzle strict mode must be enabled for v3.0 migrations to prevent silent column drops
+- PostGIS extension must be created manually on Neon before geometry migration runs
+- Vercel Pro plan likely required for sub-daily cron scheduling (storm alerts every 30 min)
 
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: null
+Stopped at: Roadmap created for v3.0 milestone
 Resume file: None

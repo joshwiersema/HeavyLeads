@@ -190,7 +190,7 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 | Mobile native app | Web-first, mobile web responsive is sufficient |
 | Real-time chat/messaging | Not core to lead discovery |
 | International markets | U.S. only, data sources are U.S.-specific |
-| Manual lead entry/import | Defer to future — scraping is the core value |
+| Manual lead entry/import | Defer to future -- scraping is the core value |
 | ML/AI lead scoring | Regex + keyword matching for v3.0; ML is future |
 | DSIRE API subscription | Paid, opaque pricing; manual curation covers 80% of value |
 | HailTrace API | Paid; NWS is the free upstream data source |
@@ -326,9 +326,9 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 - v1.0 requirements: 25 total, 25 complete
 - v2.0 requirements: 11 complete
 - v2.1 requirements: 8 complete
-- v3.0 requirements: 47 total, 47 mapped to phases
-- Unmapped: 0 ✓
+- v3.0 requirements: 61 total, 61 mapped to phases
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13 (v1.0)*
-*Last updated: 2026-03-16 after v3.0 milestone definition*
+*Last updated: 2026-03-16 after v3.0 roadmap creation*

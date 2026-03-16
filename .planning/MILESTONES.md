@@ -1,4 +1,4 @@
-# Milestones: HeavyLeads
+# Milestones: LeadForge
 
 ## v1.0 — Core Product (Completed 2026-03-14)
 
@@ -38,13 +38,13 @@
 
 **Last phase:** Phase 8 (Lead Automation)
 
-## v2.1 — Bug Fixes & Hardening (In Progress)
+## v2.1 — Bug Fixes & Hardening (Completed 2026-03-16)
 
 **Goal:** Harden the production app with regression tests, resolve deferred performance bugs, and add password recovery.
 
-**Phases:** 9-12
+**Phases:** 9-12 (8 plans)
 
-**Targets:**
+**Shipped:**
 - Regression test suite for all 15 v2.0 post-rework bug fixes
 - Lead feed pagination with Previous/Next controls
 - Bookmarks batch query (replace N+1)
@@ -53,6 +53,29 @@
 - Forgot password flow via email
 - Active nav highlighting
 
-**Requirements:** 0/8 complete (TEST-01-02, PERF-01-04, AUTH-01, UI-01)
+**Requirements:** 8/8 complete (TEST-01-02, PERF-01-04, AUTH-01v2.1, UI-01)
 
 **Last phase:** Phase 12 (UI Polish)
+
+## v3.0 — LeadForge Multi-Industry Platform (In Progress)
+
+**Goal:** Transform from single-industry heavy equipment tool into a 5-industry lead generation platform with industry-specific scraping, query-time scoring, multi-step onboarding, CRM-lite bookmarks, and expanded notification system.
+
+**Phases:** 13-18 (plans TBD)
+
+**Targets:**
+- Multi-industry support (heavy equipment, HVAC, roofing, solar, electrical)
+- New database schema with industry-aware organization profiles and PostGIS
+- 6-step industry-conditional onboarding wizard
+- Generalized scraper architecture with industry registry and rate limiting
+- NWS storm alerts, FEMA disasters, code violations, utility rates, solar incentives
+- Query-time scoring engine (distance, relevance, value, freshness, urgency)
+- Cursor-based pagination with filter panel
+- CRM-lite bookmarks with pipeline status tracking
+- Auth hardening (email verification, atomic signup, specific error messages)
+- Expanded cron architecture (7 scheduled jobs)
+- Email system overhaul (React Email templates, storm alerts, unsubscribe/CAN-SPAM)
+
+**Requirements:** 0/61 complete (SCHM-01-07, ONBD-01-07, SCRP-01-10, SCOR-01-07, FEED-01-06, CRM-01-03, AUTH-01v3-05v3, BILL-01v3-03v3, NOTF-01-06, CRON-01-07)
+
+**Last phase:** Phase 18 (Intelligence & Polish)
