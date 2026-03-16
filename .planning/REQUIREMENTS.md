@@ -1,7 +1,7 @@
-# Requirements: HeavyLeads
+# Requirements: LeadForge (formerly HeavyLeads)
 
-**Defined:** 2026-03-13 (v1.0), Updated 2026-03-15 (v2.0, v2.1)
-**Core Value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
+**Defined:** 2026-03-13 (v1.0), Updated 2026-03-15 (v2.0, v2.1), 2026-03-16 (v3.0)
+**Core Value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
 
 ## v1.0 Requirements (Complete)
 
@@ -42,106 +42,162 @@
 - [x] **PLAT-05**: Subscription billing with one-time setup fee + ongoing monthly charges via Stripe
 - [x] **PLAT-06**: User can manage account settings and company profile
 
-## v2.0 Requirements
+## v2.0 Requirements (Complete)
 
 ### Billing Fix & Trial
 
-- [x] **BILL-01**: Fix Stripe customer creation error on signup (create org-level customer, not user-level)
+- [x] **BILL-01**: Fix Stripe customer creation error on signup
 - [x] **BILL-02**: User starts a 7-day free trial via Stripe Checkout with credit card
 - [x] **BILL-03**: Dashboard shows trial countdown banner with days remaining
-- [x] **BILL-04**: Expired trial redirects to billing page with "Trial ended" messaging and subscribe CTA
-- [x] **BILL-05**: Setup fee is NOT charged during trial — only on conversion to paid
+- [x] **BILL-04**: Expired trial redirects to billing page
+- [x] **BILL-05**: Setup fee is NOT charged during trial
 
 ### Lead Automation
 
-- [x] **AUTO-01**: Vercel Cron runs scraping pipeline daily (replace dead node-cron)
-- [x] **AUTO-02**: First-login trigger fires pipeline after onboarding so new users see leads immediately
+- [x] **AUTO-01**: Vercel Cron runs scraping pipeline daily
+- [x] **AUTO-02**: First-login trigger fires pipeline after onboarding
 - [x] **AUTO-03**: Dashboard shows progress indicator while pipeline runs
-- [x] **AUTO-04**: On-demand "Refresh Leads" button in dashboard (rate-limited 1/hour per org)
-- [x] **AUTO-05**: Scraper API route is secured with auth (CRON_SECRET for cron, session for user-triggered)
-- [x] **PLSH-02**: Empty dashboard state with informative messaging (not blank page)
+- [x] **AUTO-04**: On-demand "Refresh Leads" button (rate-limited 1/hour per org)
+- [x] **AUTO-05**: Scraper API route is secured with auth
+- [x] **PLSH-02**: Empty dashboard state with informative messaging
 
-### Deferred from v2.0
+## v2.1 Requirements (Complete)
 
-- [ ] **ONBD-01**: Onboarding collects company details (name, website, phone, logo, industry segment)
-- [ ] **ONBD-02**: Logo upload via Vercel Blob with preview
-- [ ] **ONBD-03**: Team invite step — invite members by email with role selection (skip-able)
-- [ ] **ONBD-04**: Guided dashboard tour triggers after onboarding (5-6 steps)
-- [ ] **ONBD-05**: Tour only shows once per user (tracked via hasSeenTour flag)
-- [ ] **SRCH-01**: User can search for leads by custom location, keywords, and project type
-- [ ] **SRCH-02**: Custom search results merge into the main lead feed
-- [ ] **SRCH-03**: Custom searches are rate-limited (3/day trial, 10/day paid)
-- [ ] **PLSH-01**: Pre-expiry conversion emails at 3 days, 1 day, and expiry day
-- [ ] **PLSH-03**: Overall UI consistency and production readiness pass
+- [x] **TEST-01**: Regression test suite covers all 15 v2.0 post-rework bug fixes
+- [x] **TEST-02**: Test infrastructure supports mocking server actions and DB
+- [x] **PERF-01**: Lead feed supports page navigation with Previous/Next controls
+- [x] **PERF-02**: Bookmarks page uses batch query instead of N+1
+- [x] **PERF-03**: Digest generator uses widest-filter merged query
+- [x] **PERF-04**: Non-permit leads deduplicated by sourceUrl
+- [x] **AUTH-01v2.1**: User can reset forgotten password via email link
+- [x] **UI-01**: Active page highlighted in sidebar and mobile nav
 
-## v2.1 Requirements
+## v3.0 Requirements
 
-Requirements for Bug Fixes & Hardening milestone.
+Requirements for LeadForge Multi-Industry Platform expansion.
 
-### Testing
+### Schema & Data Model
 
-- [x] **TEST-01**: Regression test suite covers all 15 v2.0 post-rework bug fixes (permit upsert, geocoding null, lead query sort, org slug, sign-in redirect, Stripe idempotency, onboarding upsert, mobile nav, landing page, pricing display, error boundaries, date formatting, loading states, equipmentTypes guard, geocoding error handling in forms)
-- [x] **TEST-02**: Test infrastructure supports mocking server actions, next/headers, and @/lib/db with established patterns
+- [ ] **SCHM-01**: Organization has an industry field (heavy_equipment, hvac, roofing, solar, electrical) with existing orgs backfilled as heavy_equipment
+- [ ] **SCHM-02**: Organization profiles store industry-specific specializations, service areas, certifications, and target project values
+- [ ] **SCHM-03**: Leads have source type, cross-industry relevance tags, value tier, severity, deadline, and content-hash deduplication
+- [ ] **SCHM-04**: Lead enrichments stored in separate table (weather data, property data, incentive programs)
+- [ ] **SCHM-05**: Bookmarks support notes and pipeline status (saved/contacted/in_progress/won/lost)
+- [ ] **SCHM-06**: Scraper runs tracked per-adapter with status, counts, and error logging
+- [ ] **SCHM-07**: PostGIS extension enabled with geometry column on leads for spatial queries
 
-### Query Performance
+### Onboarding
 
-- [x] **PERF-01**: Lead feed supports page navigation with Previous/Next controls, page indicator, and URL-based page state that preserves all existing filters
-- [x] **PERF-02**: Bookmarks page fetches all bookmarked leads in a single batch query using inArray instead of individual getLeadById calls
-- [x] **PERF-03**: Digest generator runs one merged query per user (widest filters) instead of one query per saved search, then filters in memory per search
-- [x] **PERF-04**: Non-permit leads are deduplicated by sourceUrl via partial unique index; dedup check uses sourceUrl as primary key when available
+- [ ] **ONBD-01**: User selects industry from 5 options as first onboarding step
+- [ ] **ONBD-02**: User enters company basics (name, size, address with geocoding, years in business)
+- [ ] **ONBD-03**: User sets service area via interactive map with radius slider or multiple areas
+- [ ] **ONBD-04**: User selects industry-specific specializations (different options per industry)
+- [ ] **ONBD-05**: User configures lead preferences (min project value, preferred lead types, alert frequency)
+- [ ] **ONBD-06**: User reviews all selections before completing onboarding
+- [ ] **ONBD-07**: Wizard state persists in sessionStorage across page refreshes
 
-### Auth
+### Scraper Architecture
 
-- [x] **AUTH-01**: User can reset forgotten password via email link from sign-in page (better-auth native sendResetPassword with Resend)
+- [ ] **SCRP-01**: Scraper registry maps industries to adapter sets via factory pattern
+- [ ] **SCRP-02**: Content-hash deduplication (SHA-256) for primary dedup
+- [ ] **SCRP-03**: Rate limiter using p-queue with per-API concurrency and interval controls
+- [ ] **SCRP-04**: Permit scraper factory generalized for Socrata/SODA3 multi-city support
+- [ ] **SCRP-05**: SAM.gov adapter expanded with per-industry NAICS code filtering
+- [ ] **SCRP-06**: NWS storm alert scraper polls active alerts every 30 minutes for roofing leads
+- [ ] **SCRP-07**: FEMA disaster declaration scraper for roofing/heavy equipment demand signals
+- [ ] **SCRP-08**: Code violation scraper for HVAC/roofing/electrical leads (2-3 Socrata cities)
+- [ ] **SCRP-09**: EIA utility rate scraper for solar ROI context
+- [ ] **SCRP-10**: Solar incentive lookup table (manually curated top 15 state programs)
 
-### UI
+### Scoring Engine
 
-- [x] **UI-01**: Active page is visually highlighted in both desktop sidebar and mobile nav drawer
+- [ ] **SCOR-01**: Score computed at query time per subscriber (same lead scores differently per org)
+- [ ] **SCOR-02**: Distance dimension (0-25 pts) based on proximity to HQ/service areas
+- [ ] **SCOR-03**: Relevance dimension (0-30 pts) based on specialization match and industry alignment
+- [ ] **SCOR-04**: Value dimension (0-20 pts) based on estimated project value vs target range
+- [ ] **SCOR-05**: Freshness dimension (0-15 pts) decaying over 30 days
+- [ ] **SCOR-06**: Urgency dimension (0-10 pts) for storms, bid deadlines, violations, expiring incentives
+- [ ] **SCOR-07**: Human-readable match reasons displayed on lead cards
 
-## Future Requirements
+### Lead Feed & Dashboard
 
-### Auth
+- [ ] **FEED-01**: Lead cards show title, type badge, value, distance, score, match reasons, bookmark button
+- [ ] **FEED-02**: Filter panel with source type, distance, value range, project type, date range, sort options
+- [ ] **FEED-03**: Cursor-based pagination replacing offset-based approach
+- [ ] **FEED-04**: Lead detail page with enrichment data, map, contacts, and similar leads
+- [ ] **FEED-05**: Storm alert banner for urgent weather-based leads
+- [ ] **FEED-06**: Industry badge in navigation showing org's industry
 
-- **AUTH-F01**: Email verification on signup with DB migration for existing users
-- **AUTH-F02**: 2FA / TOTP authentication
+### Bookmarks & CRM
 
-### Features
+- [ ] **CRM-01**: User can bookmark leads with notes
+- [ ] **CRM-02**: User can track pipeline status (saved/contacted/in_progress/won/lost)
+- [ ] **CRM-03**: Bookmarks page filterable by status with inline notes
 
-- **FEAT-F01**: Custom lead search (user-specified location, keywords, project type)
-- **FEAT-F02**: Professional onboarding expansion (company details, team invites)
-- **FEAT-F03**: Guided dashboard tour
+### Auth Hardening
 
-### Integrations
+- [ ] **AUTH-01v3**: Email verification required before accessing dashboard (existing users pre-verified)
+- [ ] **AUTH-02v3**: Atomic sign-up (user + org + active org in single transaction or cleanup on failure)
+- [ ] **AUTH-03v3**: Specific error messages (email in use, password too weak, org name taken)
+- [ ] **AUTH-04v3**: Sign-in redirects to /dashboard not /
+- [ ] **AUTH-05v3**: Confirm password field on sign-up form
 
-- **INT-01**: CRM integration (Salesforce, HubSpot)
-- **INT-02**: Lead export to CSV
-- **INT-03**: REST API for programmatic access
+### Billing
 
-### Advanced Intelligence
+- [ ] **BILL-01v3**: Industry-specific pricing config (setup fee + monthly per industry, configurable)
+- [ ] **BILL-02v3**: Fix double-nested checkout params in Stripe integration
+- [ ] **BILL-03v3**: Webhook handling for checkout.session.completed, invoice.paid/failed, subscription.deleted
 
-- **ADV-01**: ML-powered lead scoring trained on user conversion data
-- **ADV-02**: Contact enrichment via LinkedIn and company website cross-referencing
-- **ADV-03**: Analytics dashboard with lead volume trends, conversion rates, ROI metrics
+### Notifications
+
+- [ ] **NOTF-01**: Daily email digest with top 10 new leads (fix N+1 query with batch)
+- [ ] **NOTF-02**: Weekly summary email with lead volume trends
+- [ ] **NOTF-03**: Real-time storm alert emails for roofing subscribers
+- [ ] **NOTF-04**: Unsubscribe mechanism with one-click link (CAN-SPAM compliance)
+- [ ] **NOTF-05**: React Email templates with industry-specific styling
+- [ ] **NOTF-06**: Welcome email after onboarding completion
+
+### Cron Architecture
+
+- [ ] **CRON-01**: Per-industry scrape crons (parameterized route)
+- [ ] **CRON-02**: Storm alert cron (every 30 min)
+- [ ] **CRON-03**: Lead enrichment cron (runs after scraping)
+- [ ] **CRON-04**: Lead expiration cron (mark stale leads)
+- [ ] **CRON-05**: Email digest cron (daily at 7 AM)
+- [ ] **CRON-06**: Weekly summary cron (Monday 8 AM)
+- [ ] **CRON-07**: Scraper health monitoring cron
+
+## Future Requirements (v3.1+)
+
+### Deferred from v3.0
+
+- **SCRP-11**: Energy benchmarking scraper for HVAC leads
+- **SCRP-12**: NEVI program scraper for EV charging infrastructure leads
+- **SCRP-13**: Utility interconnection queue scraper for solar market signals
+- **SCRP-14**: Real estate keyword scraper for HVAC/roofing/solar leads
+- **SCRP-15**: DSIRE API integration (if manual curation becomes unmanageable)
+- **FEED-07**: SQL-based scoring (migrate from in-memory when lead volume exceeds 50K)
+- **NOTF-07**: SMS notifications via Twilio
+- **TEAM-01**: Team management (invite users, set roles)
+- **CRM-04**: ServiceTitan/Housecall Pro CRM integrations
+- **FEED-08**: Geographic exclusivity zones (premium tier)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Automated email outreach | Spam risk, CAN-SPAM compliance, wrong tone for relationship-driven equipment sales |
-| No-CC free trial | User decision: Stripe-native trial with card simplifies architecture |
-| Full CRM replacement | Massive scope creep; existing CRMs serve this need |
-| Real-time chat/messaging | Equipment sales conversations happen on phones |
-| Mobile native app | Web-first; responsive design handles mobile |
-| International coverage | U.S. municipality formats vary enough already |
-| Email verification | Requires careful migration sequencing; ship forgot password first, then add in v2.2 |
-| Middleware auth | Layout-level checks sufficient for current route count |
-| Env var startup validation | Caused production 500 when added to db/index.ts |
-| Cursor-based pagination | Offset pagination sufficient for current data volumes |
-| Retroactive dedup | Risk of data loss; forward-only dedup is safer |
+| Automated outreach/emailing | Risk of spam, compliance issues, wrong tone |
+| Mobile native app | Web-first, mobile web responsive is sufficient |
+| Real-time chat/messaging | Not core to lead discovery |
+| International markets | U.S. only, data sources are U.S.-specific |
+| Manual lead entry/import | Defer to future — scraping is the core value |
+| ML/AI lead scoring | Regex + keyword matching for v3.0; ML is future |
+| DSIRE API subscription | Paid, opaque pricing; manual curation covers 80% of value |
+| HailTrace API | Paid; NWS is the free upstream data source |
 
 ## Traceability
 
-### v1.0 (Complete)
+### v1.0 (Phases 1-6 Complete)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -187,7 +243,7 @@ Requirements for Bug Fixes & Hardening milestone.
 | AUTO-05 | Phase 8 | Complete |
 | PLSH-02 | Phase 8 | Complete |
 
-### v2.1
+### v2.1 (Phases 9-12 Complete)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -197,15 +253,82 @@ Requirements for Bug Fixes & Hardening milestone.
 | PERF-02 | Phase 10 | Complete |
 | PERF-03 | Phase 10 | Complete |
 | PERF-04 | Phase 10 | Complete |
-| AUTH-01 | Phase 11 | Complete |
+| AUTH-01v2.1 | Phase 11 | Complete |
 | UI-01 | Phase 12 | Complete |
+
+### v3.0 (Phases 13-18)
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SCHM-01 | Phase 13 | Pending |
+| SCHM-02 | Phase 13 | Pending |
+| SCHM-03 | Phase 13 | Pending |
+| SCHM-04 | Phase 13 | Pending |
+| SCHM-05 | Phase 13 | Pending |
+| SCHM-06 | Phase 13 | Pending |
+| SCHM-07 | Phase 13 | Pending |
+| AUTH-02v3 | Phase 13 | Pending |
+| AUTH-03v3 | Phase 13 | Pending |
+| AUTH-04v3 | Phase 13 | Pending |
+| AUTH-05v3 | Phase 13 | Pending |
+| BILL-02v3 | Phase 13 | Pending |
+| ONBD-01 | Phase 14 | Pending |
+| ONBD-02 | Phase 14 | Pending |
+| ONBD-03 | Phase 14 | Pending |
+| ONBD-04 | Phase 14 | Pending |
+| ONBD-05 | Phase 14 | Pending |
+| ONBD-06 | Phase 14 | Pending |
+| ONBD-07 | Phase 14 | Pending |
+| BILL-01v3 | Phase 14 | Pending |
+| BILL-03v3 | Phase 14 | Pending |
+| NOTF-06 | Phase 14 | Pending |
+| SCOR-01 | Phase 15 | Pending |
+| SCOR-02 | Phase 15 | Pending |
+| SCOR-03 | Phase 15 | Pending |
+| SCOR-04 | Phase 15 | Pending |
+| SCOR-05 | Phase 15 | Pending |
+| SCOR-06 | Phase 15 | Pending |
+| SCOR-07 | Phase 15 | Pending |
+| FEED-01 | Phase 15 | Pending |
+| FEED-02 | Phase 15 | Pending |
+| FEED-03 | Phase 15 | Pending |
+| FEED-04 | Phase 15 | Pending |
+| FEED-06 | Phase 15 | Pending |
+| SCRP-01 | Phase 16 | Pending |
+| SCRP-02 | Phase 16 | Pending |
+| SCRP-03 | Phase 16 | Pending |
+| SCRP-04 | Phase 16 | Pending |
+| SCRP-05 | Phase 16 | Pending |
+| CRON-01 | Phase 16 | Pending |
+| CRON-03 | Phase 16 | Pending |
+| CRON-04 | Phase 16 | Pending |
+| CRON-07 | Phase 16 | Pending |
+| SCRP-06 | Phase 17 | Pending |
+| SCRP-07 | Phase 17 | Pending |
+| FEED-05 | Phase 17 | Pending |
+| NOTF-03 | Phase 17 | Pending |
+| CRON-02 | Phase 17 | Pending |
+| SCRP-08 | Phase 18 | Pending |
+| SCRP-09 | Phase 18 | Pending |
+| SCRP-10 | Phase 18 | Pending |
+| CRM-01 | Phase 18 | Pending |
+| CRM-02 | Phase 18 | Pending |
+| CRM-03 | Phase 18 | Pending |
+| AUTH-01v3 | Phase 18 | Pending |
+| NOTF-01 | Phase 18 | Pending |
+| NOTF-02 | Phase 18 | Pending |
+| NOTF-04 | Phase 18 | Pending |
+| NOTF-05 | Phase 18 | Pending |
+| CRON-05 | Phase 18 | Pending |
+| CRON-06 | Phase 18 | Pending |
 
 **Coverage:**
 - v1.0 requirements: 25 total, 25 complete
-- v2.0 requirements: 11 complete, 10 deferred
-- v2.1 requirements: 8 total, 8 mapped to phases
-- Unmapped: 0
+- v2.0 requirements: 11 complete
+- v2.1 requirements: 8 complete
+- v3.0 requirements: 47 total, 47 mapped to phases
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-13 (v1.0)*
-*Last updated: 2026-03-15 after v2.1 roadmap creation*
+*Last updated: 2026-03-16 after v3.0 milestone definition*
