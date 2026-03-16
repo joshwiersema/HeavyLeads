@@ -1,9 +1,13 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
-    {
-      "path": "/api/cron/scrape",
-      "schedule": "0 6 * * *"
-    }
+    { "path": "/api/cron/scrape/heavy_equipment", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/scrape/hvac", "schedule": "3 6 * * *" },
+    { "path": "/api/cron/scrape/roofing", "schedule": "6 6 * * *" },
+    { "path": "/api/cron/scrape/solar", "schedule": "9 6 * * *" },
+    { "path": "/api/cron/scrape/electrical", "schedule": "12 6 * * *" },
+    { "path": "/api/cron/enrich", "schedule": "20 6 * * *" },
+    { "path": "/api/cron/expire", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/health", "schedule": "30 7 * * *" }
   ]
 }
