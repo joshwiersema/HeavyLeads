@@ -8,6 +8,7 @@ import { member } from "./db/schema/auth";
 import { eq, and } from "drizzle-orm";
 import { stripeClient, PRICES } from "./stripe";
 import { buildCheckoutSessionParams } from "./billing";
+import { PasswordResetEmail } from "@/components/emails/password-reset";
 
 /**
  * Exported config constants for testability.
@@ -29,7 +30,36 @@ export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
   baseURL: (process.env.BETTER_AUTH_URL ?? "").trim(),
   trustedOrigins: [(process.env.BETTER_AUTH_URL ?? "").trim()],
-  emailAndPassword: { enabled: true },
+  emailAndPassword: {
+    enabled: true,
+    resetPasswordTokenExpiresIn: 3600, // 1 hour
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      const { Resend } = await import("resend");
+
+      const apiKey = (process.env.RESEND_API_KEY ?? "").trim();
+      if (!apiKey) {
+        console.error(
+          "[auth] RESEND_API_KEY not set, cannot send password reset email"
+        );
+        throw new Error("Email service not configured");
+      }
+
+      const resend = new Resend(apiKey);
+      const from =
+        (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
+        "HeavyLeads <onboarding@resend.dev>";
+
+      await resend.emails.send({
+        from,
+        to: user.email,
+        subject: "Reset your HeavyLeads password",
+        react: PasswordResetEmail({ url, userName: user.name }),
+      });
+
+      console.log("[auth] Password reset email sent to", user.email);
+    },
+  },
   plugins: [
     organization({
       creatorRole: "owner",

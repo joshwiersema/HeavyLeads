@@ -101,11 +101,13 @@ describe("PasswordResetEmail", () => {
 
 const mockSend = vi.fn().mockResolvedValue({ data: { id: "email_123" }, error: null });
 
-vi.mock("resend", () => ({
-  Resend: vi.fn().mockImplementation(() => ({
-    emails: { send: mockSend },
-  })),
-}));
+vi.mock("resend", () => {
+  return {
+    Resend: class MockResend {
+      emails = { send: mockSend };
+    },
+  };
+});
 
 // Mock all the heavy dependencies that auth.ts imports so the module loads
 // in a test environment without real DB/Stripe connections.
