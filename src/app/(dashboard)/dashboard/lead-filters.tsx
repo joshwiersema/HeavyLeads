@@ -66,6 +66,8 @@ export function LeadFilters({
   const buildParams = useCallback(
     (updates: Record<string, string | null>) => {
       const params = new URLSearchParams(searchParams.toString());
+      // Reset to page 1 whenever any filter changes
+      params.delete("page");
       for (const [key, value] of Object.entries(updates)) {
         if (value === null || value === "") {
           params.delete(key);

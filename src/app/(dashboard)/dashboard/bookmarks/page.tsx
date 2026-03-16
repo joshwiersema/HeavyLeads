@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
 import { getBookmarkedLeads } from "@/actions/bookmarks";
-import { getLeadById } from "@/lib/leads/queries";
+import { getLeadsByIds } from "@/lib/leads/queries";
 import { LeadCard } from "../lead-card";
 import {
   Card,
@@ -39,21 +39,17 @@ export default async function BookmarksPage() {
   // Get bookmarked lead IDs
   const bookmarkedIds = await getBookmarkedLeads();
 
-  // Fetch enriched lead data for each bookmarked lead
-  const leads = await Promise.all(
-    bookmarkedIds.map((id) =>
-      getLeadById(id, {
-        hqLat: profile?.hqLat ?? undefined,
-        hqLng: profile?.hqLng ?? undefined,
-        serviceRadiusMiles: profile?.serviceRadiusMiles ?? undefined,
-        dealerEquipment: profile?.equipmentTypes ?? undefined,
-      })
-    )
-  );
+  // Fetch enriched lead data in a single batch query (replaces N+1 getLeadById calls)
+  const enrichedLeads = await getLeadsByIds(bookmarkedIds, {
+    hqLat: profile?.hqLat ?? undefined,
+    hqLng: profile?.hqLng ?? undefined,
+    serviceRadiusMiles: profile?.serviceRadiusMiles ?? undefined,
+    dealerEquipment: profile?.equipmentTypes ?? undefined,
+  });
 
-  // Filter out any null results (e.g., deleted leads still in bookmarks)
-  const validLeads = leads.filter(Boolean).map((lead) => ({
-    ...lead!,
+  // Mark all as bookmarked (they came from the bookmarks list)
+  const validLeads = enrichedLeads.map((lead) => ({
+    ...lead,
     isBookmarked: true,
   }));
 

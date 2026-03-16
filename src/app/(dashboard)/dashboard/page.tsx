@@ -4,7 +4,10 @@ import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import { eq } from "drizzle-orm";
-import { getFilteredLeads } from "@/lib/leads/queries";
+import {
+  getFilteredLeads,
+  getFilteredLeadsWithCount,
+} from "@/lib/leads/queries";
 import {
   getOrgPipelineStatus,
   shouldAutoTrigger,
@@ -23,6 +26,7 @@ import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { PipelineProgress } from "@/components/dashboard/pipeline-progress";
 import { RefreshLeadsButton } from "@/components/dashboard/refresh-leads-button";
 import { AutoTrigger } from "@/components/dashboard/auto-trigger";
+import { Pagination } from "./pagination";
 import Link from "next/link";
 
 export const metadata = {
@@ -78,8 +82,13 @@ export default async function DashboardPage({
     );
   }
 
-  // Parse filter params from URL
+  // Parse filter and pagination params from URL
   const params = await searchParams;
+
+  const PAGE_SIZE = 20;
+  const pageParam =
+    typeof params.page === "string" ? parseInt(params.page, 10) : 1;
+  const currentPage = pageParam > 0 ? pageParam : 1;
 
   const equipmentParam =
     typeof params.equipment === "string" ? params.equipment : "";
@@ -129,8 +138,8 @@ export default async function DashboardPage({
     (parsedEquipment && parsedEquipment.length > 0)
   );
 
-  // Fetch filtered leads with user context for status/bookmark enrichment
-  let leads = await getFilteredLeads({
+  // Fetch filtered leads with pagination and user context for status/bookmark enrichment
+  let { leads, totalCount, totalPages } = await getFilteredLeadsWithCount({
     hqLat: profile.hqLat,
     hqLng: profile.hqLng,
     serviceRadiusMiles: serviceRadius,
@@ -150,13 +159,15 @@ export default async function DashboardPage({
         : undefined,
     userId: session.user.id,
     organizationId: orgId,
+    page: currentPage,
+    pageSize: PAGE_SIZE,
   });
 
   // If no leads within radius and no filters active, expand to nationwide
   // so new users always see something instead of an empty dashboard.
   let expandedNationwide = false;
-  if (leads.length === 0 && !hasFilters) {
-    leads = await getFilteredLeads({
+  if (totalCount === 0 && !hasFilters) {
+    const nationwide = await getFilteredLeads({
       hqLat: profile.hqLat,
       hqLng: profile.hqLng,
       serviceRadiusMiles: 99999, // effectively nationwide
@@ -166,7 +177,10 @@ export default async function DashboardPage({
       organizationId: orgId,
       limit: 50,
     });
-    if (leads.length > 0) {
+    if (nationwide.length > 0) {
+      leads = nationwide;
+      totalCount = nationwide.length;
+      totalPages = 1;
       expandedNationwide = true;
     }
   }
@@ -176,7 +190,7 @@ export default async function DashboardPage({
 
   // Check if we should auto-trigger the pipeline (first-login detection)
   const needsAutoTrigger =
-    await shouldAutoTrigger(orgId, leads.length) && !pipelineStatus.isRunning;
+    await shouldAutoTrigger(orgId, totalCount) && !pipelineStatus.isRunning;
 
   const effectiveRadius = parsedRadius ?? serviceRadius;
 
@@ -202,7 +216,7 @@ export default async function DashboardPage({
           <p className="text-muted-foreground">
             {expandedNationwide
               ? `No leads within ${effectiveRadius} miles — showing ${leads.length} nationwide`
-              : `${leads.length} lead${leads.length !== 1 ? "s" : ""} within ${effectiveRadius} miles${filterSummary}`}
+              : `${totalCount} lead${totalCount !== 1 ? "s" : ""} within ${effectiveRadius} miles${filterSummary}`}
           </p>
         </div>
         <RefreshLeadsButton />
@@ -238,6 +252,10 @@ export default async function DashboardPage({
                   <LeadCard key={lead.id} lead={lead} />
                 ))}
               </div>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+              />
             </Suspense>
           )}
         </div>
