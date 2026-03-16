@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 15-03-PLAN.md
-last_updated: "2026-03-16T18:34:03.705Z"
+status: completed
+stopped_at: Completed 15-02-PLAN.md
+last_updated: "2026-03-16T18:36:11.448Z"
 last_activity: 2026-03-16 -- Completed Phase 15 Plan 03 (lead detail scoring & enrichment)
 progress:
   total_phases: 10
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 16
   completed_plans: 16
   percent: 97
@@ -49,6 +49,7 @@ Progress: [██████████] 97% (v3.0: 8/12 plans)
 | 14    | 02   | 4min     | 2     | 6     |
 | 14    | 03   | 5min     | 2     | 7     |
 | 15    | 01   | 6min     | 2     | 11    |
+| 15    | 02   | 7min     | 2     | 11    |
 | 15    | 03   | 5min     | 2     | 5     |
 
 ## Accumulated Context
@@ -86,6 +87,8 @@ Key decisions carried forward:
 - [Phase 15]: Relevance scoring uses bidirectional partial match with singular/plural stemming for specialization matching
 - [Phase 15]: Cursor pagination uses lead ID ASC for stable ordering, in-memory sort by requested dimension after scoring
 - [Phase 15]: CURSOR_BATCH_SIZE=50 over-fetches relative to limit=20 for meaningful scored sort results
+- [Phase 15]: Bookmarks page wraps EnrichedLead.score into minimal ScoringResult for ScoredLead LeadCard compatibility
+- [Phase 15]: Cursor param replaces page param for pagination -- delete cursor on filter changes to reset to first page
 - [Phase 15]: Score breakdown uses pure Tailwind progress bars (no chart library) with green/yellow/gray thresholds
 - [Phase 15]: Enrichment cards render nothing when all data is null (expected until Phase 16+ scrapers)
 - [Phase 15]: Dual-marker map uses BoundsFitter with fitBounds to auto-zoom both lead and HQ markers
@@ -105,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:34:03.702Z
-Stopped at: Completed 15-03-PLAN.md
+Last session: 2026-03-16T18:36:11.444Z
+Stopped at: Completed 15-02-PLAN.md
 Resume file: None

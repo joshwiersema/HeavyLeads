@@ -121,12 +121,12 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 
 ### Lead Feed & Dashboard
 
-- [ ] **FEED-01**: Lead cards show title, type badge, value, distance, score, match reasons, bookmark button
-- [ ] **FEED-02**: Filter panel with source type, distance, value range, project type, date range, sort options
+- [x] **FEED-01**: Lead cards show title, type badge, value, distance, score, match reasons, bookmark button
+- [x] **FEED-02**: Filter panel with source type, distance, value range, project type, date range, sort options
 - [x] **FEED-03**: Cursor-based pagination replacing offset-based approach
 - [x] **FEED-04**: Lead detail page with enrichment data, map, contacts, and similar leads
 - [ ] **FEED-05**: Storm alert banner for urgent weather-based leads
-- [ ] **FEED-06**: Industry badge in navigation showing org's industry
+- [x] **FEED-06**: Industry badge in navigation showing org's industry
 
 ### Bookmarks & CRM
 
@@ -289,11 +289,11 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 | SCOR-05 | Phase 15 | Complete |
 | SCOR-06 | Phase 15 | Complete |
 | SCOR-07 | Phase 15 | Complete |
-| FEED-01 | Phase 15 | Pending |
-| FEED-02 | Phase 15 | Pending |
+| FEED-01 | Phase 15 | Complete |
+| FEED-02 | Phase 15 | Complete |
 | FEED-03 | Phase 15 | Complete |
 | FEED-04 | Phase 15 | Complete |
-| FEED-06 | Phase 15 | Pending |
+| FEED-06 | Phase 15 | Complete |
 | SCRP-01 | Phase 16 | Pending |
 | SCRP-02 | Phase 16 | Pending |
 | SCRP-03 | Phase 16 | Pending |
