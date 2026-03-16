@@ -3,6 +3,13 @@ import { rawPermitSchema } from "@/lib/scraper/adapters/base-adapter";
 import type { ScraperAdapter } from "@/lib/scraper/adapters/base-adapter";
 import { registerAdapter, getRegisteredAdapters, clearAdapters } from "@/lib/scraper/registry";
 
+// Mock Socrata rate limiter as pass-through for Austin/Dallas adapters
+vi.mock("@/lib/scraper/api-rate-limiter", () => ({
+  getSocrataQueue: vi.fn().mockResolvedValue({
+    add: vi.fn().mockImplementation((fn: () => Promise<unknown>) => fn()),
+  }),
+}));
+
 // ─── Socrata fixture data (matches real API response shapes) ───
 
 const austinSocrataFixture = [
@@ -115,10 +122,12 @@ describe("AustinPermitsAdapter", () => {
     expect(typeof adapter.scrape).toBe("function");
   });
 
-  it("calls the Socrata SODA endpoint for dataset 3syk-w9eu with $where date filter and $limit", async () => {
+  it("calls the Socrata SODA3 endpoint for dataset 3syk-w9eu with SoQL query", async () => {
     let capturedUrl = "";
-    global.fetch = vi.fn(async (url: string | URL | Request) => {
+    let capturedBody = "";
+    global.fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       capturedUrl = url.toString();
+      capturedBody = (init?.body as string) ?? "";
       return new Response(JSON.stringify(austinSocrataFixture), {
         status: 200,
       });
@@ -131,12 +140,11 @@ describe("AustinPermitsAdapter", () => {
     await adapter.scrape();
 
     expect(capturedUrl).toContain(
-      "https://data.austintexas.gov/resource/3syk-w9eu.json"
+      "https://data.austintexas.gov/api/v3/views/3syk-w9eu/query.json"
     );
-    // URLSearchParams encodes $ as %24
-    expect(capturedUrl).toContain("%24where=");
-    expect(capturedUrl).toContain("issue_date");
-    expect(capturedUrl).toContain("%24limit=1000");
+    const body = JSON.parse(capturedBody);
+    expect(body.query).toContain("issue_date");
+    expect(body.query).toContain("LIMIT 1000");
   });
 
   it("maps Socrata fields to RawPermitData (permit_number -> permitNumber, permit_location -> address, latitude/longitude preserved)", async () => {
@@ -228,10 +236,12 @@ describe("DallasPermitsAdapter", () => {
     expect(typeof adapter.scrape).toBe("function");
   });
 
-  it("calls the Socrata SODA endpoint for dataset e7gq-4sah", async () => {
+  it("calls the Socrata SODA3 endpoint for dataset e7gq-4sah", async () => {
     let capturedUrl = "";
-    global.fetch = vi.fn(async (url: string | URL | Request) => {
+    let capturedBody = "";
+    global.fetch = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       capturedUrl = url.toString();
+      capturedBody = (init?.body as string) ?? "";
       return new Response(JSON.stringify(dallasSocrataFixture), {
         status: 200,
       });
@@ -244,12 +254,11 @@ describe("DallasPermitsAdapter", () => {
     await adapter.scrape();
 
     expect(capturedUrl).toContain(
-      "https://www.dallasopendata.com/resource/e7gq-4sah.json"
+      "https://www.dallasopendata.com/api/v3/views/e7gq-4sah/query.json"
     );
-    // URLSearchParams encodes $ as %24
-    expect(capturedUrl).toContain("%24where=");
-    expect(capturedUrl).toContain("issued_date");
-    expect(capturedUrl).toContain("%24limit=1000");
+    const body = JSON.parse(capturedBody);
+    expect(body.query).toContain("issued_date");
+    expect(body.query).toContain("LIMIT 1000");
   });
 
   it("maps Socrata fields to RawPermitData (permit_number -> permitNumber, street_address -> address, value -> estimatedValue, contractor -> applicantName)", async () => {

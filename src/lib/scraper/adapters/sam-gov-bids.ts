@@ -1,4 +1,5 @@
 import type { ScraperAdapter, RawLeadData } from "./base-adapter";
+import { getSamGovQueue } from "../api-rate-limiter";
 
 /**
  * SAM.gov Federal Contract Opportunities adapter.
@@ -30,7 +31,7 @@ export class SamGovBidsAdapter implements ScraperAdapter {
   }
 
   async scrape(): Promise<RawLeadData[]> {
-    const apiKey = process.env.SAM_GOV_API_KEY;
+    const apiKey = process.env.SAM_GOV_API_KEY?.trim();
     if (!apiKey) {
       console.warn(
         "[SamGovBidsAdapter] SAM_GOV_API_KEY not set — skipping SAM.gov scrape"
@@ -38,56 +39,59 @@ export class SamGovBidsAdapter implements ScraperAdapter {
       return [];
     }
 
+    const queue = await getSamGovQueue();
     const results: RawLeadData[] = [];
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     for (const ncode of this.naicsCodes) {
       try {
-        const url = new URL(this.endpoint);
-        url.searchParams.set("api_key", apiKey);
-        url.searchParams.set("postedFrom", formatDate(thirtyDaysAgo));
-        url.searchParams.set("postedTo", formatDate(new Date()));
-        url.searchParams.set("ncode", ncode);
-        url.searchParams.set("limit", "100");
+        await queue.add(async () => {
+          const url = new URL(this.endpoint);
+          url.searchParams.set("api_key", apiKey);
+          url.searchParams.set("postedFrom", formatDate(thirtyDaysAgo));
+          url.searchParams.set("postedTo", formatDate(new Date()));
+          url.searchParams.set("ncode", ncode);
+          url.searchParams.set("limit", "100");
 
-        const response = await fetch(url.toString(), {
-          headers: {
-            Accept: "application/json",
-          },
-        });
-
-        if (!response.ok) {
-          console.warn(
-            `[SamGovBidsAdapter] API error for NAICS ${ncode}: ${response.status} ${response.statusText}`
-          );
-          continue;
-        }
-
-        const data = await response.json();
-        const opportunities = data.opportunitiesData ?? [];
-
-        for (const item of opportunities) {
-          results.push({
-            title: item.title,
-            description: item.description,
-            agencyName: item.department || item.subtier,
-            postedDate: item.postedDate
-              ? new Date(item.postedDate)
-              : undefined,
-            deadlineDate: item.responseDeadLine
-              ? new Date(item.responseDeadLine)
-              : undefined,
-            city: item.officeAddress?.city,
-            state: item.officeAddress?.state,
-            externalId: item.noticeId,
-            sourceUrl: `https://sam.gov/opp/${item.noticeId}/view`,
-            sourceType: "bid" as const,
-            estimatedValue: item.award?.amount
-              ? parseFloat(item.award.amount)
-              : undefined,
+          const response = await fetch(url.toString(), {
+            headers: {
+              Accept: "application/json",
+            },
           });
-        }
+
+          if (!response.ok) {
+            console.warn(
+              `[SamGovBidsAdapter] API error for NAICS ${ncode}: ${response.status} ${response.statusText}`
+            );
+            return;
+          }
+
+          const data = await response.json();
+          const opportunities = data.opportunitiesData ?? [];
+
+          for (const item of opportunities) {
+            results.push({
+              title: item.title,
+              description: item.description,
+              agencyName: item.department || item.subtier,
+              postedDate: item.postedDate
+                ? new Date(item.postedDate)
+                : undefined,
+              deadlineDate: item.responseDeadLine
+                ? new Date(item.responseDeadLine)
+                : undefined,
+              city: item.officeAddress?.city,
+              state: item.officeAddress?.state,
+              externalId: item.noticeId,
+              sourceUrl: `https://sam.gov/opp/${item.noticeId}/view`,
+              sourceType: "bid" as const,
+              estimatedValue: item.award?.amount
+                ? parseFloat(item.award.amount)
+                : undefined,
+            });
+          }
+        });
       } catch (error) {
         console.warn(
           `[SamGovBidsAdapter] Error fetching NAICS ${ncode}:`,

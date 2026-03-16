@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SamGovBidsAdapter } from "@/lib/scraper/adapters/sam-gov-bids";
 import { rawLeadSchema } from "@/lib/scraper/adapters/base-adapter";
+import { getSamGovQueue } from "@/lib/scraper/api-rate-limiter";
+
+vi.mock("@/lib/scraper/api-rate-limiter", () => ({
+  getSamGovQueue: vi.fn().mockResolvedValue({
+    add: vi.fn().mockImplementation((fn: () => Promise<unknown>) => fn()),
+  }),
+}));
 
 describe("SamGovBidsAdapter", () => {
   const originalFetch = globalThis.fetch;
@@ -174,5 +181,50 @@ describe("SamGovBidsAdapter", () => {
     expect(adapter.sourceId).toBe("sam-gov-bids");
     expect(adapter.sourceName).toBe("SAM.gov Federal Contract Opportunities");
     expect(adapter.sourceType).toBe("bid");
+  });
+
+  it("uses custom NAICS codes when provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ opportunitiesData: [] }),
+    });
+    globalThis.fetch = fetchMock;
+
+    const adapter = new SamGovBidsAdapter({ naicsCodes: ["238220"] });
+    await adapter.scrape();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain("ncode=238220");
+  });
+
+  it("trims SAM_GOV_API_KEY env var", async () => {
+    process.env.SAM_GOV_API_KEY = "test-api-key-123\n";
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ opportunitiesData: [] }),
+    });
+    globalThis.fetch = fetchMock;
+
+    const adapter = new SamGovBidsAdapter({ naicsCodes: ["236"] });
+    await adapter.scrape();
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain("api_key=test-api-key-123");
+    expect(url).not.toContain("api_key=test-api-key-123%0A");
+    expect(url).not.toContain("api_key=test-api-key-123\n");
+  });
+
+  it("routes API calls through getSamGovQueue rate limiter", async () => {
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ opportunitiesData: [] }),
+    });
+
+    const adapter = new SamGovBidsAdapter();
+    await adapter.scrape();
+
+    expect(getSamGovQueue).toHaveBeenCalled();
   });
 });
