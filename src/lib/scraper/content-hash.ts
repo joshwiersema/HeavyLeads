@@ -45,6 +45,14 @@ export function computeContentHash(record: {
       raw = sourceUrl;
       break;
     }
+    case "storm":
+    case "disaster": {
+      const sourceId = record.sourceId?.trim();
+      const externalId = record.externalId?.trim();
+      if (!externalId) return null;
+      raw = `${sourceId ?? ""}:${externalId}`;
+      break;
+    }
     default:
       return null;
   }

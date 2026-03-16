@@ -12,6 +12,7 @@ import type PQueue from "p-queue";
 
 let socrataQueue: PQueue | null = null;
 let samGovQueue: PQueue | null = null;
+let nwsQueue: PQueue | null = null;
 
 /** Get the Socrata API rate limiter queue (concurrency=2, 8 req/min). */
 export async function getSocrataQueue(): Promise<PQueue> {
@@ -37,4 +38,17 @@ export async function getSamGovQueue(): Promise<PQueue> {
     interval: 60_000,
   });
   return samGovQueue;
+}
+
+/** Get the NWS API rate limiter queue (concurrency=1, 5 req/min). */
+export async function getNwsQueue(): Promise<PQueue> {
+  if (nwsQueue) return nwsQueue;
+
+  const { default: PQueueClass } = await import("p-queue");
+  nwsQueue = new PQueueClass({
+    concurrency: 1,
+    intervalCap: 5,
+    interval: 60_000,
+  });
+  return nwsQueue;
 }

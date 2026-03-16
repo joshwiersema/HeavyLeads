@@ -7,7 +7,7 @@ import { z } from "zod";
  * - news: Construction news and press releases
  * - deep-web: Google dorking and deep web search results
  */
-export const sourceTypes = ["permit", "bid", "news", "deep-web"] as const;
+export const sourceTypes = ["permit", "bid", "news", "deep-web", "storm", "disaster"] as const;
 export type SourceType = (typeof sourceTypes)[number];
 
 /**
