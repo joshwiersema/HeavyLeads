@@ -264,11 +264,11 @@ Plans:
   3. Leads support content-hash deduplication, cross-industry relevance tags, value tier, severity, deadline, and a PostGIS geometry column for spatial queries
   4. Sign-up creates user, organization, and active-org membership atomically -- partial failures are cleaned up and never leave orphaned records
   5. Sign-up form shows a confirm-password field and displays specific error messages for email-in-use, password-too-weak, and org-name-taken instead of generic errors
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 13-01: TBD
-- [ ] 13-02: TBD
+- [ ] 13-01-PLAN.md -- Drizzle schema evolution (org industry, organization-profiles rename, leads expansion, PostGIS geometry, bookmarks CRM columns, lead_enrichments table, scraper_runs table) with 9 ordered migrations
+- [ ] 13-02-PLAN.md -- Atomic sign-up server action with cleanup, confirm-password field, specific error messages, sign-in redirect fix, and billing params verification
 
 ### Phase 14: Industry Onboarding
 **Goal**: New users from any of the 5 industries can complete a guided onboarding wizard that collects industry-specific profile data and starts their subscription
@@ -368,7 +368,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 10. Query Optimizations | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 11. Forgot Password | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 12. UI Polish | v2.1 | 1/1 | Complete | 2026-03-16 |
-| 13. Schema Foundation | v3.0 | 0/TBD | Not started | - |
+| 13. Schema Foundation | v3.0 | 0/2 | In Progress | - |
 | 14. Industry Onboarding | v3.0 | 0/TBD | Not started | - |
 | 15. Scoring Engine & Lead Feed | v3.0 | 0/TBD | Not started | - |
 | 16. Cron & Scraper Architecture | v3.0 | 0/TBD | Not started | - |
