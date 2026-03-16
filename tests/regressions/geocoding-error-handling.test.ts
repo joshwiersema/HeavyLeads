@@ -86,10 +86,24 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
-// Mock company-profiles schema
+// Mock company-profiles schema (used by settings action)
 vi.mock("@/lib/db/schema/company-profiles", () => ({
   companyProfiles: {
     organizationId: "organizationId",
+  },
+}));
+
+// Mock organization-profiles schema (used by onboarding action)
+vi.mock("@/lib/db/schema/organization-profiles", () => ({
+  organizationProfiles: {
+    organizationId: "organizationId",
+  },
+}));
+
+// Mock auth schema (used by onboarding action for organization table)
+vi.mock("@/lib/db/schema/auth", () => ({
+  organization: {
+    id: "id",
   },
 }));
 
@@ -133,12 +147,15 @@ describe("Regression: Geocoding error handling in forms (Bug Fix #15)", () => {
   });
 
   const onboardingData = {
+    industry: "heavy_equipment",
     street: "999 Unknown St",
     city: "Nowhere",
     state: "XX",
     zip: "00000",
-    equipmentTypes: ["Excavators"],
-    serviceRadius: 50,
+    specializations: ["Excavators"],
+    serviceRadiusMiles: 50,
+    serviceAreaLat: null,
+    serviceAreaLng: null,
   };
 
   const settingsData = {
@@ -151,7 +168,7 @@ describe("Regression: Geocoding error handling in forms (Bug Fix #15)", () => {
   };
 
   it("completeOnboarding returns { success: false } when geocoding returns null coords", async () => {
-    const result = await completeOnboarding(onboardingData);
+    const result = await completeOnboarding(onboardingData as any);
 
     expect(result).toHaveProperty("success", false);
     expect(result).toHaveProperty("error");
@@ -160,7 +177,7 @@ describe("Regression: Geocoding error handling in forms (Bug Fix #15)", () => {
   });
 
   it("completeOnboarding error message mentions address verification", async () => {
-    const result = await completeOnboarding(onboardingData);
+    const result = await completeOnboarding(onboardingData as any);
 
     expect(result.success).toBe(false);
     // The error should guide the user to check their address

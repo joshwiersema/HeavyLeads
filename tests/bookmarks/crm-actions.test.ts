@@ -291,7 +291,7 @@ describe("CRM bookmark actions", () => {
 
   describe("PipelineStatus type", () => {
     it("PIPELINE_STATUSES constant contains all valid statuses", async () => {
-      const { PIPELINE_STATUSES } = await import("@/actions/bookmarks");
+      const { PIPELINE_STATUSES } = await import("@/actions/bookmark-types");
       expect(PIPELINE_STATUSES).toEqual([
         "saved",
         "contacted",

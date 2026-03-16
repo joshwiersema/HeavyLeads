@@ -6,10 +6,10 @@ import { createMockSession } from "../helpers/auth";
  *
  * WHAT WAS BROKEN: completeOnboarding used a plain db.insert without
  * conflict handling, so double-submitting the onboarding form caused
- * a unique constraint violation on companyProfiles.organizationId.
+ * a unique constraint violation on organizationProfiles.organizationId.
  *
  * WHAT WAS FIXED: Changed to db.insert().values().onConflictDoUpdate()
- * targeting companyProfiles.organizationId, making double-submit safe.
+ * targeting organizationProfiles.organizationId, making double-submit safe.
  *
  * This test would FAIL if onConflictDoUpdate were removed.
  */
@@ -47,7 +47,7 @@ vi.mock("@/lib/geocoding", () => ({
   }),
 }));
 
-// Mock db with insert chain
+// Mock db with insert chain and update chain
 vi.mock("@/lib/db", () => {
   const insertChain = {
     values: (...args: unknown[]) => {
@@ -64,6 +64,11 @@ vi.mock("@/lib/db", () => {
   return {
     db: {
       insert: vi.fn().mockReturnValue(insertChain),
+      update: vi.fn().mockReturnValue({
+        set: vi.fn().mockReturnValue({
+          where: vi.fn().mockResolvedValue(undefined),
+        }),
+      }),
     },
   };
 });
@@ -79,10 +84,17 @@ vi.mock("drizzle-orm", () => ({
   }),
 }));
 
-// Mock company-profiles schema
-vi.mock("@/lib/db/schema/company-profiles", () => ({
-  companyProfiles: {
+// Mock organization-profiles schema (used by onboarding action)
+vi.mock("@/lib/db/schema/organization-profiles", () => ({
+  organizationProfiles: {
     organizationId: "organizationId",
+  },
+}));
+
+// Mock auth schema (used by onboarding action for organization table)
+vi.mock("@/lib/db/schema/auth", () => ({
+  organization: {
+    id: "id",
   },
 }));
 
@@ -110,23 +122,26 @@ describe("Regression: Onboarding uses onConflictDoUpdate for double-submit safet
   });
 
   const validOnboardingData = {
+    industry: "heavy_equipment",
     street: "123 Main St",
     city: "Austin",
     state: "TX",
     zip: "78701",
-    equipmentTypes: ["Excavators", "Boom Lifts"],
-    serviceRadius: 100,
+    specializations: ["Excavators", "Boom Lifts"],
+    serviceRadiusMiles: 100,
+    serviceAreaLat: null,
+    serviceAreaLng: null,
   };
 
   it("calls onConflictDoUpdate (not plain insert) so double-submit is safe", async () => {
-    await completeOnboarding(validOnboardingData);
+    await completeOnboarding(validOnboardingData as any);
 
     // The critical assertion: onConflictDoUpdate MUST be called
     expect(mockOnConflictDoUpdate).toHaveBeenCalled();
   });
 
-  it("targets companyProfiles.organizationId in onConflictDoUpdate", async () => {
-    await completeOnboarding(validOnboardingData);
+  it("targets organizationProfiles.organizationId in onConflictDoUpdate", async () => {
+    await completeOnboarding(validOnboardingData as any);
 
     expect(mockOnConflictDoUpdate).toHaveBeenCalled();
 
@@ -140,7 +155,7 @@ describe("Regression: Onboarding uses onConflictDoUpdate for double-submit safet
   });
 
   it("includes set parameter for updating profile on conflict", async () => {
-    await completeOnboarding(validOnboardingData);
+    await completeOnboarding(validOnboardingData as any);
 
     const conflictArgs = mockOnConflictDoUpdate.mock.calls[0][0];
     expect(conflictArgs).toHaveProperty("set");

@@ -69,7 +69,7 @@ describe("LeadMap", () => {
 
     render(<LeadMap lat={30.2672} lng={-97.7431} title="123 Main St" />);
 
-    expect(screen.getByText("Map unavailable — configure NEXT_PUBLIC_GOOGLE_MAPS_API_KEY")).toBeInTheDocument();
+    expect(screen.getByText("Map unavailable -- configure NEXT_PUBLIC_GOOGLE_MAPS_API_KEY")).toBeInTheDocument();
     expect(screen.getByText("123 Main St")).toBeInTheDocument();
   });
 
