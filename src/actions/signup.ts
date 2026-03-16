@@ -4,6 +4,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import {
   organization as orgTable,
+  member as memberTable,
+  session as sessionTable,
   user as userTable,
 } from "@/lib/db/schema/auth";
 import { eq } from "drizzle-orm";
@@ -16,6 +18,15 @@ function slugify(text: string): string {
     .replace(/[^\w\s-]/g, "")
     .replace(/[\s_]+/g, "-")
     .replace(/-+/g, "-");
+}
+
+function generateId(length = 32): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
 }
 
 interface SignUpResult {
@@ -35,30 +46,48 @@ export async function atomicSignUp(data: {
   let orgId: string | null = null;
 
   try {
-    // Step 1: Create user
+    // Step 1: Create user via Better Auth (handles password hashing, session)
     const userResult = await auth.api.signUpEmail({
       body: { name: data.name, email: data.email, password: data.password },
+      headers: await headers(),
     });
     if (!userResult?.user?.id) throw new Error("User creation returned no ID");
     userId = userResult.user.id;
 
-    // Step 2: Create organization with industry default
+    // Step 2: Create organization directly in DB
+    // Better Auth's createOrganization API requires an authenticated session,
+    // but with email verification enabled, the session may not be established
+    // yet. We bypass the API and insert directly.
     const slug =
       slugify(data.companyName) +
       "-" +
       Math.random().toString(36).slice(2, 6);
-    const orgResult = await auth.api.createOrganization({
-      body: { name: data.companyName, slug, industry: data.industry ?? "heavy_equipment" },
-      headers: await headers(),
-    });
-    if (!orgResult?.id) throw new Error("Organization creation returned no ID");
-    orgId = orgResult.id;
+    const industry = data.industry ?? "heavy_equipment";
+    orgId = generateId();
 
-    // Step 3: Set active organization
-    await auth.api.setActiveOrganization({
-      body: { organizationId: orgId },
-      headers: await headers(),
+    await db.insert(orgTable).values({
+      id: orgId,
+      name: data.companyName,
+      slug,
+      industry,
     });
+
+    // Create membership (owner role)
+    await db.insert(memberTable).values({
+      id: generateId(),
+      organizationId: orgId,
+      userId,
+      role: "owner",
+    });
+
+    // Step 3: Set active organization on the user's session
+    // Find the session created by signUpEmail and set activeOrganizationId
+    if (userResult.token) {
+      await db
+        .update(sessionTable)
+        .set({ activeOrganizationId: orgId })
+        .where(eq(sessionTable.token, userResult.token));
+    }
 
     return { success: true, redirectTo: "/onboarding" };
   } catch (error) {
