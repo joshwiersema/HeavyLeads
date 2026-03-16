@@ -8,13 +8,19 @@ import {
 
 // Mock the db module -- supports both leads and leadSources inserts
 vi.mock("@/lib/db", () => {
+  let leadIdCounter = 0;
+
   const createInsertChain = () => {
     const valuesReturn = {
       onConflictDoUpdate: vi.fn().mockReturnValue({
-        returning: vi.fn().mockResolvedValue([{ id: "mock-lead-id-001" }]),
+        returning: vi.fn().mockImplementation(() =>
+          Promise.resolve([{ id: `mock-lead-id-${++leadIdCounter}` }])
+        ),
       }),
       onConflictDoNothing: vi.fn().mockResolvedValue(undefined),
-      returning: vi.fn().mockResolvedValue([{ id: "mock-lead-id-001" }]),
+      returning: vi.fn().mockImplementation(() =>
+        Promise.resolve([{ id: `mock-lead-id-${++leadIdCounter}` }])
+      ),
     };
     return {
       values: vi.fn().mockReturnValue(valuesReturn),
@@ -49,13 +55,18 @@ vi.mock("@/lib/geocoding", () => ({
   }),
 }));
 
-// Mock drizzle-orm eq and and functions
+// Mock drizzle-orm eq, and, and sql functions
 vi.mock("drizzle-orm", () => ({
   eq: vi.fn().mockImplementation((a, b) => ({ type: "eq", a, b })),
   and: vi.fn().mockImplementation((...args: unknown[]) => ({
     type: "and",
     args,
   })),
+  sql: (strings: TemplateStringsArray, ...values: unknown[]) => ({
+    type: "sql",
+    strings: Array.from(strings),
+    values,
+  }),
 }));
 
 // Mock the dedup module
