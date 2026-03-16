@@ -1,6 +1,6 @@
 # Requirements: HeavyLeads
 
-**Defined:** 2026-03-13 (v1.0), Updated 2026-03-15 (v2.0)
+**Defined:** 2026-03-13 (v1.0), Updated 2026-03-15 (v2.0, v2.1)
 **Core Value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
 
 ## v1.0 Requirements (Complete)
@@ -44,8 +44,6 @@
 
 ## v2.0 Requirements
 
-Requirements for production rework milestone. Each maps to roadmap phases.
-
 ### Billing Fix & Trial
 
 - [x] **BILL-01**: Fix Stripe customer creation error on signup (create org-level customer, not user-level)
@@ -54,14 +52,6 @@ Requirements for production rework milestone. Each maps to roadmap phases.
 - [x] **BILL-04**: Expired trial redirects to billing page with "Trial ended" messaging and subscribe CTA
 - [x] **BILL-05**: Setup fee is NOT charged during trial — only on conversion to paid
 
-### Onboarding
-
-- [ ] **ONBD-01**: Onboarding collects company details (name, website, phone, logo, industry segment)
-- [ ] **ONBD-02**: Logo upload via Vercel Blob with preview
-- [ ] **ONBD-03**: Team invite step — invite members by email with role selection (skip-able)
-- [ ] **ONBD-04**: Guided dashboard tour triggers after onboarding (5-6 steps covering feed, filters, detail, bookmarks, saved searches)
-- [ ] **ONBD-05**: Tour only shows once per user (tracked via hasSeenTour flag)
-
 ### Lead Automation
 
 - [x] **AUTO-01**: Vercel Cron runs scraping pipeline daily (replace dead node-cron)
@@ -69,32 +59,57 @@ Requirements for production rework milestone. Each maps to roadmap phases.
 - [x] **AUTO-03**: Dashboard shows progress indicator while pipeline runs
 - [x] **AUTO-04**: On-demand "Refresh Leads" button in dashboard (rate-limited 1/hour per org)
 - [x] **AUTO-05**: Scraper API route is secured with auth (CRON_SECRET for cron, session for user-triggered)
-
-### Custom Search
-
-- [ ] **SRCH-01**: User can search for leads by custom location, keywords, and project type beyond default filters
-- [ ] **SRCH-02**: Custom search results merge into the main lead feed with source attribution
-- [ ] **SRCH-03**: Custom searches are rate-limited (3/day trial, 10/day paid)
-
-### Polish
-
-- [ ] **PLSH-01**: Pre-expiry conversion emails at 3 days, 1 day, and expiry day
 - [x] **PLSH-02**: Empty dashboard state with informative messaging (not blank page)
+
+### Deferred from v2.0
+
+- [ ] **ONBD-01**: Onboarding collects company details (name, website, phone, logo, industry segment)
+- [ ] **ONBD-02**: Logo upload via Vercel Blob with preview
+- [ ] **ONBD-03**: Team invite step — invite members by email with role selection (skip-able)
+- [ ] **ONBD-04**: Guided dashboard tour triggers after onboarding (5-6 steps)
+- [ ] **ONBD-05**: Tour only shows once per user (tracked via hasSeenTour flag)
+- [ ] **SRCH-01**: User can search for leads by custom location, keywords, and project type
+- [ ] **SRCH-02**: Custom search results merge into the main lead feed
+- [ ] **SRCH-03**: Custom searches are rate-limited (3/day trial, 10/day paid)
+- [ ] **PLSH-01**: Pre-expiry conversion emails at 3 days, 1 day, and expiry day
 - [ ] **PLSH-03**: Overall UI consistency and production readiness pass
+
+## v2.1 Requirements
+
+Requirements for Bug Fixes & Hardening milestone.
+
+### Testing
+
+- [ ] **TEST-01**: Regression test suite covers all 15 v2.0 post-rework bug fixes (permit upsert, geocoding null, lead query sort, org slug, sign-in redirect, Stripe idempotency, onboarding upsert, mobile nav, landing page, pricing display, error boundaries, date formatting, loading states, equipmentTypes guard, geocoding error handling in forms)
+- [ ] **TEST-02**: Test infrastructure supports mocking server actions, next/headers, and @/lib/db with established patterns
+
+### Query Performance
+
+- [ ] **PERF-01**: Lead feed supports page navigation with Previous/Next controls, page indicator, and URL-based page state that preserves all existing filters
+- [ ] **PERF-02**: Bookmarks page fetches all bookmarked leads in a single batch query using inArray instead of individual getLeadById calls
+- [ ] **PERF-03**: Digest generator runs one merged query per user (widest filters) instead of one query per saved search, then filters in memory per search
+- [ ] **PERF-04**: Non-permit leads are deduplicated by sourceUrl via partial unique index; dedup check uses sourceUrl as primary key when available
+
+### Auth
+
+- [ ] **AUTH-01**: User can reset forgotten password via email link from sign-in page (better-auth native sendResetPassword with Resend)
+
+### UI
+
+- [ ] **UI-01**: Active page is visually highlighted in both desktop sidebar and mobile nav drawer
 
 ## Future Requirements
 
-Deferred beyond v2.0.
+### Auth
 
-### Fleet Expansion Detection
+- **AUTH-F01**: Email verification on signup with DB migration for existing users
+- **AUTH-F02**: 2FA / TOTP authentication
 
-- **FLEET-01**: System detects rental companies looking to upgrade/expand fleet
-- **FLEET-02**: Fleet expansion leads appear as a separate lead category
+### Features
 
-### Outreach
-
-- **OUT-01**: System generates equipment-specific outreach talking points
-- **OUT-02**: LLM-powered contextual suggestions
+- **FEAT-F01**: Custom lead search (user-specified location, keywords, project type)
+- **FEAT-F02**: Professional onboarding expansion (company details, team invites)
+- **FEAT-F03**: Guided dashboard tour
 
 ### Integrations
 
@@ -118,9 +133,11 @@ Deferred beyond v2.0.
 | Real-time chat/messaging | Equipment sales conversations happen on phones |
 | Mobile native app | Web-first; responsive design handles mobile |
 | International coverage | U.S. municipality formats vary enough already |
-| Manual lead entry/import | Deferred to future — custom search covers discovery |
-| AI-generated lead summaries | LLM costs per-lead, questionable value over structured data |
-| Freemium tier | Pipeline has real costs; trial proves value, then convert |
+| Email verification | Requires careful migration sequencing; ship forgot password first, then add in v2.2 |
+| Middleware auth | Layout-level checks sufficient for current route count |
+| Env var startup validation | Caused production 500 when added to db/index.ts |
+| Cursor-based pagination | Offset pagination sufficient for current data volumes |
+| Retroactive dedup | Risk of data loss; forward-only dedup is safer |
 
 ## Traceability
 
@@ -154,7 +171,7 @@ Deferred beyond v2.0.
 | PLAT-05 | Phase 6 | Complete |
 | PLAT-06 | Phase 1 | Complete |
 
-### v2.0
+### v2.0 (Phases 7-8 Complete)
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
@@ -169,23 +186,27 @@ Deferred beyond v2.0.
 | AUTO-04 | Phase 8 | Complete |
 | AUTO-05 | Phase 8 | Complete |
 | PLSH-02 | Phase 8 | Complete |
-| ONBD-01 | Phase 9 | Pending |
-| ONBD-02 | Phase 9 | Pending |
-| ONBD-03 | Phase 9 | Pending |
-| ONBD-04 | Phase 10 | Pending |
-| ONBD-05 | Phase 10 | Pending |
-| PLSH-01 | Phase 10 | Pending |
-| SRCH-01 | Phase 11 | Pending |
-| SRCH-02 | Phase 11 | Pending |
-| SRCH-03 | Phase 11 | Pending |
-| PLSH-03 | Phase 11 | Pending |
+
+### v2.1
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| TEST-01 | TBD | Pending |
+| TEST-02 | TBD | Pending |
+| PERF-01 | TBD | Pending |
+| PERF-02 | TBD | Pending |
+| PERF-03 | TBD | Pending |
+| PERF-04 | TBD | Pending |
+| AUTH-01 | TBD | Pending |
+| UI-01 | TBD | Pending |
 
 **Coverage:**
 - v1.0 requirements: 25 total, 25 complete
-- v2.0 requirements: 21 total
-- Mapped to phases: 21
-- Unmapped: 0
+- v2.0 requirements: 11 complete, 10 deferred
+- v2.1 requirements: 8 total
+- Mapped to phases: 0
+- Unmapped: 8 (awaiting roadmap)
 
 ---
 *Requirements defined: 2026-03-13 (v1.0)*
-*Last updated: 2026-03-15 after v2.0 roadmap creation*
+*Last updated: 2026-03-15 after v2.1 requirements definition*
