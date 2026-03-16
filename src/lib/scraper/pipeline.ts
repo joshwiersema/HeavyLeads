@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
 import { leadSources } from "@/lib/db/schema/lead-sources";
 import { geocodeAddress } from "@/lib/geocoding";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 
 /** Default delay between geocoding requests to avoid rate limiting (ms) */
 const GEOCODE_THROTTLE_MS = 25;
@@ -174,23 +174,23 @@ async function processRecords(
         .onConflictDoUpdate({
           target: [leads.sourceId, leads.permitNumber],
           set: {
-            description: leads.description,
-            title: leads.title,
-            projectType: leads.projectType,
-            estimatedValue: leads.estimatedValue,
-            applicantName: leads.applicantName,
-            contractorName: leads.contractorName,
-            agencyName: leads.agencyName,
-            permitDate: leads.permitDate,
-            postedDate: leads.postedDate,
-            deadlineDate: leads.deadlineDate,
-            scrapedAt: leads.scrapedAt,
-            lat: leads.lat,
-            lng: leads.lng,
-            formattedAddress: leads.formattedAddress,
-            sourceUrl: leads.sourceUrl,
-            city: leads.city,
-            state: leads.state,
+            description: sql`excluded.description`,
+            title: sql`excluded.title`,
+            projectType: sql`excluded.project_type`,
+            estimatedValue: sql`excluded.estimated_value`,
+            applicantName: sql`excluded.applicant_name`,
+            contractorName: sql`excluded.contractor_name`,
+            agencyName: sql`excluded.agency_name`,
+            permitDate: sql`excluded.permit_date`,
+            postedDate: sql`excluded.posted_date`,
+            deadlineDate: sql`excluded.deadline_date`,
+            scrapedAt: sql`excluded.scraped_at`,
+            lat: sql`excluded.lat`,
+            lng: sql`excluded.lng`,
+            formattedAddress: sql`excluded.formatted_address`,
+            sourceUrl: sql`excluded.source_url`,
+            city: sql`excluded.city`,
+            state: sql`excluded.state`,
           },
         })
         .returning({ id: leads.id });
@@ -283,8 +283,8 @@ async function geocodeBatch(
       const geo = await geocodeAddress(geocodeTarget);
       results.push({
         ...record,
-        lat: geo.lat,
-        lng: geo.lng,
+        lat: geo.lat ?? undefined,
+        lng: geo.lng ?? undefined,
         formattedAddress: geo.formattedAddress,
       });
     } catch (error) {

@@ -115,7 +115,9 @@ export default async function DashboardPage({
       : undefined;
 
   const serviceRadius = profile.serviceRadiusMiles ?? 50;
-  const dealerEquipment = (profile.equipmentTypes as string[]) ?? [];
+  const dealerEquipment = Array.isArray(profile.equipmentTypes)
+    ? (profile.equipmentTypes as string[])
+    : [];
 
   // Check for active filters early (needed for nationwide fallback)
   const hasFilters = !!(

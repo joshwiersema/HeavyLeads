@@ -28,15 +28,36 @@ export async function completeOnboarding(data: OnboardingFormData) {
 
   const { lat, lng, formattedAddress } = await geocodeAddress(fullAddress);
 
-  await db.insert(companyProfiles).values({
-    organizationId: session.session.activeOrganizationId,
-    hqAddress: formattedAddress,
-    hqLat: lat,
-    hqLng: lng,
-    equipmentTypes: validated.equipmentTypes,
-    serviceRadiusMiles: validated.serviceRadius,
-    onboardingCompleted: true,
-  });
+  if (lat == null || lng == null) {
+    return {
+      success: false,
+      error:
+        "Unable to determine coordinates for your address. Please verify your address and try again.",
+    };
+  }
+
+  await db
+    .insert(companyProfiles)
+    .values({
+      organizationId: session.session.activeOrganizationId,
+      hqAddress: formattedAddress,
+      hqLat: lat,
+      hqLng: lng,
+      equipmentTypes: validated.equipmentTypes,
+      serviceRadiusMiles: validated.serviceRadius,
+      onboardingCompleted: true,
+    })
+    .onConflictDoUpdate({
+      target: [companyProfiles.organizationId],
+      set: {
+        hqAddress: formattedAddress,
+        hqLat: lat,
+        hqLng: lng,
+        equipmentTypes: validated.equipmentTypes,
+        serviceRadiusMiles: validated.serviceRadius,
+        onboardingCompleted: true,
+      },
+    });
 
   revalidatePath("/");
 

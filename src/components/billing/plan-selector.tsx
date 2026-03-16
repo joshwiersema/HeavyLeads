@@ -20,8 +20,12 @@ const FEATURES = [
 
 export function PlanSelector({
   organizationId,
+  monthlyPrice,
+  setupFee,
 }: {
   organizationId: string;
+  monthlyPrice?: string;
+  setupFee?: string;
 }) {
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -73,10 +77,12 @@ export function PlanSelector({
         <CardContent className="space-y-6">
           <div>
             <p className="text-3xl font-bold">
-              Standard Plan
+              {monthlyPrice ? `${monthlyPrice}/mo` : "Standard Plan"}
             </p>
             <p className="text-sm text-muted-foreground mt-1">
-              Monthly subscription + one-time setup fee
+              {setupFee
+                ? `${setupFee} one-time setup fee`
+                : "Monthly subscription + one-time setup fee"}
             </p>
           </div>
 

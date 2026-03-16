@@ -43,14 +43,17 @@ export async function ensureStripeCustomer() {
 
   // Create Stripe customer for the org
   try {
-    const customer = await stripeClient.customers.create({
-      name: org.name,
-      email: session.user.email,
-      metadata: {
-        org_id: orgId,
-        customerType: "organization",
+    const customer = await stripeClient.customers.create(
+      {
+        name: org.name,
+        email: session.user.email,
+        metadata: {
+          org_id: orgId,
+          customerType: "organization",
+        },
       },
-    });
+      { idempotencyKey: `create-customer-${orgId}` }
+    );
 
     // Save to org record so the plugin finds it on upgrade
     await db

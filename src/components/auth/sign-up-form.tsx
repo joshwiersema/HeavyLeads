@@ -58,10 +58,14 @@ export function SignUpForm() {
         return;
       }
 
-      // Step 2: Create the organization
+      // Step 2: Create the organization (random suffix prevents slug collisions)
+      const slug =
+        slugify(data.companyName) +
+        "-" +
+        Math.random().toString(36).slice(2, 6);
       const orgResult = await authClient.organization.create({
         name: data.companyName,
-        slug: slugify(data.companyName),
+        slug,
       });
 
       if (orgResult.error) {

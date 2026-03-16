@@ -73,6 +73,13 @@ export async function updateCompanyProfile(data: CompanySettingsInput) {
   // Re-geocode if address changed
   if (currentProfile?.hqAddress !== fullAddress) {
     const geocoded = await geocodeAddress(fullAddress);
+    if (geocoded.lat == null || geocoded.lng == null) {
+      return {
+        success: false,
+        error:
+          "Unable to determine coordinates for your address. Please verify and try again.",
+      };
+    }
     hqLat = geocoded.lat;
     hqLng = geocoded.lng;
     hqAddress = geocoded.formattedAddress;

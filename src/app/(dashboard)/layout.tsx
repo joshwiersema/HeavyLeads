@@ -10,6 +10,7 @@ import { LayoutDashboard, Bookmark, Search, Settings } from "lucide-react";
 import { TrialBanner } from "@/components/billing/trial-banner";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 
 export default async function DashboardLayout({
   children,
@@ -99,7 +100,8 @@ export default async function DashboardLayout({
       <div className="flex flex-1 flex-col">
         {/* Top bar */}
         <header className="flex h-14 items-center justify-between border-b px-6">
-          <div className="md:hidden">
+          <div className="flex items-center gap-2 md:hidden">
+            <MobileNav userName={session.user.name} />
             <Link href="/dashboard" className="text-lg font-semibold">
               HeavyLeads
             </Link>

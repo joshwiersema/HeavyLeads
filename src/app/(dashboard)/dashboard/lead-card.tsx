@@ -7,6 +7,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { safeFormatDate } from "@/lib/utils";
 import type { EnrichedLead } from "@/lib/leads/types";
 import type { LeadStatus } from "@/lib/db/schema/lead-statuses";
 
@@ -127,10 +128,10 @@ export function LeadCard({ lead }: { lead: EnrichedLead }) {
               {Math.round(lead.distance)} mi away
             </span>
           )}
-          {lead.permitDate && (
+          {lead.permitDate && safeFormatDate(lead.permitDate) && (
             <span className="flex items-center gap-1">
               <Calendar className="size-3" />
-              {lead.permitDate.toLocaleDateString()}
+              {safeFormatDate(lead.permitDate)}
             </span>
           )}
           {lead.applicantName && (

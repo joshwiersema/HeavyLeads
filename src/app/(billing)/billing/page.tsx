@@ -72,7 +72,11 @@ export default async function BillingPage() {
               Choose the plan that works best for you
             </p>
           </div>
-          <PlanSelector organizationId={organizationId} />
+          <PlanSelector
+            organizationId={organizationId}
+            monthlyPrice={process.env.NEXT_PUBLIC_MONTHLY_PRICE}
+            setupFee={process.env.NEXT_PUBLIC_SETUP_FEE}
+          />
           {process.env.NODE_ENV === "development" && (
             <div className="flex justify-center">
               <DevSkipButton />

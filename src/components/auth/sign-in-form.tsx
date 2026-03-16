@@ -51,13 +51,23 @@ export function SignInForm() {
       // Without this, activeOrganizationId is null and the dashboard
       // layout redirects to /onboarding, which redirects back to
       // /sign-in — creating an infinite redirect loop.
-      const { data: orgs } = await authClient.$fetch<
-        { id: string; name: string }[]
-      >("/organization/list");
-      if (orgs && orgs.length > 0) {
-        await authClient.organization.setActive({
-          organizationId: orgs[0].id,
-        });
+      try {
+        const { data: orgs } = await authClient.$fetch<
+          { id: string; name: string }[]
+        >("/organization/list");
+
+        if (orgs && orgs.length > 0) {
+          await authClient.organization.setActive({
+            organizationId: orgs[0].id,
+          });
+        } else {
+          // No orgs — send to onboarding to create one
+          router.push("/onboarding");
+          return;
+        }
+      } catch {
+        setError("Unable to load your organization. Please try again.");
+        return;
       }
 
       router.push("/");

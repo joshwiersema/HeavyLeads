@@ -5,8 +5,8 @@
  */
 
 interface GeocodingResult {
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   formattedAddress: string;
 }
 
@@ -15,10 +15,10 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult> 
 
   if (!apiKey) {
     console.warn(
-      "[geocoding] GOOGLE_MAPS_API_KEY not set. Returning fallback coordinates (0, 0). " +
+      "[geocoding] GOOGLE_MAPS_API_KEY not set. Returning null coordinates. " +
         "Set GOOGLE_MAPS_API_KEY in .env.local for production geocoding."
     );
-    return { lat: 0, lng: 0, formattedAddress: address };
+    return { lat: null, lng: null, formattedAddress: address };
   }
 
   const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
@@ -40,6 +40,13 @@ export async function geocodeAddress(address: string): Promise<GeocodingResult> 
   }
 
   const result = data.results[0];
+
+  if (!result.geometry?.location) {
+    throw new Error(
+      "Geocoding returned no coordinates. Please check the address and try again."
+    );
+  }
+
   return {
     lat: result.geometry.location.lat,
     lng: result.geometry.location.lng,

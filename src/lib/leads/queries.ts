@@ -216,6 +216,13 @@ export interface GetLeadByIdParams {
 // -- Main feed query --
 
 /**
+ * Fetch more rows than requested so that in-memory scoring and equipment
+ * filtering don't accidentally exclude high-score leads that were scraped
+ * slightly earlier. The final result is sliced to the caller's limit.
+ */
+const FETCH_MULTIPLIER = 4;
+
+/**
  * Fetches leads within a geographic radius from dealer HQ, enriches each
  * with inferred equipment, score, freshness, and timeline, optionally
  * filters by equipment type, and returns sorted by score DESC.
@@ -302,6 +309,10 @@ export async function getFilteredLeads(
   }
 
   // Repeat the full Haversine expression in WHERE (cannot reference SELECT alias in PostgreSQL)
+  // Fetch more rows than the caller requested so scoring and equipment
+  // filtering can select the best results, not just the most recent.
+  const fetchLimit = limit * FETCH_MULTIPLIER;
+
   const rows = await query
     .where(
       and(
@@ -320,7 +331,7 @@ export async function getFilteredLeads(
       )
     )
     .orderBy(desc(leads.scrapedAt))
-    .limit(limit)
+    .limit(fetchLimit)
     .offset(offset);
 
   // Enrich each lead with intelligence
@@ -360,7 +371,8 @@ export async function getFilteredLeads(
     return b.scrapedAt.getTime() - a.scrapedAt.getTime();
   });
 
-  return enriched;
+  // Slice to the caller's requested limit (we over-fetched with FETCH_MULTIPLIER)
+  return enriched.slice(0, limit);
 }
 
 // -- Single lead query --
