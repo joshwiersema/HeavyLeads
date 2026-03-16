@@ -2,9 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock pipeline dependencies
 const mockRunPipeline = vi.fn();
-const mockInitializeAdapters = vi.fn();
-const mockGetRegisteredAdapters = vi.fn().mockReturnValue([]);
-const mockClearAdapters = vi.fn();
+const mockGetAllAdapters = vi.fn().mockReturnValue([]);
 const mockGenerateDigests = vi.fn().mockResolvedValue({ sent: 0, skipped: 0, errors: 0 });
 
 vi.mock("@/lib/scraper/pipeline", () => ({
@@ -12,12 +10,7 @@ vi.mock("@/lib/scraper/pipeline", () => ({
 }));
 
 vi.mock("@/lib/scraper/adapters", () => ({
-  initializeAdapters: () => mockInitializeAdapters(),
-}));
-
-vi.mock("@/lib/scraper/registry", () => ({
-  getRegisteredAdapters: () => mockGetRegisteredAdapters(),
-  clearAdapters: () => mockClearAdapters(),
+  getAllAdapters: () => mockGetAllAdapters(),
 }));
 
 vi.mock("@/lib/email/digest-generator", () => ({
@@ -96,8 +89,7 @@ describe("GET /api/cron/scrape", () => {
     const response = await GET(request as any);
 
     expect(response.status).toBe(200);
-    expect(mockInitializeAdapters).toHaveBeenCalledOnce();
+    expect(mockGetAllAdapters).toHaveBeenCalledOnce();
     expect(mockRunPipeline).toHaveBeenCalledOnce();
-    expect(mockClearAdapters).toHaveBeenCalledOnce();
   });
 });

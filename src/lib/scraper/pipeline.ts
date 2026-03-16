@@ -2,9 +2,11 @@ import type { ScraperAdapter, RawLeadData } from "./adapters/base-adapter";
 import { rawLeadSchema } from "./adapters/base-adapter";
 import type { PipelineResult, PipelineRunResult } from "./types";
 import { deduplicateNewLeads } from "./dedup";
+import { computeContentHash } from "./content-hash";
 import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
 import { leadSources } from "@/lib/db/schema/lead-sources";
+import { scraperRuns } from "@/lib/db/schema/scraper-runs";
 import { geocodeAddress } from "@/lib/geocoding";
 import { eq, and, sql } from "drizzle-orm";
 
@@ -20,15 +22,23 @@ const GEOCODE_THROTTLE_MS = 25;
  * Records are validated with Zod, geocoded (if lat/lng not present),
  * and upserted into the leads table. Lead source entries are created
  * in the lead_sources junction table for multi-source tracking.
+ *
+ * When pipelineRunId is provided, per-adapter scraper_runs rows are
+ * inserted/updated with execution status and record counts.
  */
 export async function runPipeline(
-  adapters: ScraperAdapter[]
+  adapters: ScraperAdapter[],
+  options?: { pipelineRunId?: string; industry?: string }
 ): Promise<PipelineRunResult> {
   const startedAt = new Date();
   const results: PipelineResult[] = [];
 
   for (const adapter of adapters) {
-    const result = await runAdapter(adapter);
+    const result = await runAdapter(
+      adapter,
+      options?.pipelineRunId,
+      options?.industry
+    );
     results.push(result);
   }
 
@@ -45,14 +55,50 @@ export async function runPipeline(
   }
 
   const completedAt = new Date();
-  return { results, startedAt, completedAt, dedup };
+  return {
+    results,
+    startedAt,
+    completedAt,
+    dedup,
+    industry: options?.industry,
+  };
 }
 
 /**
  * Run a single adapter with error isolation.
  * Returns a PipelineResult regardless of success or failure.
+ *
+ * When pipelineRunId is provided, inserts/updates a scraper_runs row
+ * to track per-adapter execution status, record counts, and errors.
  */
-async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
+async function runAdapter(
+  adapter: ScraperAdapter,
+  pipelineRunId?: string,
+  industry?: string
+): Promise<PipelineResult> {
+  // Insert scraper_runs row if tracking is enabled
+  let scraperRunId: string | undefined;
+  if (pipelineRunId) {
+    try {
+      const [run] = await db
+        .insert(scraperRuns)
+        .values({
+          pipelineRunId,
+          adapterId: adapter.sourceId,
+          adapterName: adapter.sourceName,
+          industry: industry ?? null,
+          status: "running",
+        })
+        .returning({ id: scraperRuns.id });
+      scraperRunId = run.id;
+    } catch (err) {
+      console.warn(
+        `[pipeline] Failed to insert scraper_runs row for ${adapter.sourceId}:`,
+        err instanceof Error ? err.message : err
+      );
+    }
+  }
+
   try {
     const rawRecords = await adapter.scrape();
     const { valid, invalidCount } = validateRecords(rawRecords);
@@ -68,6 +114,27 @@ async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
       errors.push(`${invalidCount} record(s) failed validation`);
     }
 
+    // Update scraper_runs with success
+    if (scraperRunId) {
+      try {
+        await db
+          .update(scraperRuns)
+          .set({
+            status: "completed",
+            recordsFound: rawRecords.length,
+            recordsStored: storedCount,
+            recordsSkipped: invalidCount,
+            completedAt: new Date(),
+          })
+          .where(eq(scraperRuns.id, scraperRunId));
+      } catch (err) {
+        console.warn(
+          `[pipeline] Failed to update scraper_runs for ${adapter.sourceId}:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
     return {
       sourceId: adapter.sourceId,
       sourceName: adapter.sourceName,
@@ -75,6 +142,7 @@ async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
       recordsStored: storedCount,
       errors,
       newLeadIds,
+      industry,
     };
   } catch (error) {
     const message =
@@ -82,12 +150,33 @@ async function runAdapter(adapter: ScraperAdapter): Promise<PipelineResult> {
     console.error(
       `[pipeline] Adapter ${adapter.sourceId} failed: ${message}`
     );
+
+    // Update scraper_runs with failure
+    if (scraperRunId) {
+      try {
+        await db
+          .update(scraperRuns)
+          .set({
+            status: "failed",
+            errorMessage: message,
+            completedAt: new Date(),
+          })
+          .where(eq(scraperRuns.id, scraperRunId));
+      } catch (err) {
+        console.warn(
+          `[pipeline] Failed to update scraper_runs for ${adapter.sourceId}:`,
+          err instanceof Error ? err.message : err
+        );
+      }
+    }
+
     return {
       sourceId: adapter.sourceId,
       sourceName: adapter.sourceName,
       recordsScraped: 0,
       recordsStored: 0,
       errors: [message],
+      industry,
     };
   }
 }
@@ -119,6 +208,10 @@ function validateRecords(records: unknown[]): {
 /**
  * Process validated records: geocode addresses, then upsert into leads table.
  * After lead insertion, creates lead_sources entries for source tracking.
+ *
+ * Content hash is computed for each record and stored alongside the lead.
+ * The content_hash unique index (WHERE content_hash IS NOT NULL) catches
+ * exact duplicates via ON CONFLICT DO NOTHING.
  */
 async function processRecords(
   sourceId: string,
@@ -138,6 +231,16 @@ async function processRecords(
       (record.city && record.state
         ? `${record.city}, ${record.state}`
         : null);
+
+    // Compute content hash for dedup
+    const contentHash = computeContentHash({
+      sourceType: record.sourceType,
+      sourceId,
+      permitNumber: record.permitNumber,
+      externalId: record.externalId,
+      title: record.title,
+      sourceUrl: record.sourceUrl,
+    });
 
     const values = {
       permitNumber: record.permitNumber ?? null,
@@ -161,6 +264,7 @@ async function processRecords(
       sourceId,
       sourceJurisdiction: jurisdiction ?? null,
       sourceUrl: record.sourceUrl ?? null,
+      contentHash,
       scrapedAt,
     };
 
@@ -191,6 +295,7 @@ async function processRecords(
             sourceUrl: sql`excluded.source_url`,
             city: sql`excluded.city`,
             state: sql`excluded.state`,
+            contentHash: sql`excluded.content_hash`,
           },
         })
         .returning({ id: leads.id });

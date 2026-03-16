@@ -24,21 +24,14 @@ vi.mock("@/lib/scraper/rate-limit", () => ({
 
 // Mock pipeline dependencies
 const mockRunPipeline = vi.fn();
-const mockInitializeAdapters = vi.fn();
-const mockGetRegisteredAdapters = vi.fn().mockReturnValue([]);
-const mockClearAdapters = vi.fn();
+const mockGetAllAdapters = vi.fn().mockReturnValue([]);
 
 vi.mock("@/lib/scraper/pipeline", () => ({
   runPipeline: (...args: unknown[]) => mockRunPipeline(...args),
 }));
 
 vi.mock("@/lib/scraper/adapters", () => ({
-  initializeAdapters: () => mockInitializeAdapters(),
-}));
-
-vi.mock("@/lib/scraper/registry", () => ({
-  getRegisteredAdapters: () => mockGetRegisteredAdapters(),
-  clearAdapters: () => mockClearAdapters(),
+  getAllAdapters: () => mockGetAllAdapters(),
 }));
 
 // Mock db
@@ -128,8 +121,7 @@ describe("POST /api/scraper/run", () => {
     const response = await POST(request);
 
     expect(response.status).toBe(200);
-    expect(mockInitializeAdapters).toHaveBeenCalledOnce();
+    expect(mockGetAllAdapters).toHaveBeenCalledOnce();
     expect(mockRunPipeline).toHaveBeenCalledOnce();
-    expect(mockClearAdapters).toHaveBeenCalledOnce();
   });
 });

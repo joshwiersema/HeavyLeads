@@ -6,7 +6,7 @@ import {
   createFailingAdapter,
 } from "../helpers/scraper";
 
-// Mock the db module -- supports both leads and leadSources inserts
+// Mock the db module -- supports leads, leadSources, and scraperRuns
 vi.mock("@/lib/db", () => {
   let leadIdCounter = 0;
 
@@ -38,10 +38,17 @@ vi.mock("@/lib/db", () => {
     }),
   });
 
+  const updateMock = vi.fn().mockReturnValue({
+    set: vi.fn().mockReturnValue({
+      where: vi.fn().mockResolvedValue(undefined),
+    }),
+  });
+
   return {
     db: {
       insert: insertMock,
       select: selectMock,
+      update: updateMock,
     },
   };
 });

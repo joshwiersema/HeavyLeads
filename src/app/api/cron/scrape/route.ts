@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { runPipeline } from "@/lib/scraper/pipeline";
-import { initializeAdapters } from "@/lib/scraper/adapters";
-import { getRegisteredAdapters, clearAdapters } from "@/lib/scraper/registry";
+import { getAllAdapters } from "@/lib/scraper/adapters";
 import { db } from "@/lib/db";
 import { pipelineRuns } from "@/lib/db/schema/pipeline-runs";
 import { eq } from "drizzle-orm";
@@ -15,7 +14,7 @@ export const maxDuration = 300;
  * Secured with CRON_SECRET Bearer token (injected by Vercel).
  *
  * - Records a global pipeline run (organizationId = null)
- * - Runs all registered adapters
+ * - Runs all adapters via factory pattern (no global registry)
  * - Triggers email digest after completion
  * - Updates run record with results or error
  */
@@ -37,10 +36,8 @@ export async function GET(request: NextRequest) {
     .returning();
 
   try {
-    initializeAdapters();
-    const adapters = getRegisteredAdapters();
-    const result = await runPipeline(adapters);
-    clearAdapters();
+    const adapters = getAllAdapters();
+    const result = await runPipeline(adapters, { pipelineRunId: run.id });
 
     // Calculate totals from adapter results
     const totalScraped = result.results.reduce(
@@ -88,8 +85,6 @@ export async function GET(request: NextRequest) {
       duration: result.completedAt.getTime() - result.startedAt.getTime(),
     });
   } catch (error) {
-    clearAdapters();
-
     const message =
       error instanceof Error ? error.message : "Pipeline error";
 

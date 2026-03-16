@@ -1,8 +1,7 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { runPipeline } from "@/lib/scraper/pipeline";
-import { initializeAdapters } from "@/lib/scraper/adapters";
-import { getRegisteredAdapters, clearAdapters } from "@/lib/scraper/registry";
+import { getAllAdapters } from "@/lib/scraper/adapters";
 import { checkRateLimit } from "@/lib/scraper/rate-limit";
 import { db } from "@/lib/db";
 import { pipelineRuns } from "@/lib/db/schema/pipeline-runs";
@@ -19,7 +18,7 @@ export const maxDuration = 300;
  * - Verifies session and active organization
  * - Checks DB-based rate limit (1/hour per org)
  * - Records pipeline run with org and user context
- * - Runs all registered adapters
+ * - Runs all adapters via factory pattern (no global registry)
  * - Updates run record with results or error
  */
 export async function POST(_request: Request) {
@@ -57,10 +56,8 @@ export async function POST(_request: Request) {
     .returning();
 
   try {
-    initializeAdapters();
-    const adapters = getRegisteredAdapters();
-    const result = await runPipeline(adapters);
-    clearAdapters();
+    const adapters = getAllAdapters();
+    const result = await runPipeline(adapters, { pipelineRunId: run.id });
 
     // Calculate totals from adapter results
     const totalScraped = result.results.reduce(
@@ -92,8 +89,6 @@ export async function POST(_request: Request) {
       duration: result.completedAt.getTime() - result.startedAt.getTime(),
     });
   } catch (error) {
-    clearAdapters();
-
     const message =
       error instanceof Error ? error.message : "Unknown pipeline error";
 

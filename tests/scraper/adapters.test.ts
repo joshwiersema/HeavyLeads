@@ -453,16 +453,13 @@ describe("AtlantaPermitsAdapter", () => {
   });
 });
 
-// ─── Adapter Registration Tests ───
+// ─── Factory Pattern Tests ───
 
-describe("initializeAdapters", () => {
-  it("registers all three adapters in the registry", async () => {
-    const { initializeAdapters } = await import(
-      "@/lib/scraper/adapters/index"
-    );
+describe("getAllAdapters (factory)", () => {
+  it("returns all 8 adapters via the factory pattern", async () => {
+    const { getAllAdapters } = await import("@/lib/scraper/adapters/index");
 
-    initializeAdapters();
-    const adapters = getRegisteredAdapters();
+    const adapters = getAllAdapters();
 
     expect(adapters.length).toBe(8);
     const sourceIds = adapters.map((a) => a.sourceId);
@@ -484,15 +481,8 @@ describe("initializeAdapters", () => {
 // ─── Pluggability Tests ───
 
 describe("Adapter pluggability", () => {
-  it("new adapter can be added by creating and registering it -- no pipeline changes needed", async () => {
-    const { initializeAdapters } = await import(
-      "@/lib/scraper/adapters/index"
-    );
-
-    // Register the 8 built-in adapters
-    initializeAdapters();
-
-    // Create and register a custom 9th adapter
+  it("new adapter can be added by creating and registering it via the deprecated registry", async () => {
+    // The deprecated registry still works for backward compat
     const customAdapter: ScraperAdapter = {
       sourceId: "houston-tx-permits",
       sourceName: "City of Houston Building Permits",
@@ -503,7 +493,6 @@ describe("Adapter pluggability", () => {
     registerAdapter(customAdapter);
 
     const adapters = getRegisteredAdapters();
-    expect(adapters.length).toBe(9);
     expect(adapters.map((a) => a.sourceId)).toContain("houston-tx-permits");
   });
 });
