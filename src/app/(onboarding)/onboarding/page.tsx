@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { OnboardingWizard } from "@/components/onboarding/wizard-shell";
 
 export const metadata = {
-  title: "Onboarding | HeavyLeads",
+  title: "Onboarding | LeadForge",
 };
 
 export default async function OnboardingPage() {
