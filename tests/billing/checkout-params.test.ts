@@ -3,6 +3,10 @@ import { describe, it, expect, vi } from "vitest";
 /**
  * Tests for buildCheckoutSessionParams (BILL-05).
  * Verifies conditional setup fee inclusion/exclusion logic.
+ *
+ * BILL-02v3: The { params: { line_items: [...] } } format is correct per
+ * @better-auth/stripe plugin source (v1.5.5). It reads result.params and
+ * spreads into stripe.checkout.sessions.create().
  */
 
 // Mock stripe.ts to avoid env var errors

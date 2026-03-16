@@ -1,10 +1,21 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 
-// Mock next/navigation
+// Use vi.hoisted so mock fns are available before vi.mock hoisting
+const { mockPush, mockSignInEmail, mockSetActive, mockFetch } = vi.hoisted(
+  () => ({
+    mockPush: vi.fn(),
+    mockSignInEmail: vi.fn(),
+    mockSetActive: vi.fn(),
+    mockFetch: vi.fn(),
+  })
+);
+
+// Mock next/navigation with hoisted mockPush
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
-    push: vi.fn(),
+    push: mockPush,
     replace: vi.fn(),
     refresh: vi.fn(),
   }),
@@ -21,11 +32,7 @@ vi.mock("next/link", () => ({
   }) => <a href={href}>{children}</a>,
 }));
 
-// Mock auth-client: signIn.email resolves, $fetch throws to simulate org fetch failure
-const mockSignInEmail = vi.fn();
-const mockSetActive = vi.fn();
-const mockFetch = vi.fn();
-
+// Mock auth-client
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
     signIn: {
@@ -81,5 +88,25 @@ describe("sign-in-redirect regression (bug fix #5)", () => {
     const signUpLink = screen.getByRole("link", { name: /create one/i });
     expect(signUpLink).toBeInTheDocument();
     expect(signUpLink).toHaveAttribute("href", "/sign-up");
+  });
+
+  it("onSubmit calls router.push('/dashboard') not router.push('/')", async () => {
+    // Mock successful sign-in + org fetch + setActive
+    mockSignInEmail.mockResolvedValue({ data: { user: { id: "u1" } } });
+    mockFetch.mockResolvedValue({
+      data: [{ id: "org1", name: "Test Org" }],
+    });
+    mockSetActive.mockResolvedValue({ data: {} });
+
+    const user = userEvent.setup();
+    render(<SignInForm />);
+
+    await user.type(screen.getByLabelText(/email/i), "john@example.com");
+    await user.type(screen.getByLabelText(/password/i), "securepassword");
+    await user.click(screen.getByRole("button", { name: /sign in/i }));
+
+    await waitFor(() => {
+      expect(mockPush).toHaveBeenCalledWith("/dashboard");
+    });
   });
 });

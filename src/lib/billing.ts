@@ -93,6 +93,12 @@ interface CheckoutSubscription {
  *   must be included alongside the setup fee.
  *
  * - Existing subscriber (has stripeSubscriptionId): return {} (no setup fee).
+ *
+ * NOTE (BILL-02v3): The { params: { line_items: [...] } } return format looks
+ * double-nested but is correct. The @better-auth/stripe plugin (v1.5.5) calls
+ * getCheckoutSessionParams() and reads result.params, then spreads it into
+ * stripe.checkout.sessions.create(). So { params: { line_items } } means
+ * line_items gets spread into the Stripe call as intended.
  */
 export function buildCheckoutSessionParams(
   plan: CheckoutPlan,

@@ -6,7 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUpSchema, type SignUpFormData } from "@/lib/validators/auth";
-import { authClient } from "@/lib/auth-client";
+import { atomicSignUp } from "@/actions/signup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,15 +18,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/[\s_]+/g, "-")
-    .replace(/-+/g, "-");
-}
 
 export function SignUpForm() {
   const router = useRouter();
@@ -46,42 +37,19 @@ export function SignUpForm() {
     setIsLoading(true);
 
     try {
-      // Step 1: Sign up the user
-      const signUpResult = await authClient.signUp.email({
+      const result = await atomicSignUp({
+        name: data.name,
         email: data.email,
         password: data.password,
-        name: data.name,
+        companyName: data.companyName,
       });
 
-      if (signUpResult.error) {
-        setError(signUpResult.error.message ?? "Failed to create account");
+      if (!result.success) {
+        setError(result.error ?? "Failed to create account");
         return;
       }
 
-      // Step 2: Create the organization (random suffix prevents slug collisions)
-      const slug =
-        slugify(data.companyName) +
-        "-" +
-        Math.random().toString(36).slice(2, 6);
-      const orgResult = await authClient.organization.create({
-        name: data.companyName,
-        slug,
-      });
-
-      if (orgResult.error) {
-        setError(orgResult.error.message ?? "Failed to create company");
-        return;
-      }
-
-      // Step 3: Set the new org as active
-      if (orgResult.data?.id) {
-        await authClient.organization.setActive({
-          organizationId: orgResult.data.id,
-        });
-      }
-
-      // Step 4: Redirect to onboarding
-      router.push("/onboarding");
+      router.push(result.redirectTo ?? "/onboarding");
     } catch (err) {
       setError(err instanceof Error ? err.message : "An unexpected error occurred");
     } finally {
@@ -141,6 +109,21 @@ export function SignUpForm() {
             {errors.password && (
               <p className="text-sm text-destructive">
                 {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input
+              id="confirmPassword"
+              type="password"
+              placeholder="Confirm your password"
+              {...register("confirmPassword")}
+            />
+            {errors.confirmPassword && (
+              <p className="text-sm text-destructive">
+                {errors.confirmPassword.message}
               </p>
             )}
           </div>
