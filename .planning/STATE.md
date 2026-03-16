@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
 status: completed
-stopped_at: Completed 09-02-PLAN.md
+stopped_at: Completed 09-03-PLAN.md
 last_updated: "2026-03-16T04:37:01.214Z"
 last_activity: 2026-03-16 -- Completed 09-03 UI component regression tests (Phase 9 complete)
 progress:
@@ -35,15 +35,15 @@ Progress: [██████████] 100%
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21 (15 v1.0 + 4 v2.0 + 2 v2.1)
-- Average duration: ~5.9 min
-- Total execution time: ~2.11 hours
+- Total plans completed: 22 (15 v1.0 + 4 v2.0 + 3 v2.1)
+- Average duration: ~5.8 min
+- Total execution time: ~2.18 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 09    | 01   | 3min     | 2     | 3     |
 | 09    | 02   | 4min     | 2     | 9     |
-| Phase 09 P02 | 4min | 2 tasks | 9 files |
+| 09    | 03   | 4min     | 2     | 6     |
 
 ## Accumulated Context
 
@@ -70,7 +70,9 @@ v2.1 Phase 9 decisions:
 - vi.fn() handle pattern before vi.mock enables assertion on onConflictDoUpdate arguments (set/target)
 - Geocoding null test uses real function with deleted env var -- tests actual behavior, not mock behavior
 - Non-exported functions (slugify, Array.isArray guard, sort) tested as inline pattern replication
-- [Phase 09]: vi.fn() handle pattern before vi.mock enables assertion on onConflictDoUpdate arguments
+- Server component (page.tsx) tested by calling async function directly and rendering result -- avoids next/headers jsdom issues
+- Base-UI primitives (merge-props, use-render, separator) mocked for jsdom -- avoids DOM API incompatibilities
+- afterEach(cleanup) required in all component test describe blocks to prevent DOM leakage
 
 ### Pending Todos
 
