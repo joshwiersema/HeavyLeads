@@ -1,11 +1,20 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, waitFor, cleanup } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  cleanup,
+  fireEvent,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Mock auth client
-const mockRequestPasswordReset = vi
-  .fn()
-  .mockResolvedValue({ data: { status: true }, error: null });
+// Use vi.hoisted to ensure mock functions are available before vi.mock hoisting
+const { mockRequestPasswordReset } = vi.hoisted(() => ({
+  mockRequestPasswordReset: vi.fn().mockResolvedValue({
+    data: { status: true },
+    error: null,
+  }),
+}));
 
 vi.mock("@/lib/auth-client", () => ({
   authClient: {
@@ -54,13 +63,12 @@ describe("ForgotPasswordForm", () => {
   });
 
   it("shows validation error for invalid email", async () => {
-    const user = userEvent.setup();
     render(<ForgotPasswordForm />);
 
-    await user.type(screen.getByLabelText(/email/i), "not-an-email");
-    await user.click(
-      screen.getByRole("button", { name: /send reset link/i })
-    );
+    const emailInput = screen.getByLabelText(/email/i);
+    // Use fireEvent.change to directly set value (avoids jsdom type="email" quirks)
+    fireEvent.change(emailInput, { target: { value: "not-an-email" } });
+    fireEvent.submit(screen.getByRole("button", { name: /send reset link/i }));
 
     await waitFor(() => {
       expect(
