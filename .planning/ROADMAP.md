@@ -217,10 +217,11 @@ Plans:
   1. User can click "Forgot password?" on the sign-in page, enter their email, and receive a password reset link via email
   2. User can set a new password using the reset link and immediately log in with the new credentials
   3. Password reset emails are delivered reliably (not caught by spam filters) and expired/used reset links show a clear error message
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 11-01: TBD
+- [ ] 11-01-PLAN.md -- Validation schemas, email template, auth.ts sendResetPassword config, forgot-password form/page, sign-in link
+- [ ] 11-02-PLAN.md -- Reset password form/page, full-suite verification and build check
 
 ### Phase 12: UI Polish
 **Goal**: Navigation clearly shows the user where they are in the app at all times
@@ -252,5 +253,5 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 9. Regression Test Safety Net | v2.1 | 0/3 | Not started | - |
 | 10. Query Optimizations | 2/2 | Complete    | 2026-03-16 | - |
-| 11. Forgot Password | v2.1 | 0/? | Not started | - |
+| 11. Forgot Password | v2.1 | 0/2 | Not started | - |
 | 12. UI Polish | v2.1 | 0/? | Not started | - |
