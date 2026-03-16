@@ -197,28 +197,63 @@ async function processRecords(
 
       leadId = result[0].id;
     } else {
-      // Non-permit records: check if exists by sourceId + externalId, then insert or skip
-      const externalId = record.externalId || record.title;
-      const existing = await db
-        .select({ id: leads.id })
-        .from(leads)
-        .where(
-          and(
-            eq(leads.sourceId, sourceId),
-            eq(leads.title, externalId ?? "")
-          )
-        )
-        .limit(1);
-
-      if (existing.length > 0) {
-        leadId = existing[0].id;
-      } else {
+      // Non-permit records: dedup by sourceUrl when available
+      if (record.sourceUrl) {
+        // Use the partial unique index for dedup
         const result = await db
           .insert(leads)
           .values(values)
+          .onConflictDoNothing({
+            target: [leads.sourceId, leads.sourceUrl],
+          })
           .returning({ id: leads.id });
 
-        leadId = result[0].id;
+        if (result.length === 0) {
+          // Conflict: lead already exists, find existing ID for lead_sources tracking
+          const existing = await db
+            .select({ id: leads.id })
+            .from(leads)
+            .where(
+              and(
+                eq(leads.sourceId, sourceId),
+                eq(leads.sourceUrl, record.sourceUrl)
+              )
+            )
+            .limit(1);
+
+          if (existing.length > 0) {
+            leadId = existing[0].id;
+          } else {
+            // Edge case: should not happen (conflict implies row exists)
+            continue;
+          }
+        } else {
+          leadId = result[0].id;
+        }
+      } else {
+        // Fallback for records without sourceUrl: existing title-based check
+        const externalId = record.externalId || record.title;
+        const existing = await db
+          .select({ id: leads.id })
+          .from(leads)
+          .where(
+            and(
+              eq(leads.sourceId, sourceId),
+              eq(leads.title, externalId ?? "")
+            )
+          )
+          .limit(1);
+
+        if (existing.length > 0) {
+          leadId = existing[0].id;
+        } else {
+          const result = await db
+            .insert(leads)
+            .values(values)
+            .returning({ id: leads.id });
+
+          leadId = result[0].id;
+        }
       }
     }
 

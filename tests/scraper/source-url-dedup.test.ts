@@ -195,8 +195,12 @@ describe("Pipeline: sourceUrl-based dedup for non-permit leads", () => {
 
     await runPipeline([adapter]);
 
-    // onConflictDoNothing should NOT be called (no sourceUrl)
-    expect(mockOnConflictDoNothing).not.toHaveBeenCalled();
+    // onConflictDoNothing with target (leads dedup path) should NOT be called
+    // Note: lead_sources insert calls onConflictDoNothing() without args, which is fine
+    const onConflictDoNothingWithTarget = mockOnConflictDoNothing.mock.calls.filter(
+      (call) => call[0] && call[0].target
+    );
+    expect(onConflictDoNothingWithTarget).toHaveLength(0);
     // onConflictDoUpdate should NOT be called (not a permit)
     expect(mockOnConflictDoUpdate).not.toHaveBeenCalled();
     // Should have used SELECT + INSERT path (title-based)
@@ -220,7 +224,11 @@ describe("Pipeline: sourceUrl-based dedup for non-permit leads", () => {
 
     // Permit records should use onConflictDoUpdate
     expect(mockOnConflictDoUpdate).toHaveBeenCalled();
-    // Should NOT use onConflictDoNothing for permits
-    expect(mockOnConflictDoNothing).not.toHaveBeenCalled();
+    // onConflictDoNothing with target (leads dedup path) should NOT be called
+    // Note: lead_sources insert calls onConflictDoNothing() without args, which is expected
+    const onConflictDoNothingWithTarget = mockOnConflictDoNothing.mock.calls.filter(
+      (call) => call[0] && call[0].target
+    );
+    expect(onConflictDoNothingWithTarget).toHaveLength(0);
   });
 });

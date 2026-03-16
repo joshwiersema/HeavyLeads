@@ -8,6 +8,7 @@ import {
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
  * Leads table -- stores scraped lead data from all source types.
@@ -57,5 +58,8 @@ export const leads = pgTable(
     ),
     index("leads_scraped_at_idx").on(table.scrapedAt),
     index("leads_source_type_idx").on(table.sourceType),
+    uniqueIndex("leads_source_url_dedup_idx")
+      .on(table.sourceId, table.sourceUrl)
+      .where(sql`source_type != 'permit' AND source_url IS NOT NULL`),
   ]
 );
