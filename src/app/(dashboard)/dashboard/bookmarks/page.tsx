@@ -1,9 +1,7 @@
 import { Suspense } from "react";
-import {
-  getBookmarksWithDetails,
-  PIPELINE_STATUSES,
-} from "@/actions/bookmarks";
-import type { PipelineStatus, BookmarkWithLead } from "@/actions/bookmarks";
+import { getBookmarksWithDetails } from "@/actions/bookmarks";
+import { PIPELINE_STATUSES } from "@/actions/bookmark-types";
+import type { PipelineStatus, BookmarkWithLead } from "@/actions/bookmark-types";
 import { BookmarkFilters } from "@/components/bookmarks/bookmark-filters";
 import { BookmarkCard } from "@/components/bookmarks/bookmark-card";
 import {

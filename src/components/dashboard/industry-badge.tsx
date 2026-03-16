@@ -39,6 +39,8 @@ export function IndustryBadge({ industry }: IndustryBadgeProps) {
   const colors = INDUSTRY_COLORS[industry];
   const label = INDUSTRY_LABELS[industry];
 
+  if (!colors || !label) return null;
+
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${colors.bg} ${colors.text}`}

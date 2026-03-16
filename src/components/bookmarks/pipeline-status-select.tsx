@@ -2,7 +2,7 @@
 
 import { useTransition } from "react";
 import { updateBookmarkStatus } from "@/actions/bookmarks";
-import type { PipelineStatus } from "@/actions/bookmarks";
+import type { PipelineStatus } from "@/actions/bookmark-types";
 import { toast } from "sonner";
 
 const STATUS_OPTIONS: {

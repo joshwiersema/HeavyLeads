@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import type { PipelineStatus } from "@/actions/bookmarks";
+import type { PipelineStatus } from "@/actions/bookmark-types";
 
 const FILTER_OPTIONS: {
   value: PipelineStatus | "all";

@@ -13,8 +13,7 @@ import {
   CardContent,
   CardHeader,
 } from "@/components/ui/card";
-import type { BookmarkWithLead } from "@/actions/bookmarks";
-import type { PipelineStatus } from "@/actions/bookmarks";
+import type { BookmarkWithLead, PipelineStatus } from "@/actions/bookmark-types";
 import { PipelineStatusSelect } from "./pipeline-status-select";
 import { InlineNotes } from "./inline-notes";
 

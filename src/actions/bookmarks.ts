@@ -7,36 +7,8 @@ import { leads } from "@/lib/db/schema/leads";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { and, eq, desc } from "drizzle-orm";
-
-// ---- Types ----
-
-export const PIPELINE_STATUSES = [
-  "saved",
-  "contacted",
-  "in_progress",
-  "won",
-  "lost",
-] as const;
-
-export type PipelineStatus = (typeof PIPELINE_STATUSES)[number];
-
-export interface BookmarkWithLead {
-  id: string;
-  leadId: string;
-  userId: string;
-  organizationId: string;
-  createdAt: Date;
-  notes: string | null;
-  pipelineStatus: string | null;
-  // Lead fields
-  title: string | null;
-  address: string | null;
-  formattedAddress: string | null;
-  sourceType: string;
-  estimatedValue: number | null;
-  city: string | null;
-  state: string | null;
-}
+import { PIPELINE_STATUSES } from "./bookmark-types";
+import type { PipelineStatus, BookmarkWithLead } from "./bookmark-types";
 
 // ---- Helpers ----
 
