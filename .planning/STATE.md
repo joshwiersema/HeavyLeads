@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: LeadForge Multi-Industry Platform
-status: completed
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-03-16T17:31:24.320Z"
-last_activity: 2026-03-16 -- Completed Phase 13 Plan 02 (auth hardening + atomic signup)
+status: in-progress
+stopped_at: Completed 14-01-PLAN.md
+last_updated: "2026-03-16T17:47:35Z"
+last_activity: 2026-03-16 -- Completed Phase 14 Plan 01 (wizard infrastructure + steps 1-2)
 progress:
   total_phases: 18
   completed_phases: 13
   total_plans: 29
-  completed_plans: 29
-  percent: 17
+  completed_plans: 30
+  percent: 25
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** Phase 13 - Schema Foundation (COMPLETE)
+**Current focus:** Phase 14 - Industry Onboarding
 
 ## Current Position
 
-Phase: 13 of 18 (Schema Foundation) -- first phase of v3.0
-Plan: 2 of 2 complete
-Status: Phase Complete
-Last activity: 2026-03-16 -- Completed Phase 13 Plan 02 (auth hardening + atomic signup)
+Phase: 14 of 18 (Industry Onboarding)
+Plan: 1 of 3 complete
+Status: In Progress
+Last activity: 2026-03-16 -- Completed Phase 14 Plan 01 (wizard infrastructure + steps 1-2)
 
-Progress: [██░░░░░░░░] 17% (v3.0: 2/12 plans)
+Progress: [██░░░░░░░░] 25% (v3.0: 3/12 plans)
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress: [██░░░░░░░░] 17% (v3.0: 2/12 plans)
 |-------|------|----------|-------|-------|
 | 13    | 01   | 6min     | 2     | 20    |
 | 13    | 02   | 5min     | 2     | 11    |
+| 14    | 01   | 5min     | 2     | 9     |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Key decisions carried forward:
 - [Phase 13]: Error message matching: check specific patterns (slug/taken) before generic ones (UNIQUE/already) to avoid false matches
 - [Phase 13]: Atomic multi-step auth: use server actions with try/catch cleanup rather than client-side sequential API calls
 - [Phase 13]: BILL-02v3 double-nested { params: { line_items } } format is correct per @better-auth/stripe plugin -- documented, not changed
+- [Phase 14]: Zod v4 uses { message } not { required_error } for z.enum error parameter
+- [Phase 14]: Google Places APIProvider scoped to CompanyBasics step, not wizard level, to avoid unnecessary JS loading
+- [Phase 14]: Old onboarding schemas preserved for backward compat with completeOnboarding action
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T17:27:27.290Z
-Stopped at: Completed 13-02-PLAN.md
+Last session: 2026-03-16T17:47:35Z
+Stopped at: Completed 14-01-PLAN.md
 Resume file: None

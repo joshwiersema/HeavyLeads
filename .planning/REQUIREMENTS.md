@@ -88,13 +88,13 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 
 ### Onboarding
 
-- [ ] **ONBD-01**: User selects industry from 5 options as first onboarding step
-- [ ] **ONBD-02**: User enters company basics (name, size, address with geocoding, years in business)
+- [x] **ONBD-01**: User selects industry from 5 options as first onboarding step
+- [x] **ONBD-02**: User enters company basics (name, size, address with geocoding, years in business)
 - [ ] **ONBD-03**: User sets service area via interactive map with radius slider or multiple areas
 - [ ] **ONBD-04**: User selects industry-specific specializations (different options per industry)
 - [ ] **ONBD-05**: User configures lead preferences (min project value, preferred lead types, alert frequency)
 - [ ] **ONBD-06**: User reviews all selections before completing onboarding
-- [ ] **ONBD-07**: Wizard state persists in sessionStorage across page refreshes
+- [x] **ONBD-07**: Wizard state persists in sessionStorage across page refreshes
 
 ### Scraper Architecture
 
@@ -272,13 +272,13 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 | AUTH-04v3 | Phase 13 | Complete |
 | AUTH-05v3 | Phase 13 | Complete |
 | BILL-02v3 | Phase 13 | Complete |
-| ONBD-01 | Phase 14 | Pending |
-| ONBD-02 | Phase 14 | Pending |
+| ONBD-01 | Phase 14 | Complete |
+| ONBD-02 | Phase 14 | Complete |
 | ONBD-03 | Phase 14 | Pending |
 | ONBD-04 | Phase 14 | Pending |
 | ONBD-05 | Phase 14 | Pending |
 | ONBD-06 | Phase 14 | Pending |
-| ONBD-07 | Phase 14 | Pending |
+| ONBD-07 | Phase 14 | Complete |
 | BILL-01v3 | Phase 14 | Pending |
 | BILL-03v3 | Phase 14 | Pending |
 | NOTF-06 | Phase 14 | Pending |
