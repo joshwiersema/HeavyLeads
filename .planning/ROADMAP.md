@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [ ] **Phase 9: Regression Test Safety Net** - Test infrastructure and regression tests for all 15 v2.0 post-rework bug fixes
 - [x] **Phase 10: Query Optimizations** - Pagination, bookmarks batch query, digest optimization, and non-permit dedup (completed 2026-03-16)
-- [ ] **Phase 11: Forgot Password** - Password reset flow via email link from sign-in page
+- [x] **Phase 11: Forgot Password** - Password reset flow via email link from sign-in page (completed 2026-03-16)
 - [ ] **Phase 12: UI Polish** - Active nav highlighting in desktop sidebar and mobile nav drawer
 
 ## Phase Details
@@ -220,8 +220,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 11-01-PLAN.md -- Validation schemas, email template, auth.ts sendResetPassword config, forgot-password form/page, sign-in link
-- [ ] 11-02-PLAN.md -- Reset password form/page, full-suite verification and build check
+- [x] 11-01-PLAN.md -- Validation schemas, email template, auth.ts sendResetPassword config, forgot-password form/page, sign-in link
+- [x] 11-02-PLAN.md -- Reset password form/page, full-suite verification and build check
 
 ### Phase 12: UI Polish
 **Goal**: Navigation clearly shows the user where they are in the app at all times
@@ -251,7 +251,7 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 7. Billing Fix and Free Trial | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
-| 9. Regression Test Safety Net | v2.1 | 0/3 | Not started | - |
-| 10. Query Optimizations | 2/2 | Complete    | 2026-03-16 | - |
-| 11. Forgot Password | 1/2 | In Progress|  | - |
+| 9. Regression Test Safety Net | v2.1 | 3/3 | Complete | 2026-03-16 |
+| 10. Query Optimizations | v2.1 | 2/2 | Complete | 2026-03-16 |
+| 11. Forgot Password | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 12. UI Polish | v2.1 | 0/? | Not started | - |

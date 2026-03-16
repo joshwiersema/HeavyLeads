@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
 status: in-progress
-stopped_at: Completed 11-01-PLAN.md
-last_updated: "2026-03-16T05:44:59Z"
-last_activity: 2026-03-16 -- Completed 11-01 forgot-password request flow (schemas, email, form, page)
+stopped_at: Completed 11-02-PLAN.md
+last_updated: "2026-03-16T05:51:17Z"
+last_activity: 2026-03-16 -- Completed 11-02 reset password completion flow (form, page, tests)
 progress:
   total_phases: 12
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 26
-  completed_plans: 25
-  percent: 96
+  completed_plans: 26
+  percent: 100
 ---
 
 # Project State
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 11 - Forgot Password
+**Current focus:** Phase 11 - Forgot Password (Complete)
 
 ## Current Position
 
 Phase: 11 of 12 (Forgot Password)
-Plan: 1 of 2 complete
-Status: In Progress
-Last activity: 2026-03-16 -- Completed 11-01 forgot-password request flow (schemas, email, form, page)
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-16 -- Completed 11-02 reset password completion flow (form, page, tests)
 
-Progress: [██████████] 96%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 22 (15 v1.0 + 4 v2.0 + 3 v2.1)
-- Average duration: ~5.8 min
-- Total execution time: ~2.18 hours
+- Total plans completed: 23 (15 v1.0 + 4 v2.0 + 4 v2.1)
+- Average duration: ~5.6 min
+- Total execution time: ~2.21 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -47,6 +47,7 @@ Progress: [██████████] 96%
 | 10    | 01   | 7min     | 2     | 7     |
 | 10    | 02   | 7min     | 2     | 6     |
 | 11    | 01   | 6min     | 2     | 9     |
+| 11    | 02   | 3min     | 2     | 3     |
 
 ## Accumulated Context
 
@@ -93,6 +94,8 @@ v2.1 Phase 11 decisions:
 - Generic success message on forgot-password prevents user enumeration
 - vi.hoisted() pattern for mock references in vi.mock factories (vitest hoisting requirement)
 - class-based mock for Resend constructor (arrow function mocks fail with new keyword)
+- Exact string matchers for getByLabelText when labels share substrings (e.g., "New Password" vs "Confirm New Password")
+- Three-state UI pattern for reset-password: error (expired/invalid/missing token), form (valid token), success (password reset)
 
 ### Pending Todos
 
@@ -108,5 +111,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 11-01-PLAN.md
+Stopped at: Completed 11-02-PLAN.md
 Resume file: None
