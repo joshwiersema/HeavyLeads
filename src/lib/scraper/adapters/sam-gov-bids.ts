@@ -23,7 +23,11 @@ export class SamGovBidsAdapter implements ScraperAdapter {
 
   private readonly endpoint =
     "https://api.sam.gov/opportunities/v2/search";
-  private readonly naicsCodes = ["236", "237", "238"];
+  private readonly naicsCodes: string[];
+
+  constructor(options?: { naicsCodes?: string[] }) {
+    this.naicsCodes = options?.naicsCodes ?? ["236", "237", "238"];
+  }
 
   async scrape(): Promise<RawLeadData[]> {
     const apiKey = process.env.SAM_GOV_API_KEY;
