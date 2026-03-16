@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### v2.1 Bug Fixes & Hardening
 
 - [ ] **Phase 9: Regression Test Safety Net** - Test infrastructure and regression tests for all 15 v2.0 post-rework bug fixes
-- [ ] **Phase 10: Query Optimizations** - Pagination, bookmarks batch query, digest optimization, and non-permit dedup
+- [x] **Phase 10: Query Optimizations** - Pagination, bookmarks batch query, digest optimization, and non-permit dedup (completed 2026-03-16)
 - [ ] **Phase 11: Forgot Password** - Password reset flow via email link from sign-in page
 - [ ] **Phase 12: UI Polish** - Active nav highlighting in desktop sidebar and mobile nav drawer
 
@@ -251,6 +251,6 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 7. Billing Fix and Free Trial | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 9. Regression Test Safety Net | v2.1 | 0/3 | Not started | - |
-| 10. Query Optimizations | v2.1 | 0/2 | Not started | - |
+| 10. Query Optimizations | 2/2 | Complete   | 2026-03-16 | - |
 | 11. Forgot Password | v2.1 | 0/? | Not started | - |
 | 12. UI Polish | v2.1 | 0/? | Not started | - |

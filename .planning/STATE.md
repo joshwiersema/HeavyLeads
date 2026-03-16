@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
-status: completed
-stopped_at: Completed 09-02-PLAN.md
-last_updated: "2026-03-16T04:41:09.542Z"
-last_activity: 2026-03-16 -- Completed 09-03 UI component regression tests (Phase 9 complete)
+status: in-progress
+stopped_at: Completed 10-02-PLAN.md
+last_updated: "2026-03-16T05:08:38Z"
+last_activity: 2026-03-16 -- Completed 10-02 digest optimization & sourceUrl dedup (Phase 10 complete)
 progress:
   total_phases: 12
-  completed_phases: 9
-  total_plans: 22
-  completed_plans: 22
+  completed_phases: 10
+  total_plans: 24
+  completed_plans: 24
   percent: 100
 ---
 
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 
 ## Current Position
 
-Phase: 9 of 12 (Regression Test Safety Net)
-Plan: 3 of 3 complete
-Status: Phase 9 Complete
-Last activity: 2026-03-16 -- Completed 09-03 UI component regression tests (Phase 9 complete)
+Phase: 10 of 12 (Query Optimizations)
+Plan: 2 of 2 complete
+Status: Phase 10 Complete
+Last activity: 2026-03-16 -- Completed 10-02 digest optimization & sourceUrl dedup (Phase 10 complete)
 
 Progress: [██████████] 100%
 
@@ -44,6 +44,8 @@ Progress: [██████████] 100%
 | 09    | 01   | 3min     | 2     | 3     |
 | 09    | 02   | 4min     | 2     | 9     |
 | 09    | 03   | 4min     | 2     | 6     |
+| 10    | 01   | 7min     | 2     | 7     |
+| 10    | 02   | 7min     | 2     | 6     |
 
 ## Accumulated Context
 
@@ -74,18 +76,29 @@ v2.1 Phase 9 decisions:
 - Base-UI primitives (merge-props, use-render, separator) mocked for jsdom -- avoids DOM API incompatibilities
 - afterEach(cleanup) required in all component test describe blocks to prevent DOM leakage
 
+v2.1 Phase 10 decisions:
+- Widest-filter envelope for digest: max radius, earliest dateFrom, null dateTo = no upper bound, smallest minProjectSize, largest maxProjectSize (null = Infinity)
+- Raw sql template literal for partial index WHERE clause (workaround for Drizzle Kit bug #4790)
+- onConflictDoNothing with SELECT fallback for non-permit sourceUrl dedup
+- limit: 500 for widest digest query to capture sufficient candidates for in-memory filtering
+- FETCH_MULTIPLIER pagination resolved: enrichLead extracted for single-lead enrichment, getFilteredLeadsWithCount for server-side count
+- getFilteredLeadsWithCount fetches all within-radius leads (no FETCH_MULTIPLIER) for accurate totalCount
+- Filter changes reset page to 1 via buildParams deleting page param
+- getLeadsByIds batch query replaces N+1 getLeadById pattern on bookmarks page
+
 ### Pending Todos
 
 None yet.
 
 ### Blockers/Concerns
 
-- FETCH_MULTIPLIER pagination interaction needs careful implementation (in-memory pagination, not SQL offset)
-- Bookmarks batch query must extract enrichLead() before batching to preserve lead card data
+- ~~FETCH_MULTIPLIER pagination interaction needs careful implementation~~ (RESOLVED in 10-01: getFilteredLeadsWithCount provides server-side count)
+- ~~Bookmarks batch query must extract enrichLead() before batching~~ (RESOLVED in 10-01: enrichLead extracted, getLeadsByIds uses batch query)
 - Custom Resend domain status unknown -- password reset emails may land in spam without SPF/DKIM
+- Schema push needed: `npx drizzle-kit push` to apply leads_source_url_dedup_idx partial unique index
 
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Phase 9 complete, ready to plan Phase 10
+Stopped at: Completed 10-02-PLAN.md (Phase 10 complete)
 Resume file: None
