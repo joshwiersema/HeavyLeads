@@ -190,11 +190,12 @@ Plans:
   3. New users must verify their email address before accessing the dashboard, while existing users are pre-verified and unaffected
   4. Daily digest emails send the top 10 new leads at 7 AM with industry-specific styling via React Email templates; weekly summary emails send lead volume trends on Monday at 8 AM
   5. Every email includes a one-click unsubscribe link (CAN-SPAM compliance), and unsubscribe preferences persist across all email types
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 18-01: TBD
-- [ ] 18-02: TBD
+- [ ] 18-01-PLAN.md -- Industry intelligence scrapers: code violation Socrata adapters (Austin/Dallas/Houston), EIA utility rate adapter, solar incentive lookup table, factory registration
+- [ ] 18-02-PLAN.md -- CRM-lite bookmarks (pipeline status, notes, filtering) and email verification gate for new users
+- [ ] 18-03-PLAN.md -- Notification system overhaul: React Email templates with industry styling, daily/weekly digest crons, notification preferences, one-click unsubscribe (CAN-SPAM)
 
 ## Progress
 
@@ -220,4 +221,4 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 15. Scoring Engine & Lead Feed | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 16. Cron & Scraper Architecture | v3.0 | 0/3 | Not started | - |
 | 17. Storm Alerts & Weather | v3.0 | 0/2 | Not started | - |
-| 18. Intelligence & Polish | v3.0 | 0/TBD | Not started | - |
+| 18. Intelligence & Polish | v3.0 | 0/3 | Not started | - |
