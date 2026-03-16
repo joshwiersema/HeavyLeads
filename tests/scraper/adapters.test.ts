@@ -470,7 +470,7 @@ describe("getAllAdapters (factory)", () => {
 
     const adapters = getAllAdapters();
 
-    expect(adapters.length).toBe(8);
+    expect(adapters.length).toBe(9);
     const sourceIds = adapters.map((a) => a.sourceId);
     // Permit adapters
     expect(sourceIds).toContain("austin-tx-permits");
@@ -484,6 +484,8 @@ describe("getAllAdapters (factory)", () => {
     expect(sourceIds).toContain("prnewswire-news");
     // Deep web adapters
     expect(sourceIds).toContain("google-dorking");
+    // Disaster adapters
+    expect(sourceIds).toContain("fema-disaster-declarations");
   });
 });
 

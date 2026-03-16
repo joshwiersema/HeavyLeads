@@ -302,7 +302,7 @@ describe("scoreFreshness", () => {
 // ---------------------------------------------------------------------------
 
 describe("scoreUrgency", () => {
-  it("awards 10 for storm with deadline within 48h", () => {
+  it("awards 35 for storm with deadline within 48h (10 base + 25 boost)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-03-16T12:00:00Z"));
 
@@ -311,7 +311,8 @@ describe("scoreUrgency", () => {
       deadline: new Date("2026-03-17T12:00:00Z"), // 24h away
     });
     const dim = scoreUrgency(lead);
-    expect(dim.score).toBe(10);
+    expect(dim.score).toBe(35);
+    expect(dim.maxScore).toBe(35);
     expect(dim.reasons[0]).toContain("storm");
 
     vi.useRealTimers();

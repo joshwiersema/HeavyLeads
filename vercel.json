@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
+    { "path": "/api/cron/storm-alerts", "schedule": "*/30 * * * *" },
     { "path": "/api/cron/scrape/heavy_equipment", "schedule": "0 6 * * *" },
     { "path": "/api/cron/scrape/hvac", "schedule": "3 6 * * *" },
     { "path": "/api/cron/scrape/roofing", "schedule": "6 6 * * *" },

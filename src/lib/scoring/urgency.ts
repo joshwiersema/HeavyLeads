@@ -85,5 +85,12 @@ export function scoreUrgency(lead: LeadScoringInput): ScoreDimension {
     dim.reasons.push(best.reason);
   }
 
+  // Storm boost: +25 points for storm-sourced leads (time-sensitive alerts)
+  if (lead.sourceType === "storm") {
+    dim.maxScore = 35;
+    dim.score += 25;
+    dim.reasons.push("Storm alert -- 25pt urgency boost for roofing leads");
+  }
+
   return dim;
 }

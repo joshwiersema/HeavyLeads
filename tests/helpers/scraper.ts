@@ -72,6 +72,21 @@ export function createMockLeadData(
       state: "TX",
       sourceUrl: "https://linkedin.com/jobs/123",
     },
+    storm: {
+      title: "Severe Thunderstorm Warning",
+      externalId: "urn:oid:2.49.0.1.840.0.test",
+      city: "Dallas",
+      state: "TX",
+      deadlineDate: new Date("2026-03-17T12:00:00Z"),
+      sourceUrl: "https://alerts.weather.gov/search?id=test",
+    },
+    disaster: {
+      title: "HURRICANE DELTA",
+      externalId: "4799",
+      state: "TX",
+      postedDate: new Date("2026-02-10"),
+      sourceUrl: "https://www.fema.gov/disaster/4799",
+    },
   };
 
   return {

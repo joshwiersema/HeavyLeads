@@ -8,6 +8,8 @@ import { EnrNewsAdapter } from "./enr-news";
 import { ConstructionDiveNewsAdapter } from "./construction-dive-news";
 import { PrNewswireNewsAdapter } from "./prnewswire-news";
 import { GoogleDorkingAdapter } from "./google-dorking";
+import { NwsStormAdapter } from "./nws-storm-adapter";
+import { FemaDisasterAdapter } from "./fema-disaster-adapter";
 
 /**
  * Factory function: returns fresh adapter instances for a given industry.
@@ -28,6 +30,7 @@ export function getAdaptersForIndustry(industry: Industry): ScraperAdapter[] {
         new ConstructionDiveNewsAdapter(),
         new PrNewswireNewsAdapter(),
         new GoogleDorkingAdapter(),
+        new FemaDisasterAdapter(),
       ];
 
     case "hvac":
@@ -44,6 +47,8 @@ export function getAdaptersForIndustry(industry: Industry): ScraperAdapter[] {
         new DallasPermitsAdapter(),
         new SamGovBidsAdapter({ naicsCodes: ["238160"] }),
         new EnrNewsAdapter(),
+        new NwsStormAdapter(),
+        new FemaDisasterAdapter(),
       ];
 
     case "solar":
