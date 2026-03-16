@@ -1,14 +1,18 @@
 "use client";
 
-import { useReducer, useMemo } from "react";
+import { useState, useReducer, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 import { wizardReducer, initialWizardState } from "@/lib/onboarding/reducer";
-import { useWizardPersistence } from "@/lib/onboarding/use-wizard-persistence";
+import {
+  useWizardPersistence,
+  clearWizardStorage,
+} from "@/lib/onboarding/use-wizard-persistence";
 import { WIZARD_STEPS, type WizardState, type WizardAction } from "@/lib/onboarding/types";
 import { getStepSchema } from "@/lib/validators/onboarding";
+import { completeOnboarding } from "@/actions/onboarding";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +26,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import { IndustrySelection } from "./steps/industry-selection";
 import { CompanyBasics } from "./steps/company-basics";
+import { ServiceArea } from "./steps/service-area";
+import { Specializations } from "./steps/specializations";
+import { LeadPreferences } from "./steps/lead-preferences";
+import { ReviewConfirm } from "./steps/review-confirm";
 
 // ---------------------------------------------------------------------------
 // Step props interface (shared by all step components)
@@ -30,19 +38,6 @@ import { CompanyBasics } from "./steps/company-basics";
 export interface WizardStepProps {
   state: WizardState;
   dispatch: React.Dispatch<WizardAction>;
-}
-
-// ---------------------------------------------------------------------------
-// Placeholder for steps 3-6 (built in Plan 02)
-// ---------------------------------------------------------------------------
-
-function StepPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-lg font-medium text-muted-foreground">{label}</p>
-      <p className="text-sm text-muted-foreground/70">Coming in next plan</p>
-    </div>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -67,6 +62,7 @@ export function OnboardingWizard() {
   const router = useRouter();
   const [state, dispatch] = useReducer(wizardReducer, { ...initialWizardState });
   const { isHydrated } = useWizardPersistence(state, dispatch);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLastStep = state.currentStep === WIZARD_STEPS.length - 1;
   const currentStepDef = WIZARD_STEPS[state.currentStep];
@@ -98,10 +94,22 @@ export function OnboardingWizard() {
     dispatch({ type: "PREV_STEP" });
   }
 
-  function handleComplete() {
-    // Full completion wired in Plan 02. For now, show a toast and redirect.
-    toast.success("Onboarding complete!");
-    router.push("/billing");
+  async function handleComplete() {
+    setIsSubmitting(true);
+    try {
+      const result = await completeOnboarding(state);
+      if (result.success) {
+        clearWizardStorage();
+        toast.success("Welcome to LeadForge!");
+        router.push("/billing");
+      } else {
+        toast.error(result.error ?? "Something went wrong. Please try again.");
+      }
+    } catch {
+      toast.error("Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   // ---- Loading skeleton until sessionStorage hydration completes ----
@@ -129,13 +137,13 @@ export function OnboardingWizard() {
       case 1:
         return <CompanyBasics state={state} dispatch={dispatch} />;
       case 2:
-        return <StepPlaceholder label={WIZARD_STEPS[2].label} />;
+        return <ServiceArea state={state} dispatch={dispatch} />;
       case 3:
-        return <StepPlaceholder label={WIZARD_STEPS[3].label} />;
+        return <Specializations state={state} dispatch={dispatch} />;
       case 4:
-        return <StepPlaceholder label={WIZARD_STEPS[4].label} />;
+        return <LeadPreferences state={state} dispatch={dispatch} />;
       case 5:
-        return <StepPlaceholder label={WIZARD_STEPS[5].label} />;
+        return <ReviewConfirm state={state} dispatch={dispatch} />;
       default:
         return null;
     }
@@ -179,7 +187,14 @@ export function OnboardingWizard() {
             </Button>
 
             {isLastStep ? (
-              <Button type="button" onClick={handleComplete}>
+              <Button
+                type="button"
+                onClick={handleComplete}
+                disabled={isSubmitting}
+              >
+                {isSubmitting && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 Complete Setup
               </Button>
             ) : (
