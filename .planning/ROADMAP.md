@@ -203,11 +203,11 @@ Plans:
   2. Bookmarks page loads all bookmarked leads in a single round-trip instead of one query per bookmark, and every lead card displays the same enriched data (score, equipment, freshness, distance) as the main feed
   3. Digest email generation runs one broad query per user instead of one query per saved search, completing within Vercel function timeout limits
   4. When the scraping pipeline processes non-permit leads, duplicates with matching source URLs are detected and skipped instead of creating duplicate lead records
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md -- Pagination query + UI (getFilteredLeadsWithCount, Pagination component, page URL param) and bookmarks batch query (enrichLead extraction, getLeadsByIds with inArray)
+- [ ] 10-02-PLAN.md -- Digest widest-filter optimization (single query per user + in-memory per-search filtering) and non-permit sourceUrl dedup (partial unique index + onConflictDoNothing)
 
 ### Phase 11: Forgot Password
 **Goal**: Locked-out users can recover their account via email without contacting support
@@ -251,6 +251,6 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 7. Billing Fix and Free Trial | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 9. Regression Test Safety Net | v2.1 | 0/3 | Not started | - |
-| 10. Query Optimizations | v2.1 | 0/? | Not started | - |
+| 10. Query Optimizations | v2.1 | 0/2 | Not started | - |
 | 11. Forgot Password | v2.1 | 0/? | Not started | - |
 | 12. UI Polish | v2.1 | 0/? | Not started | - |
