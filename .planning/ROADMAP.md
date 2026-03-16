@@ -144,9 +144,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 15-01-PLAN.md -- 5-dimension scoring engine (distance, relevance, value, freshness, urgency) with match reasons, cursor-based feed query, and unit tests
-- [ ] 15-02-PLAN.md -- Lead card redesign with score/match reasons, industry-aware filter panel, cursor pagination UI, and industry badge in sidebar
-- [ ] 15-03-PLAN.md -- Lead detail page with score breakdown, enrichment data sections, dual-marker map with service radius, and similar leads
+- [x] 15-01-PLAN.md -- 5-dimension scoring engine (distance, relevance, value, freshness, urgency) with match reasons, cursor-based feed query, and unit tests
+- [x] 15-02-PLAN.md -- Lead card redesign with score/match reasons, industry-aware filter panel, cursor pagination UI, and industry badge in sidebar
+- [x] 15-03-PLAN.md -- Lead detail page with score breakdown, enrichment data sections, dual-marker map with service radius, and similar leads
 
 ### Phase 16: Cron & Scraper Architecture
 **Goal**: The scraping system runs per-industry pipelines on independent schedules with proper rate limiting, hash-based deduplication, and health monitoring
@@ -158,11 +158,12 @@ Plans:
   3. External API calls respect per-API rate limits (SAM.gov 10/s, Socrata 1000/hr) via p-queue concurrency controls, and 3 consecutive failures disable that source for 1 hour
   4. Permit scraper supports multiple Socrata/SODA3 cities per industry and SAM.gov filters by industry-specific NAICS codes
   5. Scraper runs are tracked per-adapter with status, lead counts, and error logs visible through a health monitoring cron
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 16-01: TBD
-- [ ] 16-02: TBD
+- [ ] 16-01-PLAN.md -- Factory pattern replacing global Map registry, SHA-256 content-hash dedup, p-queue rate limiters, pipeline scraper_runs integration, route updates
+- [ ] 16-02-PLAN.md -- Socrata SODA3 base adapter with SODA2 fallback, Austin/Dallas migration, SAM.gov multi-NAICS with rate limiting
+- [ ] 16-03-PLAN.md -- Per-industry cron routes with staggered schedules, lead enrichment cron, lead expiration cron, scraper health monitoring cron
 
 ### Phase 17: Storm Alerts & Weather
 **Goal**: Roofing subscribers receive storm alerts within 30 minutes of NWS issuance, and disaster declarations surface demand signals across industries
@@ -216,7 +217,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 12. UI Polish | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 13. Schema Foundation | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 14. Industry Onboarding | v3.0 | 3/3 | Complete | 2026-03-16 |
-| 15. Scoring Engine & Lead Feed | 3/3 | Complete    | 2026-03-16 | - |
-| 16. Cron & Scraper Architecture | v3.0 | 0/TBD | Not started | - |
+| 15. Scoring Engine & Lead Feed | v3.0 | 3/3 | Complete | 2026-03-16 |
+| 16. Cron & Scraper Architecture | v3.0 | 0/3 | Not started | - |
 | 17. Storm Alerts & Weather | v3.0 | 0/TBD | Not started | - |
 | 18. Intelligence & Polish | v3.0 | 0/TBD | Not started | - |
