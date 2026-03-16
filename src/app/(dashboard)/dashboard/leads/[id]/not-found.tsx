@@ -1,6 +1,4 @@
 import Link from "next/link";
-
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,11 +14,14 @@ export default function LeadNotFound() {
         <CardHeader>
           <CardTitle>Lead not found</CardTitle>
           <CardDescription>
-            This lead doesn't exist or may have been removed.
+            This lead doesn&apos;t exist or may have been removed.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/dashboard" className={buttonVariants()}>
+          <Link
+            href="/dashboard"
+            className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          >
             Back to Dashboard
           </Link>
         </CardContent>

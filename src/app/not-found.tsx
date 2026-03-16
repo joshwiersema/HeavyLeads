@@ -1,6 +1,4 @@
 import Link from "next/link";
-
-import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,11 +14,15 @@ export default function NotFound() {
         <CardHeader>
           <CardTitle>Page not found</CardTitle>
           <CardDescription>
-            The page you're looking for doesn't exist or has been moved.
+            The page you&apos;re looking for doesn&apos;t exist or has been
+            moved.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/dashboard" className={buttonVariants()}>
+          <Link
+            href="/dashboard"
+            className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
+          >
             Back to Dashboard
           </Link>
         </CardContent>

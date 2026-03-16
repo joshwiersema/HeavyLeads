@@ -1,7 +1,9 @@
 /**
- * Validates required environment variables at import time.
- * Import this module early (from db, stripe, auth) to catch
- * misconfiguration at startup instead of at runtime.
+ * Validates required environment variables.
+ *
+ * During `next build` (NEXT_PHASE === phase-production-build) env vars
+ * like STRIPE_SECRET_KEY may not be present, so we only warn.
+ * At runtime the check throws so misconfigurations surface immediately.
  */
 
 const REQUIRED_VARS = [
@@ -12,12 +14,20 @@ const REQUIRED_VARS = [
   "CRON_SECRET",
 ] as const;
 
+const isBuildPhase =
+  process.env.NEXT_PHASE === "phase-production-build";
+
 for (const name of REQUIRED_VARS) {
   const value = process.env[name]?.trim();
   if (!value) {
-    throw new Error(
-      `Missing required environment variable: ${name}. ` +
-        `Set it in .env.local (development) or your hosting provider's environment settings (production).`
-    );
+    if (isBuildPhase) {
+      // Warn but don't block the build — Vercel injects env vars at runtime
+      console.warn(`[env] Missing ${name} (build phase — will be checked at runtime)`);
+    } else {
+      throw new Error(
+        `Missing required environment variable: ${name}. ` +
+          `Set it in .env.local (development) or your hosting provider's environment settings (production).`
+      );
+    }
   }
 }
