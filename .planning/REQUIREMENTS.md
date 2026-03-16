@@ -137,15 +137,15 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 ### Auth Hardening
 
 - [ ] **AUTH-01v3**: Email verification required before accessing dashboard (existing users pre-verified)
-- [ ] **AUTH-02v3**: Atomic sign-up (user + org + active org in single transaction or cleanup on failure)
-- [ ] **AUTH-03v3**: Specific error messages (email in use, password too weak, org name taken)
-- [ ] **AUTH-04v3**: Sign-in redirects to /dashboard not /
-- [ ] **AUTH-05v3**: Confirm password field on sign-up form
+- [x] **AUTH-02v3**: Atomic sign-up (user + org + active org in single transaction or cleanup on failure)
+- [x] **AUTH-03v3**: Specific error messages (email in use, password too weak, org name taken)
+- [x] **AUTH-04v3**: Sign-in redirects to /dashboard not /
+- [x] **AUTH-05v3**: Confirm password field on sign-up form
 
 ### Billing
 
 - [ ] **BILL-01v3**: Industry-specific pricing config (setup fee + monthly per industry, configurable)
-- [ ] **BILL-02v3**: Fix double-nested checkout params in Stripe integration
+- [x] **BILL-02v3**: Fix double-nested checkout params in Stripe integration
 - [ ] **BILL-03v3**: Webhook handling for checkout.session.completed, invoice.paid/failed, subscription.deleted
 
 ### Notifications
@@ -267,11 +267,11 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 | SCHM-05 | Phase 13 | Complete |
 | SCHM-06 | Phase 13 | Complete |
 | SCHM-07 | Phase 13 | Complete |
-| AUTH-02v3 | Phase 13 | Pending |
-| AUTH-03v3 | Phase 13 | Pending |
-| AUTH-04v3 | Phase 13 | Pending |
-| AUTH-05v3 | Phase 13 | Pending |
-| BILL-02v3 | Phase 13 | Pending |
+| AUTH-02v3 | Phase 13 | Complete |
+| AUTH-03v3 | Phase 13 | Complete |
+| AUTH-04v3 | Phase 13 | Complete |
+| AUTH-05v3 | Phase 13 | Complete |
+| BILL-02v3 | Phase 13 | Complete |
 | ONBD-01 | Phase 14 | Pending |
 | ONBD-02 | Phase 14 | Pending |
 | ONBD-03 | Phase 14 | Pending |

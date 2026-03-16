@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: LeadForge Multi-Industry Platform
-status: executing
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-03-16T17:17:20Z"
-last_activity: 2026-03-16 -- Completed Phase 13 Plan 01 (schema definitions + migrations)
+status: completed
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-16T17:27:27.292Z"
+last_activity: 2026-03-16 -- Completed Phase 13 Plan 02 (auth hardening + atomic signup)
 progress:
   total_phases: 18
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 29
-  completed_plans: 28
-  percent: 0
+  completed_plans: 29
+  percent: 17
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** Phase 13 - Schema Foundation
+**Current focus:** Phase 13 - Schema Foundation (COMPLETE)
 
 ## Current Position
 
 Phase: 13 of 18 (Schema Foundation) -- first phase of v3.0
-Plan: 1 of 2 complete
-Status: Executing
-Last activity: 2026-03-16 -- Completed Phase 13 Plan 01 (schema definitions + migrations)
+Plan: 2 of 2 complete
+Status: Phase Complete
+Last activity: 2026-03-16 -- Completed Phase 13 Plan 02 (auth hardening + atomic signup)
 
-Progress: [█░░░░░░░░░] 8% (v3.0: 1/12 plans)
+Progress: [██░░░░░░░░] 17% (v3.0: 2/12 plans)
 
 ## Performance Metrics
 
@@ -44,6 +44,7 @@ Progress: [█░░░░░░░░░] 8% (v3.0: 1/12 plans)
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 13    | 01   | 6min     | 2     | 20    |
+| 13    | 02   | 5min     | 2     | 11    |
 
 ## Accumulated Context
 
@@ -64,6 +65,9 @@ Key decisions carried forward:
 - PostGIS geometry uses mode xy with srid 4326 (x=longitude, y=latitude)
 - content_hash unique index uses WHERE NOT NULL to accommodate existing leads
 - All new columns nullable or defaulted for zero-disruption to existing heavy-equipment users
+- [Phase 13]: Error message matching: check specific patterns (slug/taken) before generic ones (UNIQUE/already) to avoid false matches
+- [Phase 13]: Atomic multi-step auth: use server actions with try/catch cleanup rather than client-side sequential API calls
+- [Phase 13]: BILL-02v3 double-nested { params: { line_items } } format is correct per @better-auth/stripe plugin -- documented, not changed
 
 ### Pending Todos
 
@@ -79,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-03-16T17:27:27.290Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None
