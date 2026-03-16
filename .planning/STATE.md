@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 15-02-PLAN.md
-last_updated: "2026-03-16T18:42:08.688Z"
-last_activity: 2026-03-16 -- Completed Phase 15 Plan 03 (lead detail scoring & enrichment)
+status: in_progress
+stopped_at: Completed Phase 16 (all 3 plans)
+last_updated: "2026-03-16T21:35:00.000Z"
+last_activity: 2026-03-16 -- Completed Phase 16 Plan 03 (per-industry crons, enrichment, expiration, health)
 progress:
   total_phases: 10
-  completed_phases: 7
-  total_plans: 16
-  completed_plans: 16
-  percent: 97
+  completed_phases: 8
+  total_plans: 19
+  completed_plans: 19
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** Phase 15 - Scoring Engine & Lead Feed
+**Current focus:** Phase 16 complete -- ready for Phase 17 (Storm Alerts) and Phase 18 (Intelligence & Polish)
 
 ## Current Position
 
-Phase: 15 of 18 (Scoring Engine & Lead Feed)
+Phase: 16 of 18 (Cron & Scraper Architecture)
 Plan: 3 of 3 complete
 Status: Phase Complete
-Last activity: 2026-03-16 -- Completed Phase 15 Plan 03 (lead detail scoring & enrichment)
+Last activity: 2026-03-16 -- Completed Phase 16 Plan 03 (per-industry crons, enrichment, expiration, health)
 
-Progress: [██████████] 97% (v3.0: 8/12 plans)
+Progress: [██████████] 100% (v3.0: 11/12 plans complete -- phases 17 & 18 remain)
 
 ## Performance Metrics
 
@@ -51,6 +51,9 @@ Progress: [██████████] 97% (v3.0: 8/12 plans)
 | 15    | 01   | 6min     | 2     | 11    |
 | 15    | 02   | 7min     | 2     | 11    |
 | 15    | 03   | 5min     | 2     | 5     |
+| 16    | 01   | 6min     | 2     | 14    |
+| 16    | 02   | 5min     | 2     | 7     |
+| 16    | 03   | 5min     | 2     | 12    |
 
 ## Accumulated Context
 
@@ -93,6 +96,13 @@ Key decisions carried forward:
 - [Phase 15]: Enrichment cards render nothing when all data is null (expected until Phase 16+ scrapers)
 - [Phase 15]: Dual-marker map uses BoundsFitter with fitBounds to auto-zoom both lead and HQ markers
 - [Phase 15]: Removed Equipment Needs/Timeline cards in favor of industry-agnostic scoring breakdown
+- [Phase 16]: getAllAdapters() returns heavy_equipment adapter set as the superset (simplest dedup)
+- [Phase 16]: scraper_runs tracking is best-effort (try/catch, warns on failure) to not break pipeline
+- [Phase 16]: SODA3 uses POST with SoQL body; SODA2 uses GET with query params as fallback
+- [Phase 16]: Expiration uses severity='expired' (existing column) not a new lifecycle column
+- [Phase 16]: Per-industry crons do NOT trigger email digest (digest runs on its own cron in Phase 18)
+- [Phase 16]: Legacy /api/cron/scrape kept for backward compat
+- [Phase 16]: Enrichment limits to 500 leads per run to stay within function timeout
 
 ### Pending Todos
 
@@ -108,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:36:11.444Z
-Stopped at: Completed 15-02-PLAN.md
+Last session: 2026-03-16T21:35:00.000Z
+Stopped at: Completed Phase 16 -- all 3 plans done
 Resume file: None
