@@ -1,13 +1,11 @@
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { companyProfiles } from "@/lib/db/schema/company-profiles";
-import { eq } from "drizzle-orm";
-import { getBookmarkedLeads } from "@/actions/bookmarks";
-import { getLeadsByIds } from "@/lib/leads/queries";
-import { LeadCard } from "../lead-card";
-import type { ScoredLead } from "@/lib/leads/types";
+import { Suspense } from "react";
+import {
+  getBookmarksWithDetails,
+  PIPELINE_STATUSES,
+} from "@/actions/bookmarks";
+import type { PipelineStatus, BookmarkWithLead } from "@/actions/bookmarks";
+import { BookmarkFilters } from "@/components/bookmarks/bookmark-filters";
+import { BookmarkCard } from "@/components/bookmarks/bookmark-card";
 import {
   Card,
   CardContent,
@@ -18,67 +16,75 @@ import {
 import { Bookmark } from "lucide-react";
 
 export const metadata = {
-  title: "Bookmarks | HeavyLeads",
+  title: "Pipeline | LeadForge",
 };
 
-export default async function BookmarksPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+const STATUS_LABELS: Record<PipelineStatus, string> = {
+  saved: "saved",
+  contacted: "contacted",
+  in_progress: "in progress",
+  won: "won",
+  lost: "lost",
+};
 
-  if (!session || !session.session.activeOrganizationId) {
-    notFound();
+interface BookmarksPageProps {
+  searchParams: Promise<{ status?: string }>;
+}
+
+export default async function BookmarksPage({ searchParams }: BookmarksPageProps) {
+  const params = await searchParams;
+  const statusFilter =
+    params.status && PIPELINE_STATUSES.includes(params.status as PipelineStatus)
+      ? (params.status as PipelineStatus)
+      : undefined;
+
+  // Fetch all bookmarks (unfiltered) for counts, and filtered for display
+  const [allBookmarks, filteredBookmarks] = await Promise.all([
+    getBookmarksWithDetails(),
+    statusFilter
+      ? getBookmarksWithDetails(statusFilter)
+      : getBookmarksWithDetails(),
+  ]);
+
+  // Compute status counts
+  const counts: Record<string, number> = {};
+  for (const status of PIPELINE_STATUSES) {
+    counts[status] = allBookmarks.filter(
+      (b) => (b.pipelineStatus ?? "saved") === status
+    ).length;
   }
 
-  const orgId = session.session.activeOrganizationId;
-
-  // Get company profile for lead enrichment context
-  const profile = await db.query.companyProfiles.findFirst({
-    where: eq(companyProfiles.organizationId, orgId),
-  });
-
-  // Get bookmarked lead IDs
-  const bookmarkedIds = await getBookmarkedLeads();
-
-  // Fetch enriched lead data in a single batch query (replaces N+1 getLeadById calls)
-  const enrichedLeads = await getLeadsByIds(bookmarkedIds, {
-    hqLat: profile?.hqLat ?? undefined,
-    hqLng: profile?.hqLng ?? undefined,
-    serviceRadiusMiles: profile?.serviceRadiusMiles ?? undefined,
-    dealerEquipment: profile?.equipmentTypes ?? undefined,
-  });
-
-  // Adapt EnrichedLead to ScoredLead shape for LeadCard compatibility.
-  // Bookmarks use the legacy enrichment pipeline (flat score); wrap it in
-  // a minimal ScoringResult so LeadCard can render it.
-  const validLeads: ScoredLead[] = enrichedLeads.map((lead) => ({
-    ...lead,
-    scoring: {
-      total: lead.score,
-      dimensions: [],
-      matchReasons: [],
-    },
-    isBookmarked: true,
-  }));
+  const displayBookmarks = statusFilter ? filteredBookmarks : allBookmarks;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Bookmarked Leads</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Pipeline</h1>
         <p className="text-muted-foreground">
-          {validLeads.length} bookmarked lead{validLeads.length !== 1 ? "s" : ""}
+          {allBookmarks.length} bookmarked lead
+          {allBookmarks.length !== 1 ? "s" : ""} in your pipeline
         </p>
       </div>
 
-      {validLeads.length === 0 ? (
+      <Suspense fallback={null}>
+        <BookmarkFilters counts={counts} total={allBookmarks.length} />
+      </Suspense>
+
+      {displayBookmarks.length === 0 ? (
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Bookmark className="size-5 text-muted-foreground" />
-              <CardTitle>No bookmarked leads yet</CardTitle>
+              <CardTitle>
+                {statusFilter
+                  ? `No ${STATUS_LABELS[statusFilter]} leads yet`
+                  : "No bookmarked leads yet"}
+              </CardTitle>
             </div>
             <CardDescription>
-              Bookmark leads from the detail page to save them here.
+              {statusFilter
+                ? `You haven't marked any leads as "${STATUS_LABELS[statusFilter]}". Update a lead's status from the pipeline dropdown.`
+                : "Bookmark leads from the lead feed to save them here and track your pipeline."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -90,15 +96,15 @@ export default async function BookmarksPage() {
               >
                 lead feed
               </a>{" "}
-              and click the bookmark button on any lead to save it for quick
-              access.
+              and click the bookmark button on any lead to add it to your
+              pipeline.
             </p>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {validLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
+          {displayBookmarks.map((bookmark) => (
+            <BookmarkCard key={bookmark.id} bookmark={bookmark} />
           ))}
         </div>
       )}
