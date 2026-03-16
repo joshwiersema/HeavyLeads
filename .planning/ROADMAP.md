@@ -36,162 +36,6 @@ Decimal phases appear between their surrounding integers in numeric order.
 </details>
 
 <details>
-<summary>v2.1 Bug Fixes & Hardening (Phases 9-12) - SHIPPED 2026-03-16</summary>
-
-- [x] **Phase 9: Regression Test Safety Net** - Test infrastructure and regression tests for all 15 v2.0 post-rework bug fixes
-- [x] **Phase 10: Query Optimizations** - Pagination, bookmarks batch query, digest optimization, and non-permit dedup
-- [x] **Phase 11: Forgot Password** - Password reset flow via email link from sign-in page
-- [x] **Phase 12: UI Polish** - Active nav highlighting in desktop sidebar and mobile nav drawer
-
-</details>
-
-### v3.0 LeadForge Multi-Industry Platform
-
-- [x] **Phase 13: Schema Foundation** - Database schema evolution for multi-industry support with PostGIS, auth hardening, and billing fix (completed 2026-03-16)
-- [ ] **Phase 14: Industry Onboarding** - Multi-step wizard with industry-specific configuration, pricing, webhooks, and welcome email
-- [ ] **Phase 15: Scoring Engine & Lead Feed** - Query-time 5-dimension scoring, cursor pagination, filter panel, and dashboard overhaul
-- [ ] **Phase 16: Cron & Scraper Architecture** - Factory registry, hash dedup, rate limiting, generalized permits, SAM.gov expansion, and cron routes
-- [ ] **Phase 17: Storm Alerts & Weather** - NWS storm scraper, FEMA disaster scraper, storm banner, and storm email alerts
-- [ ] **Phase 18: Intelligence & Polish** - Code violations, utility rates, solar incentives, CRM bookmarks, email verification, digest overhaul, and React Email templates
-
-## Phase Details
-
-<details>
-<summary>v1.0 Phase Details (Phases 1-6) - SHIPPED 2026-03-14</summary>
-
-### Phase 1: Platform Foundation
-**Goal**: Users can create accounts, join tenant-isolated companies, and configure their dealer profile
-**Depends on**: Nothing (first phase)
-**Requirements**: PLAT-01, PLAT-02, PLAT-03, PLAT-04, PLAT-06
-**Success Criteria** (what must be TRUE):
-  1. User can sign up with email and password, then log in and stay logged in across browser refreshes
-  2. Each company's data is fully isolated -- a user in Company A cannot see Company B's data
-  3. New company completes onboarding wizard setting HQ location, equipment types, and service radius
-  4. User can view and update their account settings and company profile after onboarding
-**Plans**: 2 plans
-
-Plans:
-- [x] 01-01-PLAN.md -- Scaffold Next.js 16 app, configure Better Auth + Drizzle + Neon PostgreSQL, create auth pages and protected dashboard layout
-- [x] 01-02-PLAN.md -- Build onboarding wizard (location, equipment, radius), account settings, company profile settings, and end-to-end verification
-
-### Phase 2: Scraping Pipeline
-**Goal**: System automatically collects permit data daily and stores geocoded lead records ready for enrichment
-**Depends on**: Phase 1
-**Requirements**: DATA-01, DATA-05, DATA-07
-**Success Criteria** (what must be TRUE):
-  1. System scrapes building permit data from at least 3 target jurisdictions and stores structured lead records
-  2. Scraping pipeline runs automatically on a daily schedule and each record carries a freshness timestamp
-  3. Lead locations are geocoded to coordinates that support radius-based geographic queries
-  4. New scraper sources can be added via pluggable adapter configuration without modifying framework code
-**Plans**: 2 plans
-
-Plans:
-- [x] 02-01-PLAN.md -- Leads DB schema, scraper adapter interface, pipeline orchestrator with error isolation and dedup, Zod validation, and test scaffolds
-- [x] 02-02-PLAN.md -- Three jurisdiction adapters (Austin, Dallas, Atlanta), daily cron scheduler, and manual trigger API route
-
-### Phase 3: Lead Intelligence and Dashboard
-**Goal**: Sales reps can open HeavyLeads each morning and see a filtered, scored feed of relevant project leads
-**Depends on**: Phase 2
-**Requirements**: LEAD-01, LEAD-02, LEAD-03, LEAD-04, LEAD-05, LEAD-06, UX-01, UX-05
-**Success Criteria** (what must be TRUE):
-  1. Dashboard shows a daily lead feed sorted by recency and relevance with freshness indicators (New, This Week, Older)
-  2. Each lead displays inferred equipment needs based on project type and a relevance score based on the dealer's profile
-  3. User can filter leads by equipment type (show-all default) and by geographic radius from company HQ
-  4. Lead detail view shows project info, map location, key contacts, estimated equipment needs, and source attribution
-  5. Leads include equipment-need timeline windows mapping project phases to when specific equipment is needed
-**Plans**: 3 plans
-
-Plans:
-- [x] 03-01-PLAN.md -- Equipment inference engine, lead scoring algorithm, timeline mapping, freshness badges, and Haversine geo-filtered query module
-- [x] 03-02-PLAN.md -- Daily lead feed dashboard with card layout, equipment and radius filter controls, and navigation update
-- [x] 03-03-PLAN.md -- Lead detail page with interactive Google Map, equipment needs with confidence, timeline urgency windows, and source attribution
-
-### Phase 4: Multi-Source Expansion
-**Goal**: System aggregates leads from permits, bid boards, news, and deep web into deduplicated canonical records
-**Depends on**: Phase 2
-**Requirements**: DATA-02, DATA-03, DATA-04, DATA-06
-**Success Criteria** (what must be TRUE):
-  1. System scrapes government and private bid board postings (RFPs, contract awards) as a second lead source
-  2. System scrapes construction news and press releases for project announcements and groundbreakings
-  3. System performs Google dorking and deep web queries to surface project docs, contractor activity, and job postings
-  4. Leads appearing across multiple sources are deduplicated into a single canonical record with all source references preserved
-**Plans**: 3 plans
-
-Plans:
-- [x] 04-01-PLAN.md -- Generalize adapter interface from permit-specific to source-agnostic, update DB schema (leads + lead_sources), update pipeline and existing adapters
-- [x] 04-02-PLAN.md -- SAM.gov bid board adapter, RSS news adapters (ENR, Construction Dive, PR Newswire), Google dorking adapter via Serper.dev
-- [x] 04-03-PLAN.md -- Cross-source deduplication engine, pipeline integration, and multi-source attribution on lead detail page
-
-### Phase 5: Lead Management and Notifications
-**Goal**: Sales reps can track their lead workflow and receive proactive notifications about new matches
-**Depends on**: Phase 3
-**Requirements**: UX-02, UX-03, UX-04, UX-06
-**Success Criteria** (what must be TRUE):
-  1. User can update lead status (New / Viewed / Contacted / Won / Lost) and the status persists across sessions
-  2. User can save search configurations and bookmark individual leads for quick re-access
-  3. User receives a daily email digest summarizing new matching leads with direct links to the dashboard
-  4. User can search leads by keyword and filter by date range and project size
-**Plans**: 3 plans
-
-Plans:
-- [x] 05-01-PLAN.md -- Schema tables (lead_statuses, bookmarks, saved_searches), query extensions (keyword, date, size filters), and server actions for status/bookmark/search CRUD
-- [x] 05-02-PLAN.md -- Dashboard UI integration: status badges, bookmark toggles, advanced filters, bookmarks page, saved searches page, sidebar navigation
-- [x] 05-03-PLAN.md -- Daily email digest with Resend + React Email, digest generator, API route, and scheduler integration
-
-### Phase 6: Billing and Launch Readiness
-**Goal**: Companies can self-service subscribe with a one-time setup fee and ongoing monthly billing
-**Depends on**: Phase 1
-**Requirements**: PLAT-05
-**Success Criteria** (what must be TRUE):
-  1. Company admin can initiate subscription checkout that includes a one-time setup fee and a recurring monthly charge
-  2. System handles subscription lifecycle events (activation, cancellation, payment failure) via Stripe webhooks
-  3. Access to lead data is gated by active subscription status
-**Plans**: 2 plans
-
-Plans:
-- [x] 06-01-PLAN.md -- Install @better-auth/stripe plugin, configure Stripe integration in auth, create subscription schema, add dashboard access gate
-- [x] 06-02-PLAN.md -- Billing settings page with subscribe/manage flows, billing status display, and test coverage
-
-</details>
-
-<details>
-<summary>v2.0 Phase Details (Phases 7-8) - SHIPPED 2026-03-15</summary>
-
-### Phase 7: Billing Fix and Free Trial
-**Goal**: New users can sign up, start a 7-day free trial via Stripe Checkout, and see clear trial status throughout the app
-**Depends on**: Phase 6
-**Requirements**: BILL-01, BILL-02, BILL-03, BILL-04, BILL-05
-**Success Criteria** (what must be TRUE):
-  1. New user completes signup without Stripe errors (customer created at organization level, not user level)
-  2. New user enters credit card via Stripe Checkout and starts a 7-day trial with no charges until trial ends
-  3. Dashboard displays a trial countdown banner showing days remaining (e.g., "5 days left in your trial")
-  4. User whose trial has expired is redirected to the billing page with "Trial ended" messaging and a subscribe call-to-action
-  5. Setup fee is not charged during trial checkout -- it is charged only when the user converts to a paid subscription after trial ends
-**Plans**: 2 plans
-
-Plans:
-- [x] 07-01-PLAN.md -- Fix Stripe customer creation, configure 7-day free trial, conditional setup fee logic, and trial status utility
-- [x] 07-02-PLAN.md -- Trial countdown banner in dashboard layout and trial-ended messaging on billing page
-
-### Phase 8: Lead Automation
-**Goal**: Leads appear automatically every day, new users see leads within minutes of onboarding, and the dashboard is never a blank page
-**Depends on**: Phase 7
-**Requirements**: AUTO-01, AUTO-02, AUTO-03, AUTO-04, AUTO-05, PLSH-02
-**Success Criteria** (what must be TRUE):
-  1. Scraping pipeline runs automatically once per day via Vercel Cron without manual intervention
-  2. New user who completes onboarding sees leads populating within minutes, with a progress indicator while the pipeline runs
-  3. User can click "Refresh Leads" to trigger an on-demand pipeline run, rate-limited to once per hour per organization
-  4. Scraper API routes are secured (CRON_SECRET for cron requests, session auth for user-triggered requests)
-  5. Dashboard shows an informative empty state with messaging when no leads exist yet, instead of a blank page
-**Plans**: 2 plans
-
-Plans:
-- [x] 08-01-PLAN.md -- Pipeline runs schema, Vercel Cron GET route with CRON_SECRET auth, secured user-trigger POST route with DB rate limiting, vercel.json cron config
-- [x] 08-02-PLAN.md -- First-login pipeline auto-trigger, pipeline progress indicator, Refresh Leads button, context-aware dashboard empty state
-
-</details>
-
-<details>
 <summary>v2.1 Phase Details (Phases 9-12) - SHIPPED 2026-03-16</summary>
 
 ### Phase 9: Regression Test Safety Net
@@ -267,8 +111,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 13-01-PLAN.md -- Drizzle schema evolution (org industry, organization-profiles rename, leads expansion, PostGIS geometry, bookmarks CRM columns, lead_enrichments table, scraper_runs table) with 9 ordered migrations
-- [ ] 13-02-PLAN.md -- Atomic sign-up server action with cleanup, confirm-password field, specific error messages, sign-in redirect fix, and billing params verification
+- [x] 13-01-PLAN.md -- Drizzle schema evolution (org industry, organization-profiles rename, leads expansion, PostGIS geometry, bookmarks CRM columns, lead_enrichments table, scraper_runs table) with 9 ordered migrations
+- [x] 13-02-PLAN.md -- Atomic sign-up server action with cleanup, confirm-password field, specific error messages, sign-in redirect fix, and billing params verification
 
 ### Phase 14: Industry Onboarding
 **Goal**: New users from any of the 5 industries can complete a guided onboarding wizard that collects industry-specific profile data and starts their subscription
@@ -280,11 +124,12 @@ Plans:
   3. User reviews all selections on a summary step before completing onboarding, and wizard state survives page refreshes via sessionStorage
   4. Stripe checkout uses industry-specific pricing (setup fee + monthly varies by industry) and webhook handles checkout.session.completed, invoice.paid/failed, and subscription.deleted events
   5. User receives a welcome email after completing onboarding
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 14-01: TBD
-- [ ] 14-02: TBD
+- [ ] 14-01-PLAN.md -- Wizard infrastructure (types, config, reducer, sessionStorage persistence, Zod schemas) and first two steps (Industry Selection, Company Basics with Google Places autocomplete)
+- [ ] 14-02-PLAN.md -- Remaining wizard steps (Service Area map, Specializations, Lead Preferences, Review & Confirm), server action rewrite, and end-to-end wiring
+- [ ] 14-03-PLAN.md -- Industry-specific Stripe pricing config, webhook handler, welcome email, and signup industry parameter
 
 ### Phase 15: Scoring Engine & Lead Feed
 **Goal**: Every user sees a personalized lead feed where the same lead scores differently per subscriber based on their industry, location, specializations, and preferences
@@ -368,8 +213,8 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 10. Query Optimizations | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 11. Forgot Password | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 12. UI Polish | v2.1 | 1/1 | Complete | 2026-03-16 |
-| 13. Schema Foundation | 2/2 | Complete    | 2026-03-16 | - |
-| 14. Industry Onboarding | v3.0 | 0/TBD | Not started | - |
+| 13. Schema Foundation | v3.0 | 2/2 | Complete | 2026-03-16 |
+| 14. Industry Onboarding | v3.0 | 0/3 | Not started | - |
 | 15. Scoring Engine & Lead Feed | v3.0 | 0/TBD | Not started | - |
 | 16. Cron & Scraper Architecture | v3.0 | 0/TBD | Not started | - |
 | 17. Storm Alerts & Weather | v3.0 | 0/TBD | Not started | - |
