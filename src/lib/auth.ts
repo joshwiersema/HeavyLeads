@@ -27,8 +27,8 @@ export const SUBSCRIPTION_PLANS = [
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg" }),
-  baseURL: process.env.BETTER_AUTH_URL,
-  trustedOrigins: [process.env.BETTER_AUTH_URL!],
+  baseURL: (process.env.BETTER_AUTH_URL ?? "").trim(),
+  trustedOrigins: [(process.env.BETTER_AUTH_URL ?? "").trim()],
   emailAndPassword: { enabled: true },
   plugins: [
     organization({
@@ -37,7 +37,7 @@ export const auth = betterAuth({
     }),
     stripe({
       stripeClient,
-      stripeWebhookSecret: process.env.STRIPE_WEBHOOK_SECRET!,
+      stripeWebhookSecret: (process.env.STRIPE_WEBHOOK_SECRET ?? "").trim(),
       createCustomerOnSignUp: STRIPE_PLUGIN_CONFIG.createCustomerOnSignUp,
       subscription: {
         enabled: true,
