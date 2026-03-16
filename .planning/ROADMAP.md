@@ -174,11 +174,11 @@ Plans:
   2. FEMA disaster declarations are scraped and create demand-signal leads for roofing, heavy equipment, and relevant industries
   3. Roofing subscribers see a storm alert banner on their dashboard when active storm alerts intersect their service area
   4. Roofing subscribers receive immediate email alerts (not batched in daily digest) when storm events affect their service area
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 17-01: TBD
-- [ ] 17-02: TBD
+- [ ] 17-01-PLAN.md -- NWS storm adapter, FEMA disaster adapter, content hash + rate limiter updates, factory registration, 25-point storm urgency boost, storm cron route, vercel.json 30-min schedule
+- [ ] 17-02-PLAN.md -- Storm alert spatial queries, storm alert banner on dashboard (roofing only), storm email template, real-time email dispatch to affected roofing subscribers
 
 ### Phase 18: Intelligence & Polish
 **Goal**: The platform delivers industry-specific intelligence (code violations, utility rates, solar incentives), CRM-lite bookmark management, email verification, and a polished notification system with React Email templates and CAN-SPAM compliance
@@ -219,5 +219,5 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 14. Industry Onboarding | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 15. Scoring Engine & Lead Feed | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 16. Cron & Scraper Architecture | v3.0 | 0/3 | Not started | - |
-| 17. Storm Alerts & Weather | v3.0 | 0/TBD | Not started | - |
+| 17. Storm Alerts & Weather | v3.0 | 0/2 | Not started | - |
 | 18. Intelligence & Polish | v3.0 | 0/TBD | Not started | - |
