@@ -4,7 +4,7 @@ milestone: v2.1
 milestone_name: Bug Fixes & Hardening
 status: completed
 stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-16T06:09:13Z"
+last_updated: "2026-03-16T06:13:01.605Z"
 last_activity: 2026-03-16 -- Completed 12-01 active navigation highlighting (desktop sidebar + mobile nav fix)
 progress:
   total_phases: 12
