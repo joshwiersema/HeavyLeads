@@ -23,11 +23,14 @@ vi.mock("@/lib/db", () => ({
             return {
               orderBy: (...oArgs: unknown[]) => {
                 mockOrderBy(...oArgs);
+                const rows = mockWhere._rows ?? [];
+                // Return a thenable that also has .limit() for getFilteredLeads
                 return {
+                  then: (resolve: (v: unknown) => void, reject?: (e: unknown) => void) =>
+                    Promise.resolve(rows).then(resolve, reject),
                   limit: vi.fn().mockReturnValue({
                     offset: vi.fn().mockImplementation(() => {
-                      // Return the rows set via mockWhere's test setup
-                      return Promise.resolve(mockWhere._rows ?? []);
+                      return Promise.resolve(rows);
                     }),
                   }),
                 };
@@ -197,6 +200,7 @@ describe("getFilteredLeadsWithCount", () => {
         projectType: "Commercial New Construction",
         description: "Excavation and grading project",
         scrapedAt: new Date(),
+        distance: 5 + i, // Simulates SQL Haversine distance computed in SELECT
       })
     );
     mockWhere._rows = rows;

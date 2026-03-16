@@ -10,6 +10,7 @@ import {
   gte,
   lte,
   or,
+  inArray,
 } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -213,6 +214,65 @@ export interface GetLeadByIdParams {
   dealerEquipment?: string[];
 }
 
+// -- Shared enrichment helper --
+
+/**
+ * Enriches a raw lead row with computed intelligence fields: distance, score,
+ * freshness, inferred equipment, and timeline.
+ *
+ * Extracted from getLeadById so it can be reused by getLeadById,
+ * getFilteredLeadsWithCount, and getLeadsByIds without duplicating logic.
+ */
+export function enrichLead(
+  row: Record<string, unknown>,
+  params?: GetLeadByIdParams
+): EnrichedLead {
+  const inferred = inferEquipmentNeeds(
+    row.projectType as string | null,
+    row.description as string | null
+  );
+  const inferredTypes = inferred.map((i) => i.type);
+
+  // Compute distance if HQ coordinates and lead coordinates are available
+  let distance: number | null = null;
+  if (
+    params?.hqLat != null &&
+    params?.hqLng != null &&
+    row.lat != null &&
+    row.lng != null
+  ) {
+    distance = haversineDistance(
+      params.hqLat,
+      params.hqLng,
+      row.lat as number,
+      row.lng as number
+    );
+  }
+
+  const score =
+    params?.dealerEquipment && params?.serviceRadiusMiles && distance != null
+      ? scoreLead({
+          inferredEquipment: inferredTypes,
+          dealerEquipment: params.dealerEquipment,
+          distanceMiles: distance,
+          serviceRadiusMiles: params.serviceRadiusMiles,
+          estimatedValue: row.estimatedValue as number | null,
+        })
+      : 0;
+
+  return {
+    ...row,
+    distance,
+    inferredEquipment: inferred,
+    score,
+    freshness: getFreshnessBadge(row.scrapedAt as Date),
+    timeline: mapTimeline(
+      row.projectType as string | null,
+      row.description as string | null
+    ),
+  } as EnrichedLead;
+}
+
 // -- Main feed query --
 
 /**
@@ -375,6 +435,177 @@ export async function getFilteredLeads(
   return enriched.slice(0, limit);
 }
 
+// -- Paginated feed query --
+
+export interface GetFilteredLeadsWithCountParams extends GetFilteredLeadsParams {
+  page: number;
+  pageSize: number;
+}
+
+/**
+ * Fetches leads within a geographic radius, enriches, filters, scores, and
+ * returns a paginated slice with total count metadata.
+ *
+ * Unlike getFilteredLeads (which uses FETCH_MULTIPLIER and SQL-level LIMIT),
+ * this function fetches ALL within-radius leads so the total count is accurate
+ * for pagination. The Haversine WHERE clause already limits results to a
+ * reasonable set (typically <5000 for any realistic radius).
+ *
+ * Returns: { leads, totalCount, page, totalPages }
+ */
+export async function getFilteredLeadsWithCount(
+  params: GetFilteredLeadsWithCountParams
+): Promise<{
+  leads: EnrichedLead[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+}> {
+  const {
+    hqLat,
+    hqLng,
+    serviceRadiusMiles,
+    dealerEquipment,
+    radiusMiles = serviceRadiusMiles,
+    equipmentFilter,
+    keyword,
+    dateFrom,
+    dateTo,
+    minProjectSize,
+    maxProjectSize,
+    userId,
+    organizationId,
+    page,
+    pageSize,
+  } = params;
+
+  // Haversine distance SQL expression with LEAST/GREATEST clamp for float safety
+  const distanceExpr = sql<number>`
+    3959 * acos(
+      LEAST(1.0, GREATEST(-1.0,
+        cos(radians(${hqLat}))
+        * cos(radians(${leads.lat}))
+        * cos(radians(${leads.lng}) - radians(${hqLng}))
+        + sin(radians(${hqLat}))
+        * sin(radians(${leads.lat}))
+      ))
+    )
+  `.mapWith(Number);
+
+  // Build filter conditions from optional params
+  const filterConditions = buildFilterConditions({
+    keyword,
+    dateFrom,
+    dateTo,
+    minProjectSize,
+    maxProjectSize,
+  });
+
+  // Build select fields -- add status and bookmark info when user context available
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const selectFields: Record<string, any> = {
+    ...getTableColumns(leads),
+    distance: distanceExpr,
+  };
+
+  if (userId && organizationId) {
+    selectFields.status = sql<string>`COALESCE(${leadStatuses.status}, 'new')`.as("status");
+    selectFields.isBookmarked = sql<boolean>`${bookmarks.id} IS NOT NULL`.as("is_bookmarked");
+  }
+
+  // Build query with optional LEFT JOINs
+  let query = db
+    .select(selectFields)
+    .from(leads)
+    .$dynamic();
+
+  if (userId && organizationId) {
+    query = query
+      .leftJoin(
+        leadStatuses,
+        and(
+          eq(leadStatuses.leadId, leads.id),
+          eq(leadStatuses.userId, userId),
+          eq(leadStatuses.organizationId, organizationId)
+        )
+      )
+      .leftJoin(
+        bookmarks,
+        and(
+          eq(bookmarks.leadId, leads.id),
+          eq(bookmarks.userId, userId),
+          eq(bookmarks.organizationId, organizationId)
+        )
+      );
+  }
+
+  // Fetch ALL within-radius leads (no SQL LIMIT -- Haversine WHERE already bounds the set)
+  const rows = await query
+    .where(
+      and(
+        isNotNull(leads.lat),
+        isNotNull(leads.lng),
+        sql`3959 * acos(
+          LEAST(1.0, GREATEST(-1.0,
+            cos(radians(${hqLat}))
+            * cos(radians(${leads.lat}))
+            * cos(radians(${leads.lng}) - radians(${hqLng}))
+            + sin(radians(${hqLat}))
+            * sin(radians(${leads.lat}))
+          ))
+        ) <= ${radiusMiles}`,
+        ...filterConditions
+      )
+    )
+    .orderBy(desc(leads.scrapedAt));
+
+  // Enrich each lead with intelligence
+  let enriched: EnrichedLead[] = (rows as Record<string, unknown>[]).map(
+    (row) => {
+      const inferred = inferEquipmentNeeds(
+        row.projectType as string | null,
+        row.description as string | null
+      );
+      const inferredTypes = inferred.map((i) => i.type);
+
+      return {
+        ...row,
+        inferredEquipment: inferred,
+        score: scoreLead({
+          inferredEquipment: inferredTypes,
+          dealerEquipment,
+          distanceMiles: row.distance as number,
+          serviceRadiusMiles,
+          estimatedValue: row.estimatedValue as number | null,
+        }),
+        freshness: getFreshnessBadge(row.scrapedAt as Date),
+        timeline: mapTimeline(
+          row.projectType as string | null,
+          row.description as string | null
+        ),
+        status: row.status as string | undefined,
+        isBookmarked: row.isBookmarked as boolean | undefined,
+      } as EnrichedLead;
+    }
+  );
+
+  // Post-query equipment filter
+  enriched = filterByEquipment(enriched, equipmentFilter);
+
+  // Sort by score DESC, then scrapedAt DESC as tiebreaker
+  enriched.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+  });
+
+  // Compute pagination
+  const totalCount = enriched.length;
+  const totalPages = Math.ceil(totalCount / pageSize);
+  const pageLeads = enriched.slice((page - 1) * pageSize, page * pageSize);
+
+  return { leads: pageLeads, totalCount, page, totalPages };
+}
+
 // -- Single lead query --
 
 /**
@@ -396,40 +627,33 @@ export async function getLeadById(
 
   if (rows.length === 0) return null;
 
-  const row = rows[0];
-  const inferred = inferEquipmentNeeds(row.projectType, row.description);
-  const inferredTypes = inferred.map((i) => i.type);
+  return enrichLead(rows[0] as Record<string, unknown>, params);
+}
 
-  // Compute distance if HQ coordinates and lead coordinates are available
-  let distance: number | null = null;
-  if (
-    params?.hqLat != null &&
-    params?.hqLng != null &&
-    row.lat != null &&
-    row.lng != null
-  ) {
-    distance = haversineDistance(params.hqLat, params.hqLng, row.lat, row.lng);
-  }
+// -- Batch lead query --
 
-  const score =
-    params?.dealerEquipment && params?.serviceRadiusMiles && distance != null
-      ? scoreLead({
-          inferredEquipment: inferredTypes,
-          dealerEquipment: params.dealerEquipment,
-          distanceMiles: distance,
-          serviceRadiusMiles: params.serviceRadiusMiles,
-          estimatedValue: row.estimatedValue,
-        })
-      : 0;
+/**
+ * Fetches multiple leads by ID in a single database round-trip and enriches
+ * each with intelligence data. Used by the bookmarks page to replace N+1
+ * individual getLeadById calls.
+ *
+ * Returns only found leads -- missing IDs are silently filtered out.
+ * Returns empty array (without issuing SQL) when given an empty ID list.
+ */
+export async function getLeadsByIds(
+  ids: string[],
+  params?: GetLeadByIdParams
+): Promise<EnrichedLead[]> {
+  if (ids.length === 0) return [];
 
-  return {
-    ...row,
-    distance,
-    inferredEquipment: inferred,
-    score,
-    freshness: getFreshnessBadge(row.scrapedAt),
-    timeline: mapTimeline(row.projectType, row.description),
-  };
+  const rows = await db
+    .select()
+    .from(leads)
+    .where(inArray(leads.id, ids));
+
+  return (rows as Record<string, unknown>[]).map((row) =>
+    enrichLead(row, params)
+  );
 }
 
 // -- Lead sources query --
