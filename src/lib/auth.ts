@@ -64,6 +64,18 @@ export const auth = betterAuth({
     organization({
       creatorRole: "owner",
       membershipLimit: 50,
+      schema: {
+        organization: {
+          additionalFields: {
+            industry: {
+              type: "string",
+              required: false,
+              defaultValue: "heavy_equipment",
+              input: true,
+            },
+          },
+        },
+      },
     }),
     stripe({
       stripeClient,
