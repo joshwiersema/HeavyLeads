@@ -49,9 +49,10 @@ Shipped in v2.0 (2026-03-15):
 - ✓ Sign-in redirect loop fix — v2.0 post-rework
 - ✓ Onboarding upsert (double-submit safe) — v2.0 post-rework
 
-### Active
+Shipped in v2.1 (2026-03-16):
+- ✓ Regression tests for all 15 v2.0 post-rework bug fixes — Phase 9
 
-- [ ] Regression tests for all v2.0 post-rework bug fixes
+### Active
 - [ ] Lead feed pagination
 - [ ] Bookmarks batch query (replace N+1)
 - [ ] Digest email query optimization
@@ -102,4 +103,4 @@ Shipped in v2.0 (2026-03-15):
 | FETCH_MULTIPLIER = 4 for lead queries | Over-fetch rows before scoring so high-score older leads aren't excluded | — Pending |
 
 ---
-*Last updated: 2026-03-15 after v2.1 milestone start*
+*Last updated: 2026-03-16 after Phase 9*
