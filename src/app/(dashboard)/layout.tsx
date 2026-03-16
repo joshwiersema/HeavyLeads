@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
+import { organization } from "@/lib/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { getActiveSubscription, getTrialStatus } from "@/lib/billing";
 import Link from "next/link";
@@ -11,6 +12,7 @@ import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
+import type { Industry } from "@/lib/onboarding/types";
 
 export default async function DashboardLayout({
   children,
@@ -52,6 +54,13 @@ export default async function DashboardLayout({
 
   const trialStatus = getTrialStatus(activeSubscription);
 
+  // Query org industry for sidebar badge
+  const org = await db.query.organization.findFirst({
+    where: eq(organization.id, session.session.activeOrganizationId!),
+    columns: { industry: true },
+  });
+  const orgIndustry = (org?.industry ?? "heavy_equipment") as Industry;
+
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
@@ -63,7 +72,7 @@ export default async function DashboardLayout({
             </Link>
           </div>
           <Separator />
-          <SidebarNav />
+          <SidebarNav industry={orgIndustry} />
         </div>
       </aside>
 
@@ -72,7 +81,7 @@ export default async function DashboardLayout({
         {/* Top bar */}
         <header className="flex h-14 items-center justify-between border-b px-6">
           <div className="flex items-center gap-2 md:hidden">
-            <MobileNav userName={session.user.name} />
+            <MobileNav userName={session.user.name} industry={orgIndustry} />
             <Link href="/dashboard" className="text-lg font-semibold">
               HeavyLeads
             </Link>

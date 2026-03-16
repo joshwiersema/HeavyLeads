@@ -3,11 +3,9 @@ import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
+import { organization } from "@/lib/db/schema/auth";
 import { eq } from "drizzle-orm";
-import {
-  getFilteredLeads,
-  getFilteredLeadsWithCount,
-} from "@/lib/leads/queries";
+import { getFilteredLeadsCursor } from "@/lib/leads/queries";
 import {
   getOrgPipelineStatus,
   shouldAutoTrigger,
@@ -28,9 +26,10 @@ import { RefreshLeadsButton } from "@/components/dashboard/refresh-leads-button"
 import { AutoTrigger } from "@/components/dashboard/auto-trigger";
 import { Pagination } from "./pagination";
 import Link from "next/link";
+import type { Industry } from "@/lib/onboarding/types";
 
 export const metadata = {
-  title: "Lead Feed | HeavyLeads",
+  title: "Lead Feed | LeadForge",
 };
 
 export default async function DashboardPage({
@@ -82,30 +81,45 @@ export default async function DashboardPage({
     );
   }
 
+  // Query org industry
+  const org = await db.query.organization.findFirst({
+    where: eq(organization.id, orgId),
+    columns: { industry: true },
+  });
+  const industry = (org?.industry ?? "heavy_equipment") as Industry;
+
   // Parse filter and pagination params from URL
   const params = await searchParams;
 
-  const PAGE_SIZE = 20;
-  const pageParam =
-    typeof params.page === "string" ? parseInt(params.page, 10) : 1;
-  const currentPage = pageParam > 0 ? pageParam : 1;
+  const cursor =
+    typeof params.cursor === "string" ? params.cursor : undefined;
 
-  const equipmentParam =
-    typeof params.equipment === "string" ? params.equipment : "";
-  const parsedEquipment = equipmentParam
-    ? equipmentParam.split(",").filter(Boolean)
+  const sourceTypesParam =
+    typeof params.sourceTypes === "string" ? params.sourceTypes : "";
+  const parsedSourceTypes = sourceTypesParam
+    ? sourceTypesParam.split(",").filter(Boolean)
     : undefined;
 
-  const radiusParam =
-    typeof params.radius === "string" ? parseInt(params.radius, 10) : undefined;
-  const parsedRadius =
-    radiusParam && !isNaN(radiusParam) && radiusParam >= 10 && radiusParam <= 500
-      ? radiusParam
+  const maxDistanceParam =
+    typeof params.maxDistance === "string"
+      ? parseInt(params.maxDistance, 10)
+      : undefined;
+  const parsedMaxDistance =
+    maxDistanceParam && !isNaN(maxDistanceParam) && maxDistanceParam >= 10 && maxDistanceParam <= 500
+      ? maxDistanceParam
       : undefined;
 
-  // New filter params
+  const projectTypesParam =
+    typeof params.projectTypes === "string" ? params.projectTypes : "";
+  const parsedProjectTypes = projectTypesParam
+    ? projectTypesParam.split(",").filter(Boolean)
+    : undefined;
+
   const keyword =
-    typeof params.keyword === "string" && params.keyword ? params.keyword : undefined;
+    typeof params.keyword === "string" && params.keyword
+      ? params.keyword
+      : undefined;
+
   const dateFrom =
     typeof params.dateFrom === "string" && params.dateFrom
       ? new Date(params.dateFrom)
@@ -114,73 +128,69 @@ export default async function DashboardPage({
     typeof params.dateTo === "string" && params.dateTo
       ? new Date(params.dateTo)
       : undefined;
-  const minProjectSize =
-    typeof params.minProjectSize === "string"
-      ? parseInt(params.minProjectSize, 10)
+
+  const minValue =
+    typeof params.minValue === "string"
+      ? parseInt(params.minValue, 10)
       : undefined;
-  const maxProjectSize =
-    typeof params.maxProjectSize === "string"
-      ? parseInt(params.maxProjectSize, 10)
+  const maxValue =
+    typeof params.maxValue === "string"
+      ? parseInt(params.maxValue, 10)
       : undefined;
 
+  const sortBy =
+    typeof params.sortBy === "string" &&
+    ["score", "distance", "value", "date"].includes(params.sortBy)
+      ? (params.sortBy as "score" | "distance" | "value" | "date")
+      : undefined;
+
+  const matchingSpecializationsOnly = params.matchOnly === "true";
+
   const serviceRadius = profile.serviceRadiusMiles ?? 50;
-  const dealerEquipment = Array.isArray(profile.equipmentTypes)
-    ? (profile.equipmentTypes as string[])
-    : [];
 
   // Check for active filters early (needed for nationwide fallback)
   const hasFilters = !!(
     keyword ||
     dateFrom ||
     dateTo ||
-    (minProjectSize != null && !isNaN(minProjectSize)) ||
-    (maxProjectSize != null && !isNaN(maxProjectSize)) ||
-    (parsedEquipment && parsedEquipment.length > 0)
+    (minValue != null && !isNaN(minValue)) ||
+    (maxValue != null && !isNaN(maxValue)) ||
+    (parsedSourceTypes && parsedSourceTypes.length > 0) ||
+    (parsedProjectTypes && parsedProjectTypes.length > 0) ||
+    matchingSpecializationsOnly
   );
 
-  // Fetch filtered leads with pagination and user context for status/bookmark enrichment
-  let { leads, totalCount, totalPages } = await getFilteredLeadsWithCount({
-    hqLat: profile.hqLat,
-    hqLng: profile.hqLng,
-    serviceRadiusMiles: serviceRadius,
-    dealerEquipment,
-    radiusMiles: parsedRadius,
-    equipmentFilter: parsedEquipment,
-    keyword,
+  // Fetch scored leads with cursor-based pagination
+  let { leads, nextCursor, hasMore } = await getFilteredLeadsCursor({
+    orgId,
+    userId: session.user.id,
+    cursor,
+    sourceTypes: parsedSourceTypes,
+    maxDistanceMiles: parsedMaxDistance,
+    minValue: minValue != null && !isNaN(minValue) ? minValue : undefined,
+    maxValue: maxValue != null && !isNaN(maxValue) ? maxValue : undefined,
+    projectTypes: parsedProjectTypes,
     dateFrom: dateFrom && !isNaN(dateFrom.getTime()) ? dateFrom : undefined,
     dateTo: dateTo && !isNaN(dateTo.getTime()) ? dateTo : undefined,
-    minProjectSize:
-      minProjectSize != null && !isNaN(minProjectSize)
-        ? minProjectSize
-        : undefined,
-    maxProjectSize:
-      maxProjectSize != null && !isNaN(maxProjectSize)
-        ? maxProjectSize
-        : undefined,
-    userId: session.user.id,
-    organizationId: orgId,
-    page: currentPage,
-    pageSize: PAGE_SIZE,
+    matchingSpecializationsOnly,
+    sortBy,
+    keyword,
   });
 
-  // If no leads within radius and no filters active, expand to nationwide
+  // If no leads and no filters active, expand to nationwide
   // so new users always see something instead of an empty dashboard.
   let expandedNationwide = false;
-  if (totalCount === 0 && !hasFilters) {
-    const nationwide = await getFilteredLeads({
-      hqLat: profile.hqLat,
-      hqLng: profile.hqLng,
-      serviceRadiusMiles: 99999, // effectively nationwide
-      dealerEquipment,
-      radiusMiles: 99999,
+  if (leads.length === 0 && !hasFilters && !cursor) {
+    const nationwide = await getFilteredLeadsCursor({
+      orgId,
       userId: session.user.id,
-      organizationId: orgId,
+      maxDistanceMiles: 99999,
       limit: 50,
     });
-    if (nationwide.length > 0) {
-      leads = nationwide;
-      totalCount = nationwide.length;
-      totalPages = 1;
+    if (nationwide.leads.length > 0) {
+      leads = nationwide.leads;
+      nextCursor = nationwide.nextCursor;
+      hasMore = nationwide.hasMore;
       expandedNationwide = true;
     }
   }
@@ -190,19 +200,17 @@ export default async function DashboardPage({
 
   // Check if we should auto-trigger the pipeline (first-login detection)
   const needsAutoTrigger =
-    await shouldAutoTrigger(orgId, totalCount) && !pipelineStatus.isRunning;
+    await shouldAutoTrigger(orgId, leads.length) && !pipelineStatus.isRunning;
 
-  const effectiveRadius = parsedRadius ?? serviceRadius;
-
-  // Count active filters for display
-  const activeFilterParts: string[] = [];
-  if (keyword) activeFilterParts.push(`keyword "${keyword}"`);
-  if (dateFrom) activeFilterParts.push("date from");
-  if (dateTo) activeFilterParts.push("date to");
-  if (minProjectSize != null && !isNaN(minProjectSize)) activeFilterParts.push("min size");
-  if (maxProjectSize != null && !isNaN(maxProjectSize)) activeFilterParts.push("max size");
-  if (parsedEquipment && parsedEquipment.length > 0) activeFilterParts.push(`${parsedEquipment.length} equipment`);
-  const filterSummary = activeFilterParts.length > 0 ? ` (filtered by ${activeFilterParts.join(", ")})` : "";
+  // Industry label for header
+  const industryLabels: Record<Industry, string> = {
+    heavy_equipment: "heavy equipment",
+    hvac: "HVAC",
+    roofing: "roofing",
+    solar: "solar",
+    electrical: "electrical",
+  };
+  const industryLabel = industryLabels[industry];
 
   return (
     <div className="space-y-6">
@@ -215,8 +223,8 @@ export default async function DashboardPage({
           <h1 className="text-3xl font-bold tracking-tight">Lead Feed</h1>
           <p className="text-muted-foreground">
             {expandedNationwide
-              ? `No leads within ${effectiveRadius} miles — showing ${leads.length} nationwide`
-              : `${totalCount} lead${totalCount !== 1 ? "s" : ""} within ${effectiveRadius} miles${filterSummary}`}
+              ? `No nearby leads -- showing ${leads.length} nationwide`
+              : `${leads.length} leads scored for your ${industryLabel} profile`}
           </p>
         </div>
         <RefreshLeadsButton />
@@ -232,7 +240,8 @@ export default async function DashboardPage({
           <Suspense fallback={null}>
             <LeadFilters
               defaultRadius={serviceRadius}
-              dealerEquipment={dealerEquipment}
+              industry={industry}
+              specializations={profile.specializations ?? []}
             />
           </Suspense>
         </aside>
@@ -252,10 +261,7 @@ export default async function DashboardPage({
                   <LeadCard key={lead.id} lead={lead} />
                 ))}
               </div>
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-              />
+              <Pagination nextCursor={nextCursor} hasMore={hasMore} />
             </Suspense>
           )}
         </div>

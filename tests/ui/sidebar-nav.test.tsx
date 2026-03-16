@@ -53,7 +53,7 @@ describe("SidebarNav active state", () => {
 
   it("highlights only Leads when pathname is /dashboard", () => {
     mockPathname.current = "/dashboard";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(true);
@@ -72,7 +72,7 @@ describe("SidebarNav active state", () => {
 
   it("highlights Leads for nested route /dashboard/leads/abc123", () => {
     mockPathname.current = "/dashboard/leads/abc123";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(true);
@@ -88,7 +88,7 @@ describe("SidebarNav active state", () => {
 
   it("highlights only Bookmarks when pathname is /dashboard/bookmarks", () => {
     mockPathname.current = "/dashboard/bookmarks";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(false);
@@ -104,7 +104,7 @@ describe("SidebarNav active state", () => {
 
   it("highlights only Saved Searches when pathname is /dashboard/saved-searches", () => {
     mockPathname.current = "/dashboard/saved-searches";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(false);
@@ -120,7 +120,7 @@ describe("SidebarNav active state", () => {
 
   it("highlights Settings when pathname is /settings", () => {
     mockPathname.current = "/settings";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const settingsLink = screen.getByText("Settings").closest("a");
     expect(settingsLink?.classList.contains("bg-accent")).toBe(true);
@@ -131,7 +131,7 @@ describe("SidebarNav active state", () => {
 
   it("highlights Settings for sub-route /settings/account", () => {
     mockPathname.current = "/settings/account";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const settingsLink = screen.getByText("Settings").closest("a");
     expect(settingsLink?.classList.contains("bg-accent")).toBe(true);
@@ -142,7 +142,7 @@ describe("SidebarNav active state", () => {
 
   it("non-active links do not have bg-accent class", () => {
     mockPathname.current = "/dashboard";
-    render(<SidebarNav />);
+    render(<SidebarNav industry="heavy_equipment" />);
 
     const bookmarksLink = screen.getByText("Bookmarks").closest("a");
     expect(bookmarksLink?.classList.contains("bg-accent")).toBe(false);

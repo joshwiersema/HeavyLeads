@@ -6,10 +6,18 @@ import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { navLinks, isNavActive } from "./nav-links";
+import { IndustryBadge } from "./industry-badge";
 import { SignOutButton } from "@/components/auth/sign-out-button";
 import { Separator } from "@/components/ui/separator";
+import type { Industry } from "@/lib/onboarding/types";
 
-export function MobileNav({ userName }: { userName?: string | null }) {
+export function MobileNav({
+  userName,
+  industry,
+}: {
+  userName?: string | null;
+  industry: Industry;
+}) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -58,8 +66,11 @@ export function MobileNav({ userName }: { userName?: string | null }) {
 
           <Separator />
 
-          {/* Nav links */}
+          {/* Industry badge + Nav links */}
           <nav className="flex-1 space-y-1 p-4">
+            <div className="pb-3">
+              <IndustryBadge industry={industry} />
+            </div>
             {navLinks.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
