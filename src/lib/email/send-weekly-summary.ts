@@ -1,30 +1,27 @@
 import { Resend } from "resend";
 import {
-  DailyDigestEmail,
-  type DigestLead,
-} from "@/components/emails/daily-digest";
+  WeeklySummaryEmail,
+  type WeeklySummaryStats,
+} from "@/components/emails/weekly-summary";
 
 /**
- * Sends a daily digest email to a single user via the Resend API.
+ * Sends a weekly summary email to a single user via the Resend API.
  *
  * Gracefully handles missing RESEND_API_KEY by logging a warning and
- * returning early (no crash). Individual send failures are also caught
- * and logged -- one user's failure does not block others.
- *
- * Includes List-Unsubscribe and List-Unsubscribe-Post headers for
- * CAN-SPAM / RFC 8058 compliance when unsubscribeUrl is provided.
+ * returning early (no crash). Includes List-Unsubscribe headers for
+ * CAN-SPAM / RFC 8058 compliance.
  */
-export async function sendDigest(
+export async function sendWeeklySummary(
   to: string,
   userName: string,
-  leads: DigestLead[],
+  stats: WeeklySummaryStats,
+  industry: string | undefined,
   dashboardUrl: string,
-  industry?: string,
-  unsubscribeUrl?: string
+  unsubscribeUrl: string
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) {
     console.log(
-      `[email] RESEND_API_KEY not set, skipping digest for ${to}`
+      `[email] RESEND_API_KEY not set, skipping weekly summary for ${to}`
     );
     return;
   }
@@ -36,7 +33,7 @@ export async function sendDigest(
       (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
       "LeadForge <notifications@resend.dev>";
 
-    const subject = `${leads.length} new lead${leads.length !== 1 ? "s" : ""} matching your criteria`;
+    const subject = `Weekly Summary: ${stats.totalLeadsThisWeek} new leads this week`;
 
     const headers: Record<string, string> = {};
     if (unsubscribeUrl) {
@@ -48,27 +45,30 @@ export async function sendDigest(
       from: fromEmail,
       to: [to],
       subject,
-      react: DailyDigestEmail({
+      react: WeeklySummaryEmail({
         userName,
-        leads,
-        dashboardUrl,
         industry,
         unsubscribeUrl,
+        stats,
+        dashboardUrl,
       }),
       headers,
     });
 
     if (error) {
-      console.error(`[email] Failed to send digest to ${to}:`, error);
+      console.error(
+        `[email] Failed to send weekly summary to ${to}:`,
+        error
+      );
     } else {
-      console.log(`[email] Digest sent to ${to} (${leads.length} leads)`);
+      console.log(
+        `[email] Weekly summary sent to ${to} (${stats.totalLeadsThisWeek} leads this week)`
+      );
     }
   } catch (err) {
     console.error(
-      `[email] Error sending digest to ${to}:`,
+      `[email] Error sending weekly summary to ${to}:`,
       err instanceof Error ? err.message : err
     );
   }
 }
-
-export type { DigestLead };

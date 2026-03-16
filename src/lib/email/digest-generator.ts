@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { savedSearches } from "@/lib/db/schema/saved-searches";
-import { user } from "@/lib/db/schema/auth";
+import { user, organization } from "@/lib/db/schema/auth";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
 import {
   getFilteredLeads,
@@ -10,6 +10,10 @@ import {
 } from "@/lib/leads/queries";
 import { sendDigest } from "./send-digest";
 import type { DigestLead } from "./send-digest";
+import {
+  isSubscribed,
+  generateUnsubscribeToken,
+} from "./unsubscribe";
 
 /** Summary of a digest generation run */
 export interface DigestSummary {
@@ -25,7 +29,8 @@ export interface DigestSummary {
  * Process:
  * 1. Query all saved searches where isDigestEnabled = true, joined with user data
  * 2. Group by userId + organizationId
- * 3. For each user: look up company profile, query matching leads from last 24h
+ * 3. For each user: check notification preferences, look up company profile,
+ *    query matching leads from last 24h
  * 4. Merge and deduplicate leads across multiple saved searches
  * 5. Send digest email if matching leads exist; skip if none
  *
@@ -87,6 +92,19 @@ export async function generateDigests(): Promise<DigestSummary> {
     // 3. Process each user
     for (const [, group] of userGroups) {
       try {
+        // Check notification preferences before processing
+        const subscribed = await isSubscribed(
+          group.userId,
+          "daily_digest"
+        );
+        if (!subscribed) {
+          console.log(
+            `[digest] Skipping user ${group.userId}: unsubscribed from daily digest`
+          );
+          summary.skipped++;
+          continue;
+        }
+
         // Look up company profile for geo params
         const profile = await db.query.companyProfiles.findFirst({
           where: eq(companyProfiles.organizationId, group.organizationId),
@@ -98,6 +116,17 @@ export async function generateDigests(): Promise<DigestSummary> {
           );
           summary.skipped++;
           continue;
+        }
+
+        // Look up organization for industry
+        let industry: string | undefined;
+        try {
+          const org = await db.query.organization.findFirst({
+            where: eq(organization.id, group.organizationId),
+          });
+          industry = org?.industry ?? undefined;
+        } catch {
+          // Non-fatal: proceed without industry
         }
 
         // 24-hour window for "new" leads
@@ -151,11 +180,9 @@ export async function generateDigests(): Promise<DigestSummary> {
             widest.maxProjectSize < Number.MAX_SAFE_INTEGER
               ? widest.maxProjectSize
               : undefined,
-          // keyword: undefined -- broadest, filter per-search in memory
-          // equipmentFilter: undefined -- broadest, filter per-search in memory
           userId: group.userId,
           organizationId: group.organizationId,
-          limit: 500, // high limit to capture all candidates for in-memory filtering
+          limit: 500,
         });
 
         // For each search, apply per-search filters in memory and collect unique leads
@@ -163,7 +190,6 @@ export async function generateDigests(): Promise<DigestSummary> {
         const allLeads: DigestLead[] = [];
 
         for (const search of group.searches) {
-          // Apply per-search filters in memory
           let filtered = applyInMemoryFilters(allCandidates, {
             keyword: search.keyword ?? undefined,
             dateFrom: search.dateFrom ?? twentyFourHoursAgo,
@@ -172,19 +198,17 @@ export async function generateDigests(): Promise<DigestSummary> {
             maxProjectSize: search.maxProjectSize ?? undefined,
           });
 
-          // Apply per-search equipment filter
           filtered = filterByEquipment(
             filtered,
             search.equipmentFilter ?? undefined
           );
 
-          // Apply per-search radius filter (in-memory distance check)
           const searchRadius = search.radiusMiles ?? serviceRadius;
           filtered = filtered.filter(
-            (lead) => lead.distance === null || lead.distance <= searchRadius
+            (lead) =>
+              lead.distance === null || lead.distance <= searchRadius
           );
 
-          // Deduplicate into final collection
           for (const lead of filtered) {
             if (!allLeadIds.has(lead.id)) {
               allLeadIds.add(lead.id);
@@ -209,7 +233,17 @@ export async function generateDigests(): Promise<DigestSummary> {
         // Sort by score descending
         allLeads.sort((a, b) => b.score - a.score);
 
-        await sendDigest(group.email, group.userName, allLeads, dashboardUrl);
+        // Generate unsubscribe URL for this user
+        const unsubscribeUrl = `${dashboardUrl}/api/unsubscribe?token=${generateUnsubscribeToken(group.userId, "daily_digest")}`;
+
+        await sendDigest(
+          group.email,
+          group.userName,
+          allLeads,
+          dashboardUrl,
+          industry,
+          unsubscribeUrl
+        );
         summary.sent++;
       } catch (userError) {
         console.error(

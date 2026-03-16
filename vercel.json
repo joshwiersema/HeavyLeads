@@ -9,6 +9,8 @@
     { "path": "/api/cron/scrape/electrical", "schedule": "12 6 * * *" },
     { "path": "/api/cron/enrich", "schedule": "20 6 * * *" },
     { "path": "/api/cron/expire", "schedule": "0 7 * * *" },
-    { "path": "/api/cron/health", "schedule": "30 7 * * *" }
+    { "path": "/api/cron/health", "schedule": "30 7 * * *" },
+    { "path": "/api/cron/digest", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/weekly-summary", "schedule": "0 8 * * 1" }
   ]
 }

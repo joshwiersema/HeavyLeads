@@ -20,6 +20,12 @@ vi.mock("resend", () => ({
   })),
 }));
 
+// Mock unsubscribe module (added by 18-03)
+vi.mock("@/lib/email/unsubscribe", () => ({
+  isSubscribed: vi.fn().mockResolvedValue(true),
+  generateUnsubscribeToken: vi.fn().mockReturnValue("mock-unsub-token"),
+}));
+
 // Mock getFilteredLeads, applyInMemoryFilters, filterByEquipment
 vi.mock("@/lib/leads/queries", () => ({
   getFilteredLeads: vi.fn().mockResolvedValue([]),
@@ -110,6 +116,12 @@ describe("digest-generator: generateDigests", () => {
           equipmentTypes: ["Excavators", "Boom Lifts"],
         }),
       },
+      organization: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "org-1",
+          industry: "heavy_equipment",
+        }),
+      },
     };
     (db as unknown as { query: typeof mockQuery }).query = mockQuery;
 
@@ -197,6 +209,12 @@ describe("digest-generator: generateDigests", () => {
           equipmentTypes: ["Excavators"],
         }),
       },
+      organization: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "org-1",
+          industry: "heavy_equipment",
+        }),
+      },
     };
     (db as unknown as { query: typeof mockQuery }).query = mockQuery;
 
@@ -255,6 +273,12 @@ describe("digest-generator: generateDigests", () => {
           hqLng: -97.7431,
           serviceRadiusMiles: 100,
           equipmentTypes: ["Excavators"],
+        }),
+      },
+      organization: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "org-1",
+          industry: "heavy_equipment",
         }),
       },
     };

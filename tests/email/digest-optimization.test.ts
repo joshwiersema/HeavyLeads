@@ -27,6 +27,12 @@ vi.mock("@/lib/email/send-digest", () => ({
   sendDigest: (...args: unknown[]) => mockSendDigest(...args),
 }));
 
+// Mock unsubscribe module (added by 18-03)
+vi.mock("@/lib/email/unsubscribe", () => ({
+  isSubscribed: vi.fn().mockResolvedValue(true),
+  generateUnsubscribeToken: vi.fn().mockReturnValue("mock-unsub-token"),
+}));
+
 // Mock getFilteredLeads, applyInMemoryFilters, filterByEquipment
 const mockGetFilteredLeads = vi.fn().mockResolvedValue([]);
 const mockApplyInMemoryFilters = vi
@@ -112,6 +118,12 @@ describe("digest-optimization: single-query-per-user with widest filter", () => 
           hqLng: -97.7431,
           serviceRadiusMiles: 100,
           equipmentTypes: ["Excavators", "Boom Lifts"],
+        }),
+      },
+      organization: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: "org-1",
+          industry: "heavy_equipment",
         }),
       },
     };

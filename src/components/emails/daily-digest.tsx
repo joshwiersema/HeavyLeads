@@ -1,13 +1,5 @@
-import {
-  Html,
-  Head,
-  Body,
-  Container,
-  Section,
-  Text,
-  Link,
-  Hr,
-} from "@react-email/components";
+import { Section, Text, Link, Hr } from "@react-email/components";
+import { EmailLayout } from "./email-layout";
 
 /** A lead summary for inclusion in the daily digest email */
 export interface DigestLead {
@@ -23,14 +15,17 @@ interface DailyDigestEmailProps {
   userName: string;
   leads: DigestLead[];
   dashboardUrl: string;
+  industry?: string;
+  unsubscribeUrl?: string;
 }
 
 /** Maximum number of leads shown inline in the digest email */
 const MAX_INLINE_LEADS = 10;
 
 /**
- * React Email template for the HeavyLeads daily lead digest.
+ * React Email template for the LeadForge daily lead digest.
  *
+ * Uses EmailLayout for industry-specific theming and CAN-SPAM footer.
  * Renders a summary of new leads matching the user's saved search criteria,
  * with links to individual lead detail pages on the dashboard.
  */
@@ -38,137 +33,99 @@ export function DailyDigestEmail({
   userName,
   leads,
   dashboardUrl,
+  industry,
+  unsubscribeUrl,
 }: DailyDigestEmailProps) {
   const displayedLeads = leads.slice(0, MAX_INLINE_LEADS);
   const extraCount = leads.length - MAX_INLINE_LEADS;
 
   return (
-    <Html>
-      <Head />
-      <Body style={bodyStyle}>
-        <Container style={containerStyle}>
-          {/* Header */}
-          <Section style={headerStyle}>
-            <Text style={brandStyle}>HeavyLeads</Text>
-            <Text style={headingStyle}>Your Daily Lead Digest</Text>
-          </Section>
+    <EmailLayout
+      industry={industry}
+      unsubscribeUrl={unsubscribeUrl}
+      previewText={`${leads.length} new lead${leads.length !== 1 ? "s" : ""} matching your criteria`}
+    >
+      {/* Heading */}
+      <Section style={headingSection}>
+        <Text style={headingStyle}>Your Daily Lead Digest</Text>
+      </Section>
 
-          {/* Summary */}
-          <Section style={summaryStyle}>
-            <Text style={summaryTextStyle}>
-              Hi {userName}, you have{" "}
-              <strong>
-                {leads.length} new lead(s)
-              </strong>{" "}
-              matching your criteria.
-            </Text>
-          </Section>
+      {/* Summary */}
+      <Section style={summaryStyle}>
+        <Text style={summaryTextStyle}>
+          Hi {userName}, you have{" "}
+          <strong>
+            {leads.length} new lead(s)
+          </strong>{" "}
+          matching your criteria.
+        </Text>
+      </Section>
 
-          <Hr style={dividerStyle} />
+      <Hr style={dividerStyle} />
 
-          {/* Lead cards */}
-          {displayedLeads.map((lead) => (
-            <Section key={lead.id} style={leadCardStyle}>
-              <Link
-                href={`${dashboardUrl}/dashboard/leads/${lead.id}`}
-                style={leadTitleStyle}
-              >
-                {lead.title}
-              </Link>
-              <Text style={leadDetailStyle}>{lead.address}</Text>
-              <Text style={leadMetaStyle}>
-                <span style={scoreBadgeStyle}>Score: {lead.score}</span>
-                {lead.projectType && (
-                  <span style={metaTagStyle}>{lead.projectType}</span>
-                )}
-                {lead.distance != null && (
-                  <span style={metaTagStyle}>
-                    {lead.distance.toFixed(1)} mi away
-                  </span>
-                )}
-              </Text>
-            </Section>
-          ))}
+      {/* Lead cards */}
+      {displayedLeads.map((lead) => (
+        <Section key={lead.id} style={leadCardStyle}>
+          <Link
+            href={`${dashboardUrl}/dashboard/leads/${lead.id}`}
+            style={leadTitleStyle}
+          >
+            {lead.title}
+          </Link>
+          <Text style={leadDetailStyle}>{lead.address}</Text>
+          <Text style={leadMetaStyle}>
+            <span style={scoreBadgeStyle}>Score: {lead.score}</span>
+            {lead.projectType && (
+              <span style={metaTagStyle}>{lead.projectType}</span>
+            )}
+            {lead.distance != null && (
+              <span style={metaTagStyle}>
+                {lead.distance.toFixed(1)} mi away
+              </span>
+            )}
+          </Text>
+        </Section>
+      ))}
 
-          {/* Overflow notice */}
-          {extraCount > 0 && (
-            <Section style={overflowStyle}>
-              <Text style={overflowTextStyle}>
-                ...and {extraCount} more.{" "}
-                <Link href={`${dashboardUrl}/dashboard`} style={linkStyle}>
-                  View all in your dashboard.
-                </Link>
-              </Text>
-            </Section>
-          )}
-
-          <Hr style={dividerStyle} />
-
-          {/* Footer */}
-          <Section style={footerStyle}>
-            <Link href={`${dashboardUrl}/dashboard`} style={buttonStyle}>
-              View Dashboard
+      {/* Overflow notice */}
+      {extraCount > 0 && (
+        <Section style={overflowStyle}>
+          <Text style={overflowTextStyle}>
+            ...and {extraCount} more.{" "}
+            <Link href={`${dashboardUrl}/dashboard`} style={linkStyle}>
+              View all {leads.length} leads in your dashboard.
             </Link>
-            <Text style={unsubscribeStyle}>
-              To stop receiving these digests, disable digest notifications on
-              your saved searches in the{" "}
-              <Link
-                href={`${dashboardUrl}/dashboard/saved-searches`}
-                style={linkStyle}
-              >
-                dashboard settings
-              </Link>
-              .
-            </Text>
-          </Section>
-        </Container>
-      </Body>
-    </Html>
+          </Text>
+        </Section>
+      )}
+
+      <Hr style={dividerStyle} />
+
+      {/* CTA Button */}
+      <Section style={ctaStyle}>
+        <Link href={`${dashboardUrl}/dashboard`} style={buttonStyle}>
+          View Dashboard
+        </Link>
+      </Section>
+    </EmailLayout>
   );
 }
 
-// -- Inline styles --
+// -- Inline styles (local to this template) --
 
-const bodyStyle: React.CSSProperties = {
-  backgroundColor: "#f4f4f5",
-  fontFamily:
-    '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  margin: 0,
-  padding: 0,
-};
-
-const containerStyle: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-  borderRadius: 8,
-  margin: "40px auto",
-  maxWidth: 600,
-  padding: 0,
-};
-
-const headerStyle: React.CSSProperties = {
-  backgroundColor: "#1e40af",
-  borderRadius: "8px 8px 0 0",
-  padding: "24px 32px",
-};
-
-const brandStyle: React.CSSProperties = {
-  color: "#93c5fd",
-  fontSize: 14,
-  fontWeight: 600,
-  letterSpacing: 1,
-  margin: "0 0 4px 0",
-  textTransform: "uppercase" as const,
+const headingSection: React.CSSProperties = {
+  padding: "24px 32px 0",
 };
 
 const headingStyle: React.CSSProperties = {
-  color: "#ffffff",
+  color: "#111827",
   fontSize: 22,
   fontWeight: 700,
   margin: 0,
 };
 
 const summaryStyle: React.CSSProperties = {
-  padding: "24px 32px 0",
+  padding: "12px 32px 0",
 };
 
 const summaryTextStyle: React.CSSProperties = {
@@ -240,8 +197,8 @@ const linkStyle: React.CSSProperties = {
   textDecoration: "underline",
 };
 
-const footerStyle: React.CSSProperties = {
-  padding: "16px 32px 32px",
+const ctaStyle: React.CSSProperties = {
+  padding: "0 32px 24px",
   textAlign: "center" as const,
 };
 
@@ -254,10 +211,4 @@ const buttonStyle: React.CSSProperties = {
   fontWeight: 600,
   padding: "12px 32px",
   textDecoration: "none",
-};
-
-const unsubscribeStyle: React.CSSProperties = {
-  color: "#9ca3af",
-  fontSize: 12,
-  marginTop: 16,
 };
