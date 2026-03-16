@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
-status: executing
-stopped_at: Completed 09-01-PLAN.md
-last_updated: "2026-03-16T04:28:59.072Z"
-last_activity: 2026-03-16 -- Completed 09-01 test infrastructure setup
+status: completed
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-16T04:37:01.214Z"
+last_activity: 2026-03-16 -- Completed 09-03 UI component regression tests (Phase 9 complete)
 progress:
   total_phases: 12
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 22
-  completed_plans: 20
-  percent: 91
+  completed_plans: 22
+  percent: 100
 ---
 
 # Project State
@@ -26,22 +26,24 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 9 of 12 (Regression Test Safety Net)
-Plan: 1 of 3 complete
-Status: Executing
-Last activity: 2026-03-16 -- Completed 09-01 test infrastructure setup
+Plan: 3 of 3 complete
+Status: Phase 9 Complete
+Last activity: 2026-03-16 -- Completed 09-03 UI component regression tests (Phase 9 complete)
 
-Progress: [█████████░] 91%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 20 (15 v1.0 + 4 v2.0 + 1 v2.1)
-- Average duration: ~6.1 min
-- Total execution time: ~2.04 hours
+- Total plans completed: 21 (15 v1.0 + 4 v2.0 + 2 v2.1)
+- Average duration: ~5.9 min
+- Total execution time: ~2.11 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 09    | 01   | 3min     | 2     | 3     |
+| 09    | 02   | 4min     | 2     | 9     |
+| Phase 09 P02 | 4min | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -65,6 +67,10 @@ v2.1 roadmap decisions:
 v2.1 Phase 9 decisions:
 - drizzle-orm mock must include sql as tagged template function when testing pipeline code that uses sql`excluded.*`
 - Used closure counter for unique mock returning() IDs -- simpler and deterministic vs crypto.randomUUID()
+- vi.fn() handle pattern before vi.mock enables assertion on onConflictDoUpdate arguments (set/target)
+- Geocoding null test uses real function with deleted env var -- tests actual behavior, not mock behavior
+- Non-exported functions (slugify, Array.isArray guard, sort) tested as inline pattern replication
+- [Phase 09]: vi.fn() handle pattern before vi.mock enables assertion on onConflictDoUpdate arguments
 
 ### Pending Todos
 
@@ -78,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Completed 09-01-PLAN.md
+Last session: 2026-03-16T04:36:57.817Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
