@@ -187,11 +187,12 @@ Plans:
   2. Every v2.0 post-rework bug fix has at least one test that would fail if the fix were reverted (permit upsert, geocoding null, lead query sort, org slug, sign-in redirect, Stripe idempotency, onboarding upsert, mobile nav, landing page, pricing display, error boundaries, date formatting, loading states, equipmentTypes guard, geocoding error handling)
   3. Server actions can be tested using established mocking patterns for `@/lib/db`, `@/lib/auth`, `next/headers`, and `next/cache` without hitting the production database
   4. Zero production source files are modified in this phase -- only test files and test infrastructure
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md -- Add npm test script, fix 6 failing pipeline tests, create tests/regressions/ directory
+- [ ] 09-02-PLAN.md -- 9 unit/logic regression tests (permit upsert, geocoding null, lead sort, org slug, Stripe idempotency, onboarding upsert, date formatting, equipmentTypes guard, geocoding error handling)
+- [ ] 09-03-PLAN.md -- 6 component regression tests (sign-in redirect, mobile nav, landing page, pricing display, error boundaries, loading states)
 
 ### Phase 10: Query Optimizations
 **Goal**: Lead feed supports page navigation, bookmarks load in a single query, digest emails generate efficiently, and non-permit leads are deduplicated by source URL
@@ -249,7 +250,7 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 7. Billing Fix and Free Trial | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
-| 9. Regression Test Safety Net | v2.1 | 0/? | Not started | - |
+| 9. Regression Test Safety Net | v2.1 | 0/3 | Not started | - |
 | 10. Query Optimizations | v2.1 | 0/? | Not started | - |
 | 11. Forgot Password | v2.1 | 0/? | Not started | - |
 | 12. UI Polish | v2.1 | 0/? | Not started | - |
