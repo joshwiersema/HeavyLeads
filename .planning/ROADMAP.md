@@ -5,7 +5,7 @@
 - [x] **v1.0 Core Product** - Phases 1-6 (shipped 2026-03-14)
 - [x] **v2.0 Production Rework** - Phases 7-8 (shipped 2026-03-15)
 - [x] **v2.1 Bug Fixes & Hardening** - Phases 9-12 (shipped 2026-03-16)
-- [ ] **v3.0 LeadForge Multi-Industry Platform** - Phases 13-18 (in progress)
+- [x] **v3.0 LeadForge Multi-Industry Platform** - Phases 13-18 (shipped 2026-03-16)
 
 ## Phases
 
@@ -161,9 +161,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 16-01-PLAN.md -- Factory pattern replacing global Map registry, SHA-256 content-hash dedup, p-queue rate limiters, pipeline scraper_runs integration, route updates
-- [ ] 16-02-PLAN.md -- Socrata SODA3 base adapter with SODA2 fallback, Austin/Dallas migration, SAM.gov multi-NAICS with rate limiting
-- [ ] 16-03-PLAN.md -- Per-industry cron routes with staggered schedules, lead enrichment cron, lead expiration cron, scraper health monitoring cron
+- [x] 16-01-PLAN.md -- Factory pattern replacing global Map registry, SHA-256 content-hash dedup, p-queue rate limiters, pipeline scraper_runs integration, route updates
+- [x] 16-02-PLAN.md -- Socrata SODA3 base adapter with SODA2 fallback, Austin/Dallas migration, SAM.gov multi-NAICS with rate limiting
+- [x] 16-03-PLAN.md -- Per-industry cron routes with staggered schedules, lead enrichment cron, lead expiration cron, scraper health monitoring cron
 
 ### Phase 17: Storm Alerts & Weather
 **Goal**: Roofing subscribers receive storm alerts within 30 minutes of NWS issuance, and disaster declarations surface demand signals across industries
@@ -177,8 +177,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 17-01-PLAN.md -- NWS storm adapter, FEMA disaster adapter, content hash + rate limiter updates, factory registration, 25-point storm urgency boost, storm cron route, vercel.json 30-min schedule
-- [ ] 17-02-PLAN.md -- Storm alert spatial queries, storm alert banner on dashboard (roofing only), storm email template, real-time email dispatch to affected roofing subscribers
+- [x] 17-01-PLAN.md -- NWS storm adapter, FEMA disaster adapter, content hash + rate limiter updates, factory registration, 25-point storm urgency boost, storm cron route, vercel.json 30-min schedule
+- [x] 17-02-PLAN.md -- Storm alert spatial queries, storm alert banner on dashboard (roofing only), storm email template, real-time email dispatch to affected roofing subscribers
 
 ### Phase 18: Intelligence & Polish
 **Goal**: The platform delivers industry-specific intelligence (code violations, utility rates, solar incentives), CRM-lite bookmark management, email verification, and a polished notification system with React Email templates and CAN-SPAM compliance
@@ -193,9 +193,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 18-01-PLAN.md -- Industry intelligence scrapers: code violation Socrata adapters (Austin/Dallas/Houston), EIA utility rate adapter, solar incentive lookup table, factory registration
-- [ ] 18-02-PLAN.md -- CRM-lite bookmarks (pipeline status, notes, filtering) and email verification gate for new users
-- [ ] 18-03-PLAN.md -- Notification system overhaul: React Email templates with industry styling, daily/weekly digest crons, notification preferences, one-click unsubscribe (CAN-SPAM)
+- [x] 18-01-PLAN.md -- Industry intelligence scrapers: code violation Socrata adapters (Austin/Dallas/Houston), EIA utility rate adapter, solar incentive lookup table, factory registration
+- [x] 18-02-PLAN.md -- CRM-lite bookmarks (pipeline status, notes, filtering) and email verification gate for new users
+- [x] 18-03-PLAN.md -- Notification system overhaul: React Email templates with industry styling, daily/weekly digest crons, notification preferences, one-click unsubscribe (CAN-SPAM)
 
 ## Progress
 
@@ -219,6 +219,6 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 13. Schema Foundation | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 14. Industry Onboarding | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 15. Scoring Engine & Lead Feed | v3.0 | 3/3 | Complete | 2026-03-16 |
-| 16. Cron & Scraper Architecture | v3.0 | 0/3 | Not started | - |
-| 17. Storm Alerts & Weather | v3.0 | 0/2 | Not started | - |
-| 18. Intelligence & Polish | v3.0 | 0/3 | Not started | - |
+| 16. Cron & Scraper Architecture | v3.0 | 3/3 | Complete | 2026-03-16 |
+| 17. Storm Alerts & Weather | v3.0 | 2/2 | Complete | 2026-03-16 |
+| 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
