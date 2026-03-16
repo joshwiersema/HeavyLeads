@@ -81,9 +81,9 @@ describe("ResetPasswordForm", () => {
       );
       render(<ResetPasswordForm />);
 
-      expect(screen.getByLabelText(/new password/i)).toBeInTheDocument();
+      expect(screen.getByLabelText("New Password")).toBeInTheDocument();
       expect(
-        screen.getByLabelText(/confirm new password/i)
+        screen.getByLabelText("Confirm New Password")
       ).toBeInTheDocument();
       expect(
         screen.getByRole("button", { name: /reset password/i })
@@ -99,9 +99,9 @@ describe("ResetPasswordForm", () => {
       const user = userEvent.setup();
       render(<ResetPasswordForm />);
 
-      await user.type(screen.getByLabelText(/new password/i), "short");
+      await user.type(screen.getByLabelText("New Password"), "short");
       await user.type(
-        screen.getByLabelText(/confirm new password/i),
+        screen.getByLabelText("Confirm New Password"),
         "short"
       );
       await user.click(
@@ -123,11 +123,11 @@ describe("ResetPasswordForm", () => {
       render(<ResetPasswordForm />);
 
       await user.type(
-        screen.getByLabelText(/new password/i),
+        screen.getByLabelText("New Password"),
         "validpassword123"
       );
       await user.type(
-        screen.getByLabelText(/confirm new password/i),
+        screen.getByLabelText("Confirm New Password"),
         "differentpassword"
       );
       await user.click(
@@ -151,11 +151,11 @@ describe("ResetPasswordForm", () => {
       render(<ResetPasswordForm />);
 
       await user.type(
-        screen.getByLabelText(/new password/i),
+        screen.getByLabelText("New Password"),
         "newpassword123"
       );
       await user.type(
-        screen.getByLabelText(/confirm new password/i),
+        screen.getByLabelText("Confirm New Password"),
         "newpassword123"
       );
       await user.click(
@@ -179,11 +179,11 @@ describe("ResetPasswordForm", () => {
       render(<ResetPasswordForm />);
 
       await user.type(
-        screen.getByLabelText(/new password/i),
+        screen.getByLabelText("New Password"),
         "newpassword123"
       );
       await user.type(
-        screen.getByLabelText(/confirm new password/i),
+        screen.getByLabelText("Confirm New Password"),
         "newpassword123"
       );
       await user.click(
@@ -214,11 +214,11 @@ describe("ResetPasswordForm", () => {
       render(<ResetPasswordForm />);
 
       await user.type(
-        screen.getByLabelText(/new password/i),
+        screen.getByLabelText("New Password"),
         "newpassword123"
       );
       await user.type(
-        screen.getByLabelText(/confirm new password/i),
+        screen.getByLabelText("Confirm New Password"),
         "newpassword123"
       );
       await user.click(
