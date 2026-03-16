@@ -7,6 +7,7 @@ import {
   integer,
   uniqueIndex,
   index,
+  geometry,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -17,11 +18,9 @@ import { sql } from "drizzle-orm";
  * address are nullable to accommodate non-permit sources (e.g., news articles
  * may lack a street address, bid postings may not have a permit number).
  *
- * Coordinates: lat/lng stored as plain `real` columns for MVP.
- * PostGIS upgrade path: Once Neon serverless driver compatibility with
- * PostGIS geometry types is verified, add a `geometry(Point, 4326)` column
- * with a GiST spatial index. Haversine-based queries on real columns
- * are sufficient for MVP volumes (<100k records).
+ * Coordinates: lat/lng stored as plain `real` columns for backward compat.
+ * The `location` geometry(Point, 4326) column provides PostGIS spatial queries
+ * with a GiST index. Uses { x: longitude, y: latitude } convention.
  */
 export const leads = pgTable(
   "leads",
@@ -50,6 +49,12 @@ export const leads = pgTable(
     sourceUrl: text("source_url"),
     scrapedAt: timestamp("scraped_at").defaultNow().notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    contentHash: text("content_hash"),
+    applicableIndustries: text("applicable_industries").array().default([]),
+    valueTier: text("value_tier"),
+    severity: text("severity"),
+    deadline: timestamp("deadline"),
+    location: geometry("location", { type: "point", mode: "xy", srid: 4326 }),
   },
   (table) => [
     uniqueIndex("leads_source_permit_idx").on(
@@ -61,5 +66,9 @@ export const leads = pgTable(
     uniqueIndex("leads_source_url_dedup_idx")
       .on(table.sourceId, table.sourceUrl)
       .where(sql`source_type != 'permit' AND source_url IS NOT NULL`),
+    uniqueIndex("leads_content_hash_idx")
+      .on(table.contentHash)
+      .where(sql`content_hash IS NOT NULL`),
+    index("leads_location_gist_idx").using("gist", table.location),
   ]
 );

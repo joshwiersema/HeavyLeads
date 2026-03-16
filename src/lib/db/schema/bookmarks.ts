@@ -24,6 +24,8 @@ export const bookmarks = pgTable(
     userId: text("user_id").notNull(),
     organizationId: text("organization_id").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
+    notes: text("notes"),
+    pipelineStatus: text("pipeline_status").default("saved"),
   },
   (table) => [
     uniqueIndex("bookmarks_user_lead_idx").on(

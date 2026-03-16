@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { getTableColumns } from "drizzle-orm";
+import { getTableColumns, getTableName } from "drizzle-orm";
 import {
   organization,
   leads,
@@ -21,7 +21,7 @@ describe("Schema definitions", () => {
     it("is exported as organizationProfiles (not companyProfiles)", () => {
       expect(organizationProfiles).toBeDefined();
       // Verify it's a pgTable with the correct name
-      const tableName = organizationProfiles._.name;
+      const tableName = getTableName(organizationProfiles);
       expect(tableName).toBe("organization_profiles");
     });
 
@@ -101,7 +101,7 @@ describe("Schema definitions", () => {
     });
 
     it("has correct table name", () => {
-      expect(leadEnrichments._.name).toBe("lead_enrichments");
+      expect(getTableName(leadEnrichments)).toBe("lead_enrichments");
     });
 
     it("has all expected columns", () => {
@@ -122,7 +122,7 @@ describe("Schema definitions", () => {
     });
 
     it("has correct table name", () => {
-      expect(scraperRuns._.name).toBe("scraper_runs");
+      expect(getTableName(scraperRuns)).toBe("scraper_runs");
     });
 
     it("has all expected columns", () => {

@@ -1,21 +1,7 @@
-import {
-  pgTable,
-  text,
-  real,
-  uuid,
-  timestamp,
-  boolean,
-} from "drizzle-orm/pg-core";
-
-export const companyProfiles = pgTable("company_profiles", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  organizationId: text("organization_id").notNull().unique(),
-  hqAddress: text("hq_address"),
-  hqLat: real("hq_lat"),
-  hqLng: real("hq_lng"),
-  serviceRadiusMiles: real("service_radius_miles").default(50),
-  equipmentTypes: text("equipment_types").array().default([]),
-  onboardingCompleted: boolean("onboarding_completed").default(false).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+/**
+ * @deprecated Use organization-profiles.ts instead.
+ * This file exists as a backward-compatible re-export shim.
+ * All direct imports from this file should be migrated to
+ * import from "@/lib/db/schema/organization-profiles" or "@/lib/db/schema".
+ */
+export { organizationProfiles, companyProfiles } from "./organization-profiles";
