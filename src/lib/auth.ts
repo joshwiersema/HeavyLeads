@@ -34,6 +34,42 @@ export const auth = betterAuth({
     enabled: true,
     resetPasswordTokenExpiresIn: 3600, // 1 hour
     revokeSessionsOnPasswordReset: true,
+    emailVerification: {
+      sendOnSignUp: true,
+      autoSignInAfterVerification: true,
+      sendVerificationEmail: async ({ user, url }: { user: { email: string; name: string }; url: string; token: string }) => {
+        const { Resend } = await import("resend");
+
+        const apiKey = (process.env.RESEND_API_KEY ?? "").trim();
+        if (!apiKey) {
+          console.error(
+            "[auth] RESEND_API_KEY not set, cannot send verification email"
+          );
+          throw new Error("Email service not configured");
+        }
+
+        const resend = new Resend(apiKey);
+        const from =
+          (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
+          "LeadForge <onboarding@resend.dev>";
+
+        const { VerifyEmail } = await import(
+          "@/components/emails/verify-email"
+        );
+
+        await resend.emails.send({
+          from,
+          to: user.email,
+          subject: "Verify your LeadForge email",
+          react: VerifyEmail({
+            verificationUrl: url,
+            userName: user.name,
+          }),
+        });
+
+        console.log("[auth] Verification email sent to", user.email);
+      },
+    },
     sendResetPassword: async ({ user, url }) => {
       const { Resend } = await import("resend");
 

@@ -14,6 +14,14 @@ import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { SidebarNav } from "@/components/dashboard/sidebar-nav";
 import type { Industry } from "@/lib/onboarding/types";
 
+/**
+ * Users created before this date are treated as pre-verified (legacy users).
+ * Email verification was introduced on 2026-03-16. Existing users who signed
+ * up before that date have emailVerified=false in the DB but should not be
+ * blocked. This avoids the need for a data migration.
+ */
+export const LEGACY_USER_CUTOFF = "2026-03-17T00:00:00.000Z";
+
 export default async function DashboardLayout({
   children,
 }: {
@@ -25,6 +33,14 @@ export default async function DashboardLayout({
 
   if (!session) {
     redirect("/sign-in");
+  }
+
+  // Email verification gate -- new users must verify before accessing dashboard.
+  // Legacy users (created before the cutoff) are treated as pre-verified.
+  const isLegacyUser =
+    new Date(session.user.createdAt) < new Date(LEGACY_USER_CUTOFF);
+  if (!session.user.emailVerified && !isLegacyUser) {
+    redirect("/verify-email");
   }
 
   // Check for active organization
