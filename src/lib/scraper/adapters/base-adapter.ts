@@ -6,8 +6,11 @@ import { z } from "zod";
  * - bid: Government and private bid board postings (RFPs, contract awards)
  * - news: Construction news and press releases
  * - deep-web: Google dorking and deep web search results
+ * - storm: NWS severe weather alerts
+ * - disaster: FEMA disaster declarations
+ * - violation: Code enforcement / building code violations
  */
-export const sourceTypes = ["permit", "bid", "news", "deep-web", "storm", "disaster"] as const;
+export const sourceTypes = ["permit", "bid", "news", "deep-web", "storm", "disaster", "violation"] as const;
 export type SourceType = (typeof sourceTypes)[number];
 
 /**

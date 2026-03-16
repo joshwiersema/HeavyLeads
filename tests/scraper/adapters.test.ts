@@ -465,12 +465,12 @@ describe("AtlantaPermitsAdapter", () => {
 // ─── Factory Pattern Tests ───
 
 describe("getAllAdapters (factory)", () => {
-  it("returns all 8 adapters via the factory pattern", async () => {
+  it("returns all adapters via the factory pattern", async () => {
     const { getAllAdapters } = await import("@/lib/scraper/adapters/index");
 
     const adapters = getAllAdapters();
 
-    expect(adapters.length).toBe(9);
+    expect(adapters.length).toBe(14);
     const sourceIds = adapters.map((a) => a.sourceId);
     // Permit adapters
     expect(sourceIds).toContain("austin-tx-permits");
@@ -486,6 +486,14 @@ describe("getAllAdapters (factory)", () => {
     expect(sourceIds).toContain("google-dorking");
     // Disaster adapters
     expect(sourceIds).toContain("fema-disaster-declarations");
+    // Violation adapters
+    expect(sourceIds).toContain("austin-tx-violations");
+    expect(sourceIds).toContain("dallas-tx-violations");
+    expect(sourceIds).toContain("houston-tx-violations");
+    // Storm adapters (from roofing)
+    expect(sourceIds).toContain("nws-storm-alerts");
+    // EIA adapter (from solar)
+    expect(sourceIds).toContain("eia-utility-rates");
   });
 });
 

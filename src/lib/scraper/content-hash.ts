@@ -45,6 +45,13 @@ export function computeContentHash(record: {
       raw = sourceUrl;
       break;
     }
+    case "violation": {
+      const sourceId = record.sourceId?.trim();
+      const permitNumber = record.permitNumber?.trim();
+      if (!permitNumber) return null;
+      raw = `${sourceId ?? ""}:${permitNumber}`;
+      break;
+    }
     case "storm":
     case "disaster": {
       const sourceId = record.sourceId?.trim();

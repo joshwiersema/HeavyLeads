@@ -87,6 +87,14 @@ export function createMockLeadData(
       postedDate: new Date("2026-02-10"),
       sourceUrl: "https://www.fema.gov/disaster/4799",
     },
+    violation: {
+      permitNumber: "VIO-2026-001",
+      title: "Code Violation: HVAC Mechanical",
+      address: "500 E 7th St, Austin, TX 78701",
+      description: "Operating HVAC system without proper permit",
+      permitDate: new Date("2026-02-10"),
+      sourceUrl: "https://data.austintexas.gov/resource/ckex-2zb9.json?case_id=VIO-2026-001",
+    },
   };
 
   return {
