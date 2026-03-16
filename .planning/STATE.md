@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
 status: completed
-stopped_at: Completed 11-02-PLAN.md
-last_updated: "2026-03-16T05:56:19.572Z"
-last_activity: 2026-03-16 -- Completed 11-02 reset password completion flow (form, page, tests)
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-16T06:09:13Z"
+last_activity: 2026-03-16 -- Completed 12-01 active navigation highlighting (desktop sidebar + mobile nav fix)
 progress:
   total_phases: 12
-  completed_phases: 11
-  total_plans: 26
-  completed_plans: 26
+  completed_phases: 12
+  total_plans: 27
+  completed_plans: 27
   percent: 100
 ---
 
@@ -21,23 +21,23 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 11 - Forgot Password (Complete)
+**Current focus:** Phase 12 - UI Polish (Complete)
 
 ## Current Position
 
-Phase: 11 of 12 (Forgot Password)
-Plan: 2 of 2 complete
-Status: Phase Complete
-Last activity: 2026-03-16 -- Completed 11-02 reset password completion flow (form, page, tests)
+Phase: 12 of 12 (UI Polish)
+Plan: 1 of 1 complete
+Status: Milestone Complete
+Last activity: 2026-03-16 -- Completed 12-01 active navigation highlighting (desktop sidebar + mobile nav fix)
 
 Progress: [██████████] 100%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 23 (15 v1.0 + 4 v2.0 + 4 v2.1)
-- Average duration: ~5.6 min
-- Total execution time: ~2.21 hours
+- Total plans completed: 24 (15 v1.0 + 4 v2.0 + 5 v2.1)
+- Average duration: ~5.4 min
+- Total execution time: ~2.26 hours
 
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
@@ -48,6 +48,7 @@ Progress: [██████████] 100%
 | 10    | 02   | 7min     | 2     | 6     |
 | 11    | 01   | 6min     | 2     | 9     |
 | 11    | 02   | 3min     | 2     | 3     |
+| 12    | 01   | 3min     | 2     | 6     |
 
 ## Accumulated Context
 
@@ -97,6 +98,11 @@ v2.1 Phase 11 decisions:
 - Exact string matchers for getByLabelText when labels share substrings (e.g., "New Password" vs "Confirm New Password")
 - Three-state UI pattern for reset-password: error (expired/invalid/missing token), form (valid token), success (password reset)
 
+v2.1 Phase 12 decisions:
+- Shared nav-links.ts is a plain TypeScript module (not a component) exporting config + logic, consumed by both sidebar-nav.tsx and mobile-nav.tsx
+- isNavActive special-cases /dashboard to match exactly OR /dashboard/leads/* but NOT /dashboard/bookmarks or /dashboard/saved-searches
+- SidebarNav wraps its own <nav> element, so layout.tsx renders <SidebarNav /> directly after Separator
+
 ### Pending Todos
 
 None yet.
@@ -111,5 +117,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 11-02-PLAN.md
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None

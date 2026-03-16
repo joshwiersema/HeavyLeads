@@ -96,7 +96,7 @@ Requirements for Bug Fixes & Hardening milestone.
 
 ### UI
 
-- [ ] **UI-01**: Active page is visually highlighted in both desktop sidebar and mobile nav drawer
+- [x] **UI-01**: Active page is visually highlighted in both desktop sidebar and mobile nav drawer
 
 ## Future Requirements
 
@@ -198,7 +198,7 @@ Requirements for Bug Fixes & Hardening milestone.
 | PERF-03 | Phase 10 | Complete |
 | PERF-04 | Phase 10 | Complete |
 | AUTH-01 | Phase 11 | Complete |
-| UI-01 | Phase 12 | Pending |
+| UI-01 | Phase 12 | Complete |
 
 **Coverage:**
 - v1.0 requirements: 25 total, 25 complete
