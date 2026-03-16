@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { getBookmarkedLeads } from "@/actions/bookmarks";
 import { getLeadsByIds } from "@/lib/leads/queries";
 import { LeadCard } from "../lead-card";
+import type { ScoredLead } from "@/lib/leads/types";
 import {
   Card,
   CardContent,
@@ -47,9 +48,16 @@ export default async function BookmarksPage() {
     dealerEquipment: profile?.equipmentTypes ?? undefined,
   });
 
-  // Mark all as bookmarked (they came from the bookmarks list)
-  const validLeads = enrichedLeads.map((lead) => ({
+  // Adapt EnrichedLead to ScoredLead shape for LeadCard compatibility.
+  // Bookmarks use the legacy enrichment pipeline (flat score); wrap it in
+  // a minimal ScoringResult so LeadCard can render it.
+  const validLeads: ScoredLead[] = enrichedLeads.map((lead) => ({
     ...lead,
+    scoring: {
+      total: lead.score,
+      dimensions: [],
+      matchReasons: [],
+    },
     isBookmarked: true,
   }));
 

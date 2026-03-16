@@ -3,53 +3,38 @@
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 interface PaginationProps {
-  currentPage: number;
-  totalPages: number;
+  nextCursor: string | null;
+  hasMore: boolean;
 }
 
 /**
- * Pagination controls with Previous/Next buttons and page indicator.
- * Preserves all existing URL search params (filters, radius, etc.)
- * when navigating between pages. Renders nothing when totalPages <= 1.
+ * Cursor-based "Load more leads" pagination.
+ * Preserves all existing URL search params (filters, sort, etc.)
+ * when navigating to the next page. Renders nothing when there
+ * are no more results to load.
  */
-export function Pagination({ currentPage, totalPages }: PaginationProps) {
+export function Pagination({ nextCursor, hasMore }: PaginationProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  if (totalPages <= 1) return null;
+  if (!hasMore || !nextCursor) return null;
 
-  function navigate(page: number) {
+  function handleLoadMore() {
     const params = new URLSearchParams(searchParams.toString());
-    if (page <= 1) {
-      params.delete("page");
-    } else {
-      params.set("page", String(page));
-    }
+    params.set("cursor", nextCursor!);
     const qs = params.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname);
   }
 
   return (
-    <div className="flex items-center justify-center gap-4 py-4">
+    <div className="flex items-center justify-center py-4">
       <button
         type="button"
-        disabled={currentPage <= 1}
-        onClick={() => navigate(currentPage - 1)}
-        className="rounded border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
+        onClick={handleLoadMore}
+        className="rounded border px-4 py-2 text-sm font-medium hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
       >
-        Previous
-      </button>
-      <span className="text-sm text-muted-foreground">
-        Page {currentPage} of {totalPages}
-      </span>
-      <button
-        type="button"
-        disabled={currentPage >= totalPages}
-        onClick={() => navigate(currentPage + 1)}
-        className="rounded border px-3 py-1.5 text-sm font-medium hover:bg-accent disabled:pointer-events-none disabled:opacity-50"
-      >
-        Next
+        Load more leads
       </button>
     </div>
   );

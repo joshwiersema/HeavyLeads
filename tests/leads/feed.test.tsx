@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { createMockLead } from "../helpers/leads";
-import type { EnrichedLead } from "@/lib/leads/types";
+import type { ScoredLead } from "@/lib/leads/types";
 
 // Mock next/link to render a plain anchor
 vi.mock("next/link", () => ({
@@ -26,30 +26,29 @@ vi.mock("lucide-react", () => ({
   Calendar: (props: Record<string, unknown>) => <span data-testid="icon-calendar" {...props} />,
   User: (props: Record<string, unknown>) => <span data-testid="icon-user" {...props} />,
   CheckIcon: (props: Record<string, unknown>) => <span data-testid="icon-check" {...props} />,
+  Bookmark: (props: Record<string, unknown>) => <span data-testid="icon-bookmark" {...props} />,
+  FileText: (props: Record<string, unknown>) => <span data-testid="icon-file-text" {...props} />,
+  Gavel: (props: Record<string, unknown>) => <span data-testid="icon-gavel" {...props} />,
+  Newspaper: (props: Record<string, unknown>) => <span data-testid="icon-newspaper" {...props} />,
+  CloudLightning: (props: Record<string, unknown>) => <span data-testid="icon-cloud-lightning" {...props} />,
+  AlertTriangle: (props: Record<string, unknown>) => <span data-testid="icon-alert-triangle" {...props} />,
+  DollarSign: (props: Record<string, unknown>) => <span data-testid="icon-dollar-sign" {...props} />,
 }));
 
-// Build enriched lead test fixtures
-function createEnrichedLead(overrides?: Partial<EnrichedLead>): EnrichedLead {
+// Build scored lead test fixtures
+function createScoredLead(overrides?: Partial<ScoredLead>): ScoredLead {
   const base = createMockLead();
   return {
     ...base,
     distance: 12.5,
-    inferredEquipment: [
-      { type: "Excavators", confidence: "high" as const, reason: "keyword match" },
-      { type: "Bulldozers", confidence: "medium" as const, reason: "keyword match" },
-    ],
-    score: 78,
+    scoring: {
+      total: 78,
+      dimensions: [],
+      matchReasons: ["Within service area", "Matches specialization"],
+    },
     freshness: "New" as const,
-    timeline: [
-      {
-        phase: "Site Preparation",
-        equipment: ["Excavators"],
-        urgency: "Now" as const,
-        description: "Excavation and grading needed",
-      },
-    ],
     ...overrides,
-  } as EnrichedLead;
+  } as ScoredLead;
 }
 
 describe("LeadCard", () => {
@@ -57,91 +56,90 @@ describe("LeadCard", () => {
     cleanup();
   });
 
-  it("renders lead address", async () => {
+  it("renders lead title", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead();
+    const lead = createScoredLead();
 
     render(<LeadCard lead={lead} />);
 
-    expect(
-      screen.getByText(lead.formattedAddress as string)
-    ).toBeInTheDocument();
+    // LeadCard uses title ?? formattedAddress ?? address ?? "Untitled Lead"
+    const displayTitle = lead.title ?? lead.formattedAddress ?? lead.address ?? "Untitled Lead";
+    expect(screen.getByText(displayTitle)).toBeInTheDocument();
   });
 
   it("renders freshness badge", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead({ freshness: "This Week" });
+    const lead = createScoredLead({ freshness: "This Week" });
 
     render(<LeadCard lead={lead} />);
 
     expect(screen.getByText("This Week")).toBeInTheDocument();
   });
 
-  it("renders score value", async () => {
+  it("renders score value from scoring.total", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead({ score: 85 });
+    const lead = createScoredLead({
+      scoring: { total: 85, dimensions: [], matchReasons: [] },
+    });
 
     render(<LeadCard lead={lead} />);
 
     expect(screen.getByTestId("lead-score")).toHaveTextContent("85");
   });
 
-  it("renders equipment type badges", async () => {
+  it("renders match reasons", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead();
+    const lead = createScoredLead({
+      scoring: {
+        total: 78,
+        dimensions: [],
+        matchReasons: ["Within service area", "Matches specialization"],
+      },
+    });
 
     render(<LeadCard lead={lead} />);
 
-    expect(screen.getByText("Excavators")).toBeInTheDocument();
-    expect(screen.getByText("Bulldozers")).toBeInTheDocument();
+    expect(
+      screen.getByText("Within service area, Matches specialization")
+    ).toBeInTheDocument();
   });
 
   it("renders distance", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead({ distance: 42.7 });
+    const lead = createScoredLead({ distance: 42.7 });
 
     render(<LeadCard lead={lead} />);
 
-    expect(screen.getByText("43 mi away")).toBeInTheDocument();
+    expect(screen.getByText("43 mi")).toBeInTheDocument();
   });
 
-  it("truncates equipment tags at 4 and shows overflow count", async () => {
+  it("renders source type badge", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead({
-      inferredEquipment: [
-        { type: "Excavators", confidence: "high", reason: "test" },
-        { type: "Bulldozers", confidence: "high", reason: "test" },
-        { type: "Cranes", confidence: "medium", reason: "test" },
-        { type: "Forklifts", confidence: "medium", reason: "test" },
-        { type: "Boom Lifts", confidence: "low", reason: "test" },
-        { type: "Generators", confidence: "low", reason: "test" },
-      ],
-    });
+    const lead = createScoredLead();
+    // Default source type from createMockLead is "permit"
 
     render(<LeadCard lead={lead} />);
 
-    expect(screen.getByText("Excavators")).toBeInTheDocument();
-    expect(screen.getByText("+2 more")).toBeInTheDocument();
-    expect(screen.queryByText("Boom Lifts")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Permit").length).toBeGreaterThan(0);
   });
 
   it("links to lead detail page", async () => {
     const { LeadCard } = await import(
       "@/app/(dashboard)/dashboard/lead-card"
     );
-    const lead = createEnrichedLead();
+    const lead = createScoredLead();
 
     render(<LeadCard lead={lead} />);
 
