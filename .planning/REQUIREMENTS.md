@@ -85,8 +85,8 @@ Requirements for Bug Fixes & Hardening milestone.
 
 ### Query Performance
 
-- [ ] **PERF-01**: Lead feed supports page navigation with Previous/Next controls, page indicator, and URL-based page state that preserves all existing filters
-- [ ] **PERF-02**: Bookmarks page fetches all bookmarked leads in a single batch query using inArray instead of individual getLeadById calls
+- [x] **PERF-01**: Lead feed supports page navigation with Previous/Next controls, page indicator, and URL-based page state that preserves all existing filters
+- [x] **PERF-02**: Bookmarks page fetches all bookmarked leads in a single batch query using inArray instead of individual getLeadById calls
 - [x] **PERF-03**: Digest generator runs one merged query per user (widest filters) instead of one query per saved search, then filters in memory per search
 - [x] **PERF-04**: Non-permit leads are deduplicated by sourceUrl via partial unique index; dedup check uses sourceUrl as primary key when available
 
@@ -193,8 +193,8 @@ Requirements for Bug Fixes & Hardening milestone.
 |-------------|-------|--------|
 | TEST-01 | Phase 9 | Complete |
 | TEST-02 | Phase 9 | Complete |
-| PERF-01 | Phase 10 | Pending |
-| PERF-02 | Phase 10 | Pending |
+| PERF-01 | Phase 10 | Complete |
+| PERF-02 | Phase 10 | Complete |
 | PERF-03 | Phase 10 | Complete |
 | PERF-04 | Phase 10 | Complete |
 | AUTH-01 | Phase 11 | Pending |
