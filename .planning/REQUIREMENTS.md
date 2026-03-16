@@ -144,9 +144,9 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 
 ### Billing
 
-- [ ] **BILL-01v3**: Industry-specific pricing config (setup fee + monthly per industry, configurable)
+- [x] **BILL-01v3**: Industry-specific pricing config (setup fee + monthly per industry, configurable)
 - [x] **BILL-02v3**: Fix double-nested checkout params in Stripe integration
-- [ ] **BILL-03v3**: Webhook handling for checkout.session.completed, invoice.paid/failed, subscription.deleted
+- [x] **BILL-03v3**: Webhook handling for checkout.session.completed, invoice.paid/failed, subscription.deleted
 
 ### Notifications
 
@@ -155,7 +155,7 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 - [ ] **NOTF-03**: Real-time storm alert emails for roofing subscribers
 - [ ] **NOTF-04**: Unsubscribe mechanism with one-click link (CAN-SPAM compliance)
 - [ ] **NOTF-05**: React Email templates with industry-specific styling
-- [ ] **NOTF-06**: Welcome email after onboarding completion
+- [x] **NOTF-06**: Welcome email after onboarding completion
 
 ### Cron Architecture
 
@@ -279,9 +279,9 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 | ONBD-05 | Phase 14 | Complete |
 | ONBD-06 | Phase 14 | Complete |
 | ONBD-07 | Phase 14 | Complete |
-| BILL-01v3 | Phase 14 | Pending |
-| BILL-03v3 | Phase 14 | Pending |
-| NOTF-06 | Phase 14 | Pending |
+| BILL-01v3 | Phase 14 | Complete |
+| BILL-03v3 | Phase 14 | Complete |
+| NOTF-06 | Phase 14 | Complete |
 | SCOR-01 | Phase 15 | Pending |
 | SCOR-02 | Phase 15 | Pending |
 | SCOR-03 | Phase 15 | Pending |
