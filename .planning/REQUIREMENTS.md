@@ -111,19 +111,19 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 
 ### Scoring Engine
 
-- [ ] **SCOR-01**: Score computed at query time per subscriber (same lead scores differently per org)
-- [ ] **SCOR-02**: Distance dimension (0-25 pts) based on proximity to HQ/service areas
-- [ ] **SCOR-03**: Relevance dimension (0-30 pts) based on specialization match and industry alignment
-- [ ] **SCOR-04**: Value dimension (0-20 pts) based on estimated project value vs target range
-- [ ] **SCOR-05**: Freshness dimension (0-15 pts) decaying over 30 days
-- [ ] **SCOR-06**: Urgency dimension (0-10 pts) for storms, bid deadlines, violations, expiring incentives
-- [ ] **SCOR-07**: Human-readable match reasons displayed on lead cards
+- [x] **SCOR-01**: Score computed at query time per subscriber (same lead scores differently per org)
+- [x] **SCOR-02**: Distance dimension (0-25 pts) based on proximity to HQ/service areas
+- [x] **SCOR-03**: Relevance dimension (0-30 pts) based on specialization match and industry alignment
+- [x] **SCOR-04**: Value dimension (0-20 pts) based on estimated project value vs target range
+- [x] **SCOR-05**: Freshness dimension (0-15 pts) decaying over 30 days
+- [x] **SCOR-06**: Urgency dimension (0-10 pts) for storms, bid deadlines, violations, expiring incentives
+- [x] **SCOR-07**: Human-readable match reasons displayed on lead cards
 
 ### Lead Feed & Dashboard
 
 - [ ] **FEED-01**: Lead cards show title, type badge, value, distance, score, match reasons, bookmark button
 - [ ] **FEED-02**: Filter panel with source type, distance, value range, project type, date range, sort options
-- [ ] **FEED-03**: Cursor-based pagination replacing offset-based approach
+- [x] **FEED-03**: Cursor-based pagination replacing offset-based approach
 - [ ] **FEED-04**: Lead detail page with enrichment data, map, contacts, and similar leads
 - [ ] **FEED-05**: Storm alert banner for urgent weather-based leads
 - [ ] **FEED-06**: Industry badge in navigation showing org's industry
@@ -282,16 +282,16 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 | BILL-01v3 | Phase 14 | Complete |
 | BILL-03v3 | Phase 14 | Complete |
 | NOTF-06 | Phase 14 | Complete |
-| SCOR-01 | Phase 15 | Pending |
-| SCOR-02 | Phase 15 | Pending |
-| SCOR-03 | Phase 15 | Pending |
-| SCOR-04 | Phase 15 | Pending |
-| SCOR-05 | Phase 15 | Pending |
-| SCOR-06 | Phase 15 | Pending |
-| SCOR-07 | Phase 15 | Pending |
+| SCOR-01 | Phase 15 | Complete |
+| SCOR-02 | Phase 15 | Complete |
+| SCOR-03 | Phase 15 | Complete |
+| SCOR-04 | Phase 15 | Complete |
+| SCOR-05 | Phase 15 | Complete |
+| SCOR-06 | Phase 15 | Complete |
+| SCOR-07 | Phase 15 | Complete |
 | FEED-01 | Phase 15 | Pending |
 | FEED-02 | Phase 15 | Pending |
-| FEED-03 | Phase 15 | Pending |
+| FEED-03 | Phase 15 | Complete |
 | FEED-04 | Phase 15 | Pending |
 | FEED-06 | Phase 15 | Pending |
 | SCRP-01 | Phase 16 | Pending |

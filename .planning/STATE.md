@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: completed
-stopped_at: Completed 14-03-PLAN.md
-last_updated: "2026-03-16T18:09:39.365Z"
-last_activity: 2026-03-16 -- Completed Phase 14 Plan 03 (billing, webhook, welcome email)
+status: executing
+stopped_at: Completed 15-01-PLAN.md
+last_updated: "2026-03-16T18:25:49.952Z"
+last_activity: 2026-03-16 -- Completed Phase 15 Plan 01 (scoring engine + cursor feed)
 progress:
   total_phases: 10
   completed_phases: 6
-  total_plans: 13
-  completed_plans: 13
-  percent: 42
+  total_plans: 16
+  completed_plans: 14
+  percent: 94
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** Phase 14 - Industry Onboarding
+**Current focus:** Phase 15 - Scoring Engine & Lead Feed
 
 ## Current Position
 
-Phase: 14 of 18 (Industry Onboarding)
-Plan: 3 of 3 complete
-Status: Phase Complete
-Last activity: 2026-03-16 -- Completed Phase 14 Plan 03 (billing, webhook, welcome email)
+Phase: 15 of 18 (Scoring Engine & Lead Feed)
+Plan: 1 of 3 complete
+Status: In Progress
+Last activity: 2026-03-16 -- Completed Phase 15 Plan 01 (scoring engine + cursor feed)
 
-Progress: [████░░░░░░] 42% (v3.0: 5/12 plans)
+Progress: [█████████░] 94% (v3.0: 6/12 plans)
 
 ## Performance Metrics
 
@@ -48,6 +48,7 @@ Progress: [████░░░░░░] 42% (v3.0: 5/12 plans)
 | 14    | 01   | 5min     | 2     | 9     |
 | 14    | 02   | 4min     | 2     | 6     |
 | 14    | 03   | 5min     | 2     | 7     |
+| 15    | 01   | 6min     | 2     | 11    |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Key decisions carried forward:
 - [Phase 14]: Stripe v20 moved invoice.subscription to invoice.parent.subscription_details.subscription -- helper function abstracts extraction
 - [Phase 14]: Webhook returns 200 on processing errors to prevent Stripe retry loops -- errors logged for investigation
 - [Phase 14]: Industry pricing falls back to generic env vars when industry-specific ones not set
+- [Phase 15]: Relevance scoring uses bidirectional partial match with singular/plural stemming for specialization matching
+- [Phase 15]: Cursor pagination uses lead ID ASC for stable ordering, in-memory sort by requested dimension after scoring
+- [Phase 15]: CURSOR_BATCH_SIZE=50 over-fetches relative to limit=20 for meaningful scored sort results
 
 ### Pending Todos
 
@@ -96,6 +100,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T18:02:56Z
-Stopped at: Completed 14-03-PLAN.md
+Last session: 2026-03-16T18:25:49.949Z
+Stopped at: Completed 15-01-PLAN.md
 Resume file: None
