@@ -20,9 +20,11 @@ vi.mock("resend", () => ({
   })),
 }));
 
-// Mock getFilteredLeads
+// Mock getFilteredLeads, applyInMemoryFilters, filterByEquipment
 vi.mock("@/lib/leads/queries", () => ({
   getFilteredLeads: vi.fn().mockResolvedValue([]),
+  applyInMemoryFilters: vi.fn().mockImplementation((leads: unknown[]) => leads),
+  filterByEquipment: vi.fn().mockImplementation((leads: unknown[]) => leads),
 }));
 
 describe("digest-generator: generateDigests", () => {

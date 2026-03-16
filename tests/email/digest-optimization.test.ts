@@ -21,6 +21,12 @@ vi.mock("resend", () => ({
   })),
 }));
 
+// Mock send-digest module so we can spy on sendDigest
+const mockSendDigest = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/email/send-digest", () => ({
+  sendDigest: (...args: unknown[]) => mockSendDigest(...args),
+}));
+
 // Mock getFilteredLeads, applyInMemoryFilters, filterByEquipment
 const mockGetFilteredLeads = vi.fn().mockResolvedValue([]);
 const mockApplyInMemoryFilters = vi
@@ -416,10 +422,6 @@ describe("digest-optimization: single-query-per-user with widest filter", () => 
     mockApplyInMemoryFilters.mockImplementation((leads: unknown[]) => leads);
     mockFilterByEquipment.mockImplementation((leads: unknown[]) => leads);
 
-    // Track what gets sent
-    const { sendDigest } = await import("@/lib/email/send-digest");
-    vi.mocked(sendDigest).mockResolvedValue(undefined);
-
     const { generateDigests } = await import(
       "@/lib/email/digest-generator"
     );
@@ -428,9 +430,10 @@ describe("digest-optimization: single-query-per-user with widest filter", () => 
     expect(result.sent).toBe(1);
 
     // sendDigest should receive deduplicated leads (1 lead, not 2)
-    const sendCall = vi.mocked(sendDigest).mock.calls[0];
-    expect(sendCall[2]).toHaveLength(1);
-    expect(sendCall[2][0].id).toBe("lead-shared");
+    expect(mockSendDigest).toHaveBeenCalledTimes(1);
+    const sentLeads = mockSendDigest.mock.calls[0][2];
+    expect(sentLeads).toHaveLength(1);
+    expect(sentLeads[0].id).toBe("lead-shared");
   });
 
   it("coerces null saved search column values to undefined when passed to filters", async () => {

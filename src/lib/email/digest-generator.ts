@@ -3,7 +3,11 @@ import { db } from "@/lib/db";
 import { savedSearches } from "@/lib/db/schema/saved-searches";
 import { user } from "@/lib/db/schema/auth";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
-import { getFilteredLeads } from "@/lib/leads/queries";
+import {
+  getFilteredLeads,
+  applyInMemoryFilters,
+  filterByEquipment,
+} from "@/lib/leads/queries";
 import { sendDigest } from "./send-digest";
 import type { DigestLead } from "./send-digest";
 
@@ -101,35 +105,87 @@ export async function generateDigests(): Promise<DigestSummary> {
           Date.now() - 24 * 60 * 60 * 1000
         );
 
-        // Collect leads across all digest-enabled saved searches
+        const serviceRadius = profile.serviceRadiusMiles ?? 50;
+
+        // Compute the widest filter envelope across all saved searches
+        // so we can fetch all candidate leads in a single query
+        const widest = {
+          radiusMiles: Math.max(
+            serviceRadius,
+            ...group.searches.map((s) => s.radiusMiles ?? serviceRadius)
+          ),
+          dateFrom: group.searches.reduce((earliest, s) => {
+            const d = s.dateFrom ?? twentyFourHoursAgo;
+            return d < earliest ? d : earliest;
+          }, twentyFourHoursAgo),
+          dateTo: group.searches.reduce(
+            (latest: Date | null, s) => {
+              if (!s.dateTo) return null; // null = no upper bound = widest
+              if (latest === null) return null;
+              return s.dateTo > latest ? s.dateTo : latest;
+            },
+            new Date(0)
+          ),
+          minProjectSize: Math.min(
+            ...group.searches.map((s) => s.minProjectSize ?? 0)
+          ),
+          maxProjectSize: Math.max(
+            ...group.searches.map(
+              (s) => s.maxProjectSize ?? Number.MAX_SAFE_INTEGER
+            )
+          ),
+        };
+
+        // Single query with widest params to fetch all candidate leads
+        const allCandidates = await getFilteredLeads({
+          hqLat: profile.hqLat,
+          hqLng: profile.hqLng,
+          serviceRadiusMiles: serviceRadius,
+          dealerEquipment: profile.equipmentTypes ?? [],
+          radiusMiles: widest.radiusMiles,
+          dateFrom: widest.dateFrom,
+          dateTo: widest.dateTo ?? undefined,
+          minProjectSize:
+            widest.minProjectSize > 0 ? widest.minProjectSize : undefined,
+          maxProjectSize:
+            widest.maxProjectSize < Number.MAX_SAFE_INTEGER
+              ? widest.maxProjectSize
+              : undefined,
+          // keyword: undefined -- broadest, filter per-search in memory
+          // equipmentFilter: undefined -- broadest, filter per-search in memory
+          userId: group.userId,
+          organizationId: group.organizationId,
+          limit: 500, // high limit to capture all candidates for in-memory filtering
+        });
+
+        // For each search, apply per-search filters in memory and collect unique leads
         const allLeadIds = new Set<string>();
         const allLeads: DigestLead[] = [];
 
         for (const search of group.searches) {
-          // Use the more restrictive of: 24h ago or the search's own dateFrom
-          let dateFrom = twentyFourHoursAgo;
-          if (search.dateFrom && search.dateFrom > twentyFourHoursAgo) {
-            dateFrom = search.dateFrom;
-          }
-
-          const leads = await getFilteredLeads({
-            hqLat: profile.hqLat,
-            hqLng: profile.hqLng,
-            serviceRadiusMiles: profile.serviceRadiusMiles ?? 50,
-            dealerEquipment: profile.equipmentTypes ?? [],
-            radiusMiles: search.radiusMiles ?? undefined,
-            equipmentFilter: search.equipmentFilter ?? undefined,
+          // Apply per-search filters in memory
+          let filtered = applyInMemoryFilters(allCandidates, {
             keyword: search.keyword ?? undefined,
-            dateFrom,
+            dateFrom: search.dateFrom ?? twentyFourHoursAgo,
             dateTo: search.dateTo ?? undefined,
             minProjectSize: search.minProjectSize ?? undefined,
             maxProjectSize: search.maxProjectSize ?? undefined,
-            userId: group.userId,
-            organizationId: group.organizationId,
           });
 
-          // Deduplicate and map to DigestLead
-          for (const lead of leads) {
+          // Apply per-search equipment filter
+          filtered = filterByEquipment(
+            filtered,
+            search.equipmentFilter ?? undefined
+          );
+
+          // Apply per-search radius filter (in-memory distance check)
+          const searchRadius = search.radiusMiles ?? serviceRadius;
+          filtered = filtered.filter(
+            (lead) => lead.distance === null || lead.distance <= searchRadius
+          );
+
+          // Deduplicate into final collection
+          for (const lead of filtered) {
             if (!allLeadIds.has(lead.id)) {
               allLeadIds.add(lead.id);
               allLeads.push({
