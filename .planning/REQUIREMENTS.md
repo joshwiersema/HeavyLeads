@@ -92,7 +92,7 @@ Requirements for Bug Fixes & Hardening milestone.
 
 ### Auth
 
-- [ ] **AUTH-01**: User can reset forgotten password via email link from sign-in page (better-auth native sendResetPassword with Resend)
+- [x] **AUTH-01**: User can reset forgotten password via email link from sign-in page (better-auth native sendResetPassword with Resend)
 
 ### UI
 
@@ -197,7 +197,7 @@ Requirements for Bug Fixes & Hardening milestone.
 | PERF-02 | Phase 10 | Complete |
 | PERF-03 | Phase 10 | Complete |
 | PERF-04 | Phase 10 | Complete |
-| AUTH-01 | Phase 11 | Pending |
+| AUTH-01 | Phase 11 | Complete |
 | UI-01 | Phase 12 | Pending |
 
 **Coverage:**

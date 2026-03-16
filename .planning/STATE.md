@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
-status: completed
-stopped_at: Completed 10-02-PLAN.md (Phase 10 complete)
-last_updated: "2026-03-16T05:13:54.612Z"
-last_activity: 2026-03-16 -- Completed 10-02 digest optimization & sourceUrl dedup (Phase 10 complete)
+status: in-progress
+stopped_at: Completed 11-01-PLAN.md
+last_updated: "2026-03-16T05:44:59Z"
+last_activity: 2026-03-16 -- Completed 11-01 forgot-password request flow (schemas, email, form, page)
 progress:
   total_phases: 12
   completed_phases: 10
-  total_plans: 24
-  completed_plans: 24
-  percent: 100
+  total_plans: 26
+  completed_plans: 25
+  percent: 96
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 10 - Query Optimizations
+**Current focus:** Phase 11 - Forgot Password
 
 ## Current Position
 
-Phase: 10 of 12 (Query Optimizations)
-Plan: 2 of 2 complete
-Status: Phase 10 Complete
-Last activity: 2026-03-16 -- Completed 10-02 digest optimization & sourceUrl dedup (Phase 10 complete)
+Phase: 11 of 12 (Forgot Password)
+Plan: 1 of 2 complete
+Status: In Progress
+Last activity: 2026-03-16 -- Completed 11-01 forgot-password request flow (schemas, email, form, page)
 
-Progress: [██████████] 100%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -46,6 +46,7 @@ Progress: [██████████] 100%
 | 09    | 03   | 4min     | 2     | 6     |
 | 10    | 01   | 7min     | 2     | 7     |
 | 10    | 02   | 7min     | 2     | 6     |
+| 11    | 01   | 6min     | 2     | 9     |
 
 ## Accumulated Context
 
@@ -86,6 +87,13 @@ v2.1 Phase 10 decisions:
 - Filter changes reset page to 1 via buildParams deleting page param
 - getLeadsByIds batch query replaces N+1 getLeadById pattern on bookmarks page
 
+v2.1 Phase 11 decisions:
+- Resend client instantiated inside sendResetPassword callback, not at module top level (no side-effect imports in auth.ts)
+- Missing RESEND_API_KEY throws error on password reset (critical path -- unlike digest which silently skips)
+- Generic success message on forgot-password prevents user enumeration
+- vi.hoisted() pattern for mock references in vi.mock factories (vitest hoisting requirement)
+- class-based mock for Resend constructor (arrow function mocks fail with new keyword)
+
 ### Pending Todos
 
 None yet.
@@ -100,5 +108,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 10-02-PLAN.md (Phase 10 complete)
+Stopped at: Completed 11-01-PLAN.md
 Resume file: None
