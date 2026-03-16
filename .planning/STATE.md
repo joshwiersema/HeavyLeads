@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
-status: roadmap_complete
-stopped_at: Roadmap created with 4 phases (9-12)
-last_updated: "2026-03-15"
-last_activity: 2026-03-15 -- Roadmap created for v2.1
+status: executing
+stopped_at: Completed 09-01-PLAN.md
+last_updated: "2026-03-16T04:28:59.072Z"
+last_activity: 2026-03-16 -- Completed 09-01 test infrastructure setup
 progress:
-  total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 12
+  completed_phases: 8
+  total_plans: 22
+  completed_plans: 20
+  percent: 91
 ---
 
 # Project State
@@ -26,18 +26,22 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 9 of 12 (Regression Test Safety Net)
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-15 -- Roadmap created for v2.1 Bug Fixes & Hardening
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-03-16 -- Completed 09-01 test infrastructure setup
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█████████░] 91%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 19 (15 v1.0 + 4 v2.0)
-- Average duration: ~6.3 min
-- Total execution time: ~1.99 hours
+- Total plans completed: 20 (15 v1.0 + 4 v2.0 + 1 v2.1)
+- Average duration: ~6.1 min
+- Total execution time: ~2.04 hours
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 09    | 01   | 3min     | 2     | 3     |
 
 ## Accumulated Context
 
@@ -58,6 +62,10 @@ v2.1 roadmap decisions:
 - Phases 11 and 12 depend only on Phase 9 (not on Phase 10), enabling parallel execution
 - Email verification deferred to future -- ship forgot password first as recovery path
 
+v2.1 Phase 9 decisions:
+- drizzle-orm mock must include sql as tagged template function when testing pipeline code that uses sql`excluded.*`
+- Used closure counter for unique mock returning() IDs -- simpler and deterministic vs crypto.randomUUID()
+
 ### Pending Todos
 
 None yet.
@@ -70,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15
-Stopped at: Roadmap created for v2.1 -- ready to plan Phase 9
+Last session: 2026-03-16
+Stopped at: Completed 09-01-PLAN.md
 Resume file: None

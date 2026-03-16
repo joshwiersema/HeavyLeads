@@ -81,7 +81,7 @@ Requirements for Bug Fixes & Hardening milestone.
 ### Testing
 
 - [ ] **TEST-01**: Regression test suite covers all 15 v2.0 post-rework bug fixes (permit upsert, geocoding null, lead query sort, org slug, sign-in redirect, Stripe idempotency, onboarding upsert, mobile nav, landing page, pricing display, error boundaries, date formatting, loading states, equipmentTypes guard, geocoding error handling in forms)
-- [ ] **TEST-02**: Test infrastructure supports mocking server actions, next/headers, and @/lib/db with established patterns
+- [x] **TEST-02**: Test infrastructure supports mocking server actions, next/headers, and @/lib/db with established patterns
 
 ### Query Performance
 
@@ -192,7 +192,7 @@ Requirements for Bug Fixes & Hardening milestone.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | TEST-01 | Phase 9 | Pending |
-| TEST-02 | Phase 9 | Pending |
+| TEST-02 | Phase 9 | Complete |
 | PERF-01 | Phase 10 | Pending |
 | PERF-02 | Phase 10 | Pending |
 | PERF-03 | Phase 10 | Pending |
