@@ -1,801 +1,1445 @@
-# Architecture Research: v2.1 Bug Fixes & Hardening
+# Architecture Research: v3.0 LeadForge Multi-Industry Platform
 
-**Domain:** Multi-tenant SaaS lead generation (HeavyLeads) -- hardening milestone
-**Researched:** 2026-03-15
-**Confidence:** HIGH
+**Domain:** Multi-tenant SaaS lead generation -- multi-industry expansion
+**Researched:** 2026-03-16
+**Confidence:** HIGH (code analysis of 40+ source files, Vercel docs, Drizzle docs)
 
-This document maps how testing infrastructure, better-auth password reset/email verification, offset pagination, and batch DB queries integrate with the existing Next.js + better-auth + Drizzle architecture. For each feature, it identifies what existing code is modified vs. what is new, the data flow changes, and the build order dependencies.
+This document maps how 11 new features integrate with the existing Next.js App Router + Drizzle ORM + Neon PostgreSQL + Better Auth architecture. For each feature, it identifies integration points with existing code, new vs. modified components, data flow changes, and a build order that minimizes breaking changes while preserving existing data.
 
-## System Overview: Current Architecture
+---
 
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         CLIENT (Browser)                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-│  │ Auth Forms   │  │ Dashboard    │  │ Settings     │               │
-│  │ (sign-in,    │  │ (leads,      │  │ (account,    │               │
-│  │  sign-up)    │  │  bookmarks,  │  │  company,    │               │
-│  │              │  │  filters)    │  │  billing)    │               │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │
-│         │                 │                 │                        │
-├─────────┴─────────────────┴─────────────────┴────────────────────────┤
-│                    NEXT.JS APP ROUTER (Server)                        │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐               │
-│  │ (auth)/      │  │ (dashboard)/ │  │ api/         │               │
-│  │ layout.tsx   │  │ layout.tsx   │  │ auth/[...all]│               │
-│  │              │  │ (guards:     │  │ cron/scrape  │               │
-│  │              │  │  session,    │  │ email-digest  │               │
-│  │              │  │  onboarding, │  │ scraper/*     │               │
-│  │              │  │  subscription│  │ health        │               │
-│  │              │  │  )           │  │               │               │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘               │
-│         │                 │                 │                        │
-├─────────┴─────────────────┴─────────────────┴────────────────────────┤
-│                        LIB / ACTIONS LAYER                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │
-│  │ auth.ts  │  │ leads/   │  │ scraper/ │  │ email/   │            │
-│  │ auth-    │  │ queries  │  │ pipeline │  │ digest   │            │
-│  │ client   │  │ scoring  │  │ dedup    │  │ send     │            │
-│  │          │  │ equip.   │  │ adapters │  │          │            │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘            │
-│       │             │             │             │                    │
-├───────┴─────────────┴─────────────┴─────────────┴────────────────────┤
-│                        DATA LAYER                                     │
-│  ┌───────────────────────────────────────────────────────────┐       │
-│  │  Drizzle ORM (neon-http driver)                           │       │
-│  │  Schema: auth (user, session, account, verification,      │       │
-│  │    organization, member, invitation), leads, lead-sources, │       │
-│  │    bookmarks, lead-statuses, saved-searches,              │       │
-│  │    company-profiles, subscriptions, pipeline-runs         │       │
-│  └──────────────────────┬────────────────────────────────────┘       │
-│                         │                                            │
-├─────────────────────────┴────────────────────────────────────────────┤
-│                    EXTERNAL SERVICES                                   │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │
-│  │ Neon PG  │  │ Stripe   │  │ Resend   │  │ Google   │            │
-│  │          │  │          │  │          │  │ Maps API │            │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘            │
-└──────────────────────────────────────────────────────────────────────┘
-```
-
-## What Changes Per Feature
-
-### 1. Regression Test Suite (15 bug fixes)
-
-**Status: ALL NEW -- no existing components change**
-
-The testing infrastructure already exists and is mature:
-- Vitest + jsdom + React Testing Library
-- `vitest.config.ts` with path aliases and setup file
-- `tests/setup.ts` with mock env vars for all services
-- 6 test helper modules: `auth.ts`, `db.ts`, `email.ts`, `leads.ts`, `billing.ts`, `scraper.ts`
-- 40+ existing test files across `tests/scraper/`, `tests/leads/`, `tests/billing/`, `tests/dashboard/`, `tests/email/`
-
-This work adds test files only. Zero production code changes.
-
-| Component | Status | What Happens |
-|-----------|--------|--------------|
-| `tests/**/*.test.ts` (15+ files) | NEW | Regression tests for v2.0 post-rework bug fixes |
-| `tests/helpers/*` | POSSIBLY MODIFIED | May need additional mock factories for edge cases |
-| `vitest.config.ts` | UNCHANGED | Current config is sufficient |
-| `tests/setup.ts` | UNCHANGED | Mock env vars cover all services |
-
-**Architecture impact:** Zero. Tests mock `@/lib/db` and `@/lib/auth` at the module level. No production code changes needed.
-
-**Testing approach by function type:**
-
-| Function Type | Test Strategy | Examples |
-|---------------|---------------|----------|
-| Pure functions | Direct import + assert | `haversineDistance`, `filterByEquipment`, `buildFilterConditions`, `applyInMemoryFilters`, `isLikelyDuplicate`, `normalizeText`, `scoreLead`, `mapTimeline`, `getTrialStatus`, `buildCheckoutSessionParams`, `getFreshnessBadge` |
-| DB-dependent functions | `vi.mock("@/lib/db")` + assert | `getFilteredLeads`, `getLeadById`, `getBookmarkedLeads`, `deduplicateNewLeads` |
-| Server actions | `vi.mock("@/lib/auth")` + `vi.mock("@/lib/db")` | `toggleBookmark`, `completeOnboarding` |
-| React components | React Testing Library render + assert | `LeadCard`, `SignInForm`, `PipelineProgress` |
-| API routes | Mock request/response objects | `cron/scrape/route.ts` |
-
-**Mocking strategy (established pattern in codebase):**
+## System Overview: Current Architecture (v2.1)
 
 ```
-[Test] --> vi.mock("@/lib/auth")       --> Mock session object
-       --> vi.mock("next/headers")     --> Mock Headers constructor
-       --> vi.mock("next/cache")       --> Mock revalidatePath
-       --> vi.mock("@/lib/db")         --> Mock chainable query builder
-       --> vi.mock("@/lib/db/schema/*") --> Mock table column refs
-```
-
-Server actions use dynamic import after mocks are registered:
-
-```typescript
-vi.mock("@/lib/auth", () => ({ ... }));
-import { auth } from "@/lib/auth";
-
-describe("myAction", () => {
-  it("works", async () => {
-    (auth.api.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({...});
-    const { myAction } = await import("@/actions/my-action");
-    await myAction("arg");
-  });
-});
++------------------------------------------------------------------------+
+|                         CLIENT (Browser)                                |
+|  +----------------+  +----------------+  +----------------+            |
+|  | Auth Forms     |  | Dashboard      |  | Settings       |            |
+|  | (sign-in,      |  | (leads feed,   |  | (account,      |            |
+|  |  sign-up,      |  |  bookmarks,    |  |  company,      |            |
+|  |  forgot-pw,    |  |  saved search, |  |  billing)      |            |
+|  |  reset-pw)     |  |  lead detail)  |  |                |            |
+|  +-------+--------+  +-------+--------+  +-------+--------+            |
+|          |                    |                    |                     |
++----------+--------------------+--------------------+--------------------+
+|                    NEXT.JS APP ROUTER (Server)                          |
+|  +----------------+  +----------------+  +----------------+            |
+|  | (auth)/        |  | (dashboard)/   |  | api/           |            |
+|  | layout.tsx     |  | layout.tsx     |  | auth/[...all]  |            |
+|  |                |  | (guards:       |  | cron/scrape    |            |
+|  |                |  |  session,      |  |                |            |
+|  |                |  |  onboarding,   |  |                |            |
+|  |                |  |  subscription) |  |                |            |
+|  +-------+--------+  +-------+--------+  +-------+--------+            |
+|          |                    |                    |                     |
++----------+--------------------+--------------------+--------------------+
+|                        LIB / ACTIONS LAYER                              |
+|  +----------+  +----------+  +----------+  +----------+               |
+|  | auth.ts  |  | leads/   |  | scraper/ |  | email/   |               |
+|  | auth-    |  | queries  |  | pipeline |  | digest   |               |
+|  | client   |  | scoring  |  | dedup    |  | send     |               |
+|  |          |  | equip-   |  | registry |  |          |               |
+|  |          |  | infer    |  | adapters |  |          |               |
+|  +----+-----+  +----+-----+  +----+-----+  +----+-----+               |
+|       |             |             |             |                       |
++-------+-------------+-------------+-------------+----------------------+
+|                        DATA LAYER                                       |
+|  +---------------------------------------------------------------+    |
+|  |  Drizzle ORM (neon-http driver)                                |    |
+|  |  10 tables: user, session, account, verification, organization,|    |
+|  |    member, invitation, leads, lead_sources, bookmarks,         |    |
+|  |    lead_statuses, saved_searches, company_profiles,            |    |
+|  |    subscription, pipeline_runs                                 |    |
+|  +-------------------------------+-------------------------------+    |
+|                                  |                                     |
++----------------------------------+-------------------------------------+
+|                    EXTERNAL SERVICES                                    |
+|  +----------+  +----------+  +----------+  +----------+               |
+|  | Neon PG  |  | Stripe   |  | Resend   |  | Google   |               |
+|  |          |  |          |  |          |  | Maps API |               |
+|  +----------+  +----------+  +----------+  +----------+               |
++------------------------------------------------------------------------+
 ```
 
 ---
 
-### 2. Forgot Password Flow
-
-**Status: MODIFIED (auth config, sign-in form) + NEW (3 pages, 1 email sender, 1 email template)**
-
-better-auth has built-in password reset support. The `verification` table already exists in the schema (used by better-auth internally for token storage). Resend is already integrated for digest emails.
-
-#### Server-Side Changes
-
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/auth.ts` | MODIFIED | Add `sendResetPassword` callback to `emailAndPassword` config |
-| `src/lib/email/send-password-reset.ts` | NEW | Sends reset email via Resend (mirrors `send-digest.ts` pattern) |
-| `src/components/emails/password-reset.tsx` | NEW | React Email template for reset link |
-
-**Auth config change (`src/lib/auth.ts`):**
-
-The `emailAndPassword` block currently has only `enabled: true`. Add the `sendResetPassword` callback:
-
-```typescript
-emailAndPassword: {
-  enabled: true,
-  // NEW: password reset callback
-  sendResetPassword: async ({ user, url, token }, request) => {
-    // Fire-and-forget (void) to prevent timing attacks
-    void sendPasswordResetEmail(user.email, user.name, url);
-  },
-},
-```
-
-better-auth handles: token generation, storage in `verification` table, token expiry (default 1 hour), token validation on reset, password hash update in `account` table, and deletion of used tokens. No schema changes needed.
-
-#### Client-Side Changes
-
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/auth-client.ts` | UNCHANGED | `authClient.requestPasswordReset()` and `authClient.resetPassword()` already available on the client |
-| `src/components/auth/forgot-password-form.tsx` | NEW | Email input form, calls `authClient.requestPasswordReset({ email, redirectTo })` |
-| `src/components/auth/reset-password-form.tsx` | NEW | New password input, reads `?token=` from URL, calls `authClient.resetPassword({ newPassword, token })` |
-| `src/app/(auth)/forgot-password/page.tsx` | NEW | Route page rendering ForgotPasswordForm |
-| `src/app/(auth)/reset-password/page.tsx` | NEW | Route page rendering ResetPasswordForm |
-| `src/components/auth/sign-in-form.tsx` | MODIFIED | Add "Forgot password?" link below password field |
-
-#### Data Flow: Password Reset
+## Target Architecture (v3.0)
 
 ```
-User clicks "Forgot password?" link on sign-in form
-    |
-    v
-/forgot-password page (new route under (auth) layout)
-    |
-    v
-ForgotPasswordForm: user enters email, submits
-    |
-    v
-authClient.requestPasswordReset({
-  email: "user@example.com",
-  redirectTo: "/reset-password"
-})
-    |
-    v
-POST /api/auth/[...all] (better-auth handler, already exists)
-    |
-    +--> Looks up user by email
-    +--> Generates token, stores in `verification` table
-    +--> Calls sendResetPassword callback
-    |       |
-    |       v
-    |   send-password-reset.ts --> Resend API --> Email with link
-    |   (link = BETTER_AUTH_URL/reset-password?token=xxx)
-    |
-    v
-User receives email, clicks link
-    |
-    v
-/reset-password?token=xxx page (new route under (auth) layout)
-    |
-    v
-ResetPasswordForm: reads token from searchParams, user enters new password
-    |
-    v
-authClient.resetPassword({ newPassword, token })
-    |
-    v
-POST /api/auth/[...all] (better-auth handler)
-    +--> Validates token from `verification` table
-    +--> Updates password hash in `account` table
-    +--> Deletes used verification token
-    |
-    v
-Success message --> user clicks "Sign in" --> /sign-in
++------------------------------------------------------------------------+
+|                         CLIENT (Browser)                                |
+|  +----------------+  +------------------+  +----------------+          |
+|  | Auth Forms     |  | Dashboard        |  | Settings       |          |
+|  | (unchanged)    |  | (new: filter     |  | (new: industry |          |
+|  |                |  |  panel, score    |  |  profile,      |          |
+|  |                |  |  badges, match   |  |  notification  |          |
+|  |                |  |  reasons, storm  |  |  prefs)        |          |
+|  |                |  |  alerts, cursor  |  |                |          |
+|  |                |  |  pagination)     |  |                |          |
+|  +-------+--------+  +-------+----------+  +-------+--------+          |
+|          |                    |                      |                  |
+|  +----------------+                                                    |
+|  | Onboarding     |                                                    |
+|  | (new: 6-step   |                                                    |
+|  |  wizard with   |                                                    |
+|  |  useReducer)   |                                                    |
+|  +-------+--------+                                                    |
+|          |                                                             |
++----------+--------------------+--------------------+-------------------+
+|                    NEXT.JS APP ROUTER (Server)                          |
+|  +----------------+  +----------------+  +-----------------------+     |
+|  | (auth)/        |  | (dashboard)/   |  | api/                  |     |
+|  | (onboarding)/  |  | layout.tsx     |  | auth/[...all]         |     |
+|  |                |  |                |  | cron/scrape            |     |
+|  |                |  |                |  | cron/enrichment        |     |
+|  |                |  |                |  | cron/digest            |     |
+|  |                |  |                |  | cron/weather           |     |
+|  |                |  |                |  | cron/dedup-maintenance  |     |
+|  |                |  |                |  | unsubscribe/[token]    |     |
+|  +-------+--------+  +-------+--------+  +----------+-----------+     |
+|          |                    |                       |                 |
++----------+--------------------+-----------------------+----------------+
+|                        LIB / ACTIONS LAYER                              |
+|  +----------+  +----------+  +------------+  +----------+             |
+|  | auth.ts  |  | leads/   |  | scraper/   |  | email/   |             |
+|  |          |  | queries  |  | pipeline   |  | digest   |             |
+|  |          |  | scoring  |  | dedup      |  | storm    |             |
+|  |          |  | enrich   |  | registry   |  | unsub    |             |
+|  |          |  | cursor   |  | industry-  |  | react-   |             |
+|  |          |  |          |  |   config   |  |   email  |             |
+|  |          |  |          |  | adapters/  |  |          |             |
+|  |          |  |          |  |   permits/ |  |          |             |
+|  |          |  |          |  |   weather/ |  |          |             |
+|  |          |  |          |  |   utility/ |  |          |             |
+|  +----+-----+  +----+-----+  +-----+------+  +----+-----+             |
+|       |             |              |               |                   |
++-------+-------------+--------------+---------------+-------------------+
+|                        DATA LAYER                                       |
+|  +---------------------------------------------------------------+    |
+|  |  Drizzle ORM (neon-http driver)                                |    |
+|  |  ~16 tables: (existing 10 modified) +                          |    |
+|  |    organization_profiles (renamed from company_profiles),      |    |
+|  |    lead_enrichments, scraper_runs,                             |    |
+|  |    lead_industries (junction), unsubscribe_tokens              |    |
+|  +-------------------------------+-------------------------------+    |
+|                                  |                                     |
++----------------------------------+-------------------------------------+
+|                    EXTERNAL SERVICES                                    |
+|  +--------+ +--------+ +--------+ +--------+ +--------+ +--------+   |
+|  |Neon PG | |Stripe  | |Resend  | |Google  | | NOAA   | | FEMA   |   |
+|  |        | |        | |        | |Maps API| | API    | | API    |   |
+|  +--------+ +--------+ +--------+ +--------+ +--------+ +--------+   |
++------------------------------------------------------------------------+
 ```
-
-**Tables involved (all pre-existing):**
-- `verification` -- stores reset token (managed by better-auth)
-- `account` -- password hash updated on reset (managed by better-auth)
-- `user` -- lookup by email (managed by better-auth)
-
-**Important: No new API routes needed.** better-auth's catch-all at `app/api/auth/[...all]/route.ts` already handles all auth endpoints. Password reset endpoints are served automatically when the config callback is added.
 
 ---
 
-### 3. Email Verification on Signup
+## Feature-by-Feature Integration Analysis
 
-**Status: MODIFIED (auth config, sign-up form, sign-in form) + NEW (1 page, 1 email sender, 1 email template)**
+### 1. Database Schema Evolution
 
-better-auth supports email verification natively via the `emailVerification` top-level config. The `user.emailVerified` column already exists (defaults to `false`). The `verification` table stores verification tokens.
+**Status: MODIFIED (5 existing tables) + NEW (3-4 new tables) + RENAMED (1 table)**
 
-#### Server-Side Changes
+#### Current State
 
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/auth.ts` | MODIFIED | Add `emailVerification` config block with `sendVerificationEmail` callback; add `requireEmailVerification: true` to `emailAndPassword` |
-| `src/lib/email/send-verification.ts` | NEW | Sends verification email via Resend |
-| `src/components/emails/verify-email.tsx` | NEW | React Email template for verification link |
+10 tables in `src/lib/db/schema/`:
+- `auth.ts`: user, session, account, verification, organization, member, invitation
+- `company-profiles.ts`: companyProfiles (organizationId, hqAddress, hqLat/Lng, serviceRadiusMiles, equipmentTypes[], onboardingCompleted)
+- `leads.ts`: leads (permit/bid/news/deep-web fields, sourceType, sourceId, lat/lng)
+- `lead-sources.ts`: leadSources (junction: lead <-> source)
+- `lead-statuses.ts`: leadStatuses (userId, leadId, organizationId, status)
+- `bookmarks.ts`: bookmarks (userId, leadId, organizationId)
+- `saved-searches.ts`: savedSearches (userId, organizationId, filter params)
+- `subscriptions.ts`: subscription (Better Auth Stripe plugin managed)
+- `pipeline-runs.ts`: pipelineRuns (run tracking)
 
-**Auth config additions (`src/lib/auth.ts`):**
+#### Migration Strategy
 
-```typescript
-export const auth = betterAuth({
-  // ... existing config ...
+**Critical constraint:** The app is live. All migrations must be additive or use safe rename patterns. Never drop columns with data.
 
-  // NEW: top-level emailVerification config
-  emailVerification: {
-    sendOnSignUp: true,
-    autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url, token }, request) => {
-      void sendVerificationEmail(user.email, user.name, url);
-    },
-  },
+**Step 1: Add `industry` to `organization` table (additive)**
 
-  emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: true,  // NEW: blocks sign-in for unverified users
-    sendResetPassword: async ({ user, url, token }, request) => {
-      void sendPasswordResetEmail(user.email, user.name, url);
-    },
-  },
-  // ... plugins unchanged ...
-});
-```
-
-#### Client-Side Changes
-
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/components/auth/sign-up-form.tsx` | MODIFIED | After signup, redirect to `/verify-email` instead of `/onboarding`; defer org creation to post-verification |
-| `src/components/auth/sign-in-form.tsx` | MODIFIED | Handle 403 error (unverified email) with message and "Resend verification" button |
-| `src/app/(auth)/verify-email/page.tsx` | NEW | "Check your email" interstitial with resend button |
-
-#### Data Flow: Email Verification
-
-```
-User submits sign-up form
-    |
-    v
-authClient.signUp.email({ email, password, name })
-    |
-    v
-POST /api/auth/[...all] (better-auth handler)
-    +--> Creates user row (emailVerified = false)
-    +--> sendOnSignUp = true triggers sendVerificationEmail callback
-    |       |
-    |       v
-    |   send-verification.ts --> Resend API --> Email with verify link
-    |
-    v
-Sign-up form redirects to /verify-email (interstitial page)
-    |
-    v
-User clicks link in email
-    |
-    v
-GET /api/auth/[...all] (better-auth verification endpoint)
-    +--> Validates token from `verification` table
-    +--> Sets user.emailVerified = true
-    +--> autoSignInAfterVerification = true --> creates session
-    +--> Deletes used verification token
-    |
-    v
-Redirect to / (root)
-    +--> User has no org yet --> dashboard layout redirects to /onboarding
-    +--> (Org creation + onboarding proceeds as before)
-```
-
-**Sign-up flow change:** Currently, the sign-up form creates the user AND the organization AND sets it active all in one step, then redirects to `/onboarding`. With email verification, the flow changes:
-
-1. Sign-up creates user only (emailVerified = false)
-2. User verifies email
-3. On first sign-in (post-verification), user has no org --> dashboard layout redirects to `/onboarding`
-4. Onboarding page handles org creation (move org creation logic from sign-up form to onboarding)
-
-This separation is cleaner because it avoids creating an org for a user who never verifies.
-
-**Tables involved (all pre-existing):**
-- `user` -- `emailVerified` column set to `true` on verification
-- `verification` -- stores verification token
-- No schema changes needed
-
-#### Critical Migration Requirement
-
-Enabling `requireEmailVerification: true` locks out ALL users with `emailVerified = false`. This includes every existing user (the admin account and any test accounts). Before deploying:
+The `organization` table is managed by Better Auth's organization plugin. It has a `metadata` text column that could store industry, but Better Auth controls this table. The safer approach: add an `industry` column directly to the organization table via a custom Drizzle migration.
 
 ```sql
--- One-time migration: mark all existing users as verified
-UPDATE "user" SET email_verified = true WHERE email_verified = false;
+-- Migration: Add industry to organization
+ALTER TABLE "organization" ADD COLUMN "industry" text;
+-- Backfill existing orgs as "heavy_equipment" (the only industry v2.1 supports)
+UPDATE "organization" SET "industry" = 'heavy_equipment' WHERE "industry" IS NULL;
+-- Then make NOT NULL
+ALTER TABLE "organization" ALTER COLUMN "industry" SET NOT NULL;
+ALTER TABLE "organization" ALTER COLUMN "industry" SET DEFAULT 'heavy_equipment';
 ```
 
-This MUST run before the deploy that enables `requireEmailVerification`.
+**Why modify `organization` instead of using metadata:** The industry field drives query-time scoring, scraper selection, and onboarding flow. It needs to be a first-class indexed column, not a JSON blob. Better Auth's `organization` table accepts custom columns via Drizzle -- the schema file just needs the column added and `drizzle-kit generate` handles the migration.
+
+Update schema file:
+
+| File | Change |
+|------|--------|
+| `src/lib/db/schema/auth.ts` | Add `industry` column to `organization` table |
+
+**Step 2: Rename `company_profiles` to `organization_profiles` (safe rename)**
+
+Drizzle Kit's `generate` command detects renames and asks whether the column/table was renamed or created fresh. Select "renamed" to get a safe `ALTER TABLE RENAME` migration.
+
+```sql
+ALTER TABLE "company_profiles" RENAME TO "organization_profiles";
+```
+
+Then add new columns to the renamed table:
+
+```sql
+-- New columns for multi-industry support
+ALTER TABLE "organization_profiles" ADD COLUMN "specializations" text[] DEFAULT '{}';
+ALTER TABLE "organization_profiles" ADD COLUMN "service_types" text[] DEFAULT '{}';
+ALTER TABLE "organization_profiles" ADD COLUMN "certifications" text[] DEFAULT '{}';
+ALTER TABLE "organization_profiles" ADD COLUMN "company_size" text;
+ALTER TABLE "organization_profiles" ADD COLUMN "website" text;
+ALTER TABLE "organization_profiles" ADD COLUMN "phone" text;
+```
+
+| File | Change |
+|------|--------|
+| `src/lib/db/schema/company-profiles.ts` | Rename to `organization-profiles.ts`, rename table, add columns |
+| `src/lib/db/schema/index.ts` | Update export |
+| `src/actions/onboarding.ts` | Update import from `companyProfiles` to `organizationProfiles` |
+| `src/actions/settings.ts` | Update import |
+| `src/lib/email/digest-generator.ts` | Update import |
+| `src/lib/leads/pipeline-status.ts` | No change (doesn't reference company_profiles) |
+| `src/types/index.ts` | Update `CompanyProfile` type alias |
+
+**Step 3: Expand `leads` table (additive)**
+
+```sql
+ALTER TABLE "leads" ADD COLUMN "content_hash" text;
+ALTER TABLE "leads" ADD COLUMN "raw_data" jsonb;
+ALTER TABLE "leads" ADD COLUMN "property_type" text;
+ALTER TABLE "leads" ADD COLUMN "building_sqft" integer;
+ALTER TABLE "leads" ADD COLUMN "year_built" integer;
+ALTER TABLE "leads" ADD COLUMN "owner_name" text;
+ALTER TABLE "leads" ADD COLUMN "owner_contact" text;
+-- Index for hash-based dedup
+CREATE UNIQUE INDEX "leads_content_hash_idx" ON "leads" ("content_hash") WHERE "content_hash" IS NOT NULL;
+```
+
+| File | Change |
+|------|--------|
+| `src/lib/db/schema/leads.ts` | Add new columns, add content_hash unique index |
+
+**Step 4: New tables**
+
+| New Table | File | Purpose |
+|-----------|------|---------|
+| `lead_enrichments` | `src/lib/db/schema/lead-enrichments.ts` | Enrichment data (geocode, property, weather, incentives) stored per-lead |
+| `lead_industries` | `src/lib/db/schema/lead-industries.ts` | Junction table: which industries a lead is relevant to |
+| `scraper_runs` | `src/lib/db/schema/scraper-runs.ts` | Per-adapter run tracking (replaces aggregate pipeline_runs approach) |
+| `unsubscribe_tokens` | `src/lib/db/schema/unsubscribe-tokens.ts` | CAN-SPAM compliant unsubscribe tokens |
+
+**Step 5: Modify `bookmarks` table (additive)**
+
+```sql
+ALTER TABLE "bookmarks" ADD COLUMN "notes" text;
+ALTER TABLE "bookmarks" ADD COLUMN "pipeline_status" text DEFAULT 'saved';
+ALTER TABLE "bookmarks" ADD COLUMN "updated_at" timestamp DEFAULT now();
+```
+
+| File | Change |
+|------|--------|
+| `src/lib/db/schema/bookmarks.ts` | Add notes, pipeline_status, updated_at columns |
+
+#### Migration Execution Order
+
+1. Add `industry` to `organization` + backfill (safe, additive)
+2. Rename `company_profiles` to `organization_profiles` + add columns (rename + additive)
+3. Add columns to `leads` (additive)
+4. Add columns to `bookmarks` (additive)
+5. Create new tables (additive, no FK dependencies on steps 1-4 other than leads.id)
+6. Update all import paths in application code
+7. Deploy -- all changes are backward compatible
+
+**Drizzle migration workflow:**
+```bash
+# 1. Update schema files
+# 2. Generate migration
+npx drizzle-kit generate
+# 3. Review generated SQL (critical for renames -- verify ALTER TABLE RENAME, not DROP+CREATE)
+# 4. Apply
+npx drizzle-kit migrate
+```
+
+**Files touched:**
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/db/schema/auth.ts` | MODIFIED | Add industry to organization |
+| `src/lib/db/schema/company-profiles.ts` | RENAMED + MODIFIED | -> organization-profiles.ts, add columns |
+| `src/lib/db/schema/leads.ts` | MODIFIED | Add content_hash, raw_data, property columns |
+| `src/lib/db/schema/bookmarks.ts` | MODIFIED | Add notes, pipeline_status, updated_at |
+| `src/lib/db/schema/lead-enrichments.ts` | NEW | Enrichment data table |
+| `src/lib/db/schema/lead-industries.ts` | NEW | Lead-industry junction |
+| `src/lib/db/schema/scraper-runs.ts` | NEW | Per-adapter run tracking |
+| `src/lib/db/schema/unsubscribe-tokens.ts` | NEW | Unsubscribe tokens |
+| `src/lib/db/schema/index.ts` | MODIFIED | Add new exports |
+| `src/types/index.ts` | MODIFIED | Update type aliases |
+| `src/actions/onboarding.ts` | MODIFIED | Update table reference |
+| `src/actions/settings.ts` | MODIFIED | Update table reference |
+| `src/lib/email/digest-generator.ts` | MODIFIED | Update table reference |
 
 ---
 
-### 4. Lead Feed Pagination (BUG 13)
+### 2. Multi-Step Onboarding Wizard (6 Steps, Industry-Conditional)
 
-**Status: MODIFIED (queries, dashboard page) + NEW (pagination component)**
+**Status: MODIFIED (wizard-shell.tsx, onboarding action, validator) + NEW (3 step components, useReducer state machine)**
 
-The `getFilteredLeads` function already accepts `limit` and `offset` parameters. The dashboard page currently calls it without explicit pagination (defaults to `limit: 50, offset: 0`). The fix wires up URL-based offset pagination.
+#### Current State
 
-#### Offset vs Cursor Pagination Decision
+The existing wizard in `src/components/onboarding/wizard-shell.tsx` uses:
+- `react-hook-form` with `zodResolver` for validation
+- `useState(0)` for step tracking
+- 3 steps: Location, Equipment, Radius
+- Single `onboardingSchema` Zod schema validates all fields at once
+- `completeOnboarding` server action writes to `companyProfiles`
 
-Use **offset pagination** because:
+The current pattern is sound for 3 steps but does not scale to 6 steps with industry-conditional rendering because:
+1. `useState(0)` cannot express conditional step flows (e.g., skip equipment step for industries that don't use equipment)
+2. The single Zod schema includes all fields -- industry-conditional fields require discriminated unions
+3. No way to track which steps are complete vs. skipped
 
-1. The dashboard is a server-rendered page navigated via URL searchParams. Cursor-based requires client state (or encoding cursor in URL), while offset maps naturally to `?page=2`.
-2. The existing `getFilteredLeads` already has `limit` and `offset` params -- zero query layer changes for offset.
-3. Lead data changes slowly (daily cron scrape). The "stale data between pages" problem of offset pagination is negligible when new leads arrive once per day.
-4. Page numbers give users a sense of scale ("page 3 of 12" vs. an endless "Load More" scroll).
-5. Cursor pagination would require scoring all leads globally to maintain stable cursor position, which defeats pagination's purpose.
+#### Integration: useReducer State Machine
 
-#### Changes
+Replace `useState(0)` with a `useReducer`-based state machine that manages step navigation, conditional step visibility, and form data accumulation.
 
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/leads/queries.ts` | NEW FUNCTION | Add `countFilteredLeads()` for total count |
-| `src/app/(dashboard)/dashboard/page.tsx` | MODIFIED | Parse `page` searchParam, compute offset, pass to query, render pagination |
-| `src/components/dashboard/pagination.tsx` | NEW | Pagination UI (prev/next + page numbers using `<Link>`) |
+**Why useReducer, not XState:** XState is powerful but adds a dependency and learning curve for what is ultimately a linear wizard with conditional skips. `useReducer` with TypeScript discriminated unions provides the same correctness guarantees without the dependency.
 
-#### Data Flow: Pagination
-
-```
-User visits /dashboard?page=2&radius=100&equipment=Excavators
-    |
-    v
-dashboard/page.tsx (server component)
-    |
-    +--> Parse page from searchParams (default: 1)
-    +--> const PAGE_SIZE = 50
-    +--> const offset = (page - 1) * PAGE_SIZE
-    |
-    v
-Two queries (can run in parallel with Promise.all):
-    +--> getFilteredLeads({ ..., limit: PAGE_SIZE, offset })
-    |       Returns enriched leads for this page
-    |
-    +--> countFilteredLeads({ same WHERE params })
-    |       Returns total count for pagination math
-    |
-    v
-Render lead cards + <Pagination
-  totalCount={count}
-  currentPage={page}
-  pageSize={PAGE_SIZE}
-/>
-    |
-    v
-Pagination component renders:
-    [< Prev]  [1]  [2]  [3]  ...  [12]  [Next >]
-    Each link preserves existing searchParams (filters) and updates page only
-    e.g., /dashboard?page=3&radius=100&equipment=Excavators
-```
-
-#### New Function: `countFilteredLeads`
+**State machine design:**
 
 ```typescript
-export async function countFilteredLeads(params: {
-  hqLat: number;
-  hqLng: number;
-  radiusMiles: number;
-  keyword?: string;
-  dateFrom?: Date;
-  dateTo?: Date;
-  minProjectSize?: number;
-  maxProjectSize?: number;
-}): Promise<number> {
-  const filterConditions = buildFilterConditions({ ... });
+// src/components/onboarding/wizard-state.ts
 
-  const result = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(leads)
-    .where(and(
-      isNotNull(leads.lat),
-      isNotNull(leads.lng),
-      sql`3959 * acos(...) <= ${params.radiusMiles}`, // Same Haversine
-      ...filterConditions
-    ));
+type Industry = "heavy_equipment" | "hvac" | "roofing" | "solar" | "electrical";
 
-  return Number(result[0].count);
+interface WizardState {
+  currentStep: number;
+  industry: Industry | null;
+  completedSteps: Set<number>;
+  formData: Partial<OnboardingFormData>;
+  visibleSteps: StepConfig[];
+}
+
+type WizardAction =
+  | { type: "SELECT_INDUSTRY"; industry: Industry }
+  | { type: "NEXT" }
+  | { type: "BACK" }
+  | { type: "SET_FIELD"; field: string; value: unknown }
+  | { type: "SUBMIT" };
+
+function wizardReducer(state: WizardState, action: WizardAction): WizardState {
+  switch (action.type) {
+    case "SELECT_INDUSTRY":
+      return {
+        ...state,
+        industry: action.industry,
+        visibleSteps: getStepsForIndustry(action.industry),
+        formData: { ...state.formData, industry: action.industry },
+      };
+    case "NEXT":
+      return {
+        ...state,
+        completedSteps: new Set([...state.completedSteps, state.currentStep]),
+        currentStep: state.currentStep + 1,
+      };
+    // ...
+  }
 }
 ```
 
-The count query reuses `buildFilterConditions()` (already exported) and the same Haversine WHERE clause, but skips enrichment entirely (no scoring, equipment inference, or timeline mapping). One extra DB round-trip (~10-50ms on Neon).
+**Step configuration by industry:**
 
-#### FETCH_MULTIPLIER Interaction
+| Step | All Industries | Heavy Equipment | HVAC | Roofing | Solar | Electrical |
+|------|---------------|-----------------|------|---------|-------|------------|
+| 1. Industry Selection | YES | - | - | - | - | - |
+| 2. Company Info | YES | - | - | - | - | - |
+| 3. Location + Radius | YES | - | - | - | - | - |
+| 4. Specializations | YES | Equipment types | HVAC systems | Roof types | Panel types | License types |
+| 5. Service Types | YES | Rental/Sales/Both | Install/Repair/Both | Repair/Replace/New | Residential/Commercial | Residential/Commercial |
+| 6. Confirmation | YES | - | - | - | - | - |
 
-The over-fetch strategy (`limit * 4` at SQL level, then slice after scoring) means offset applies to the raw SQL query before scoring. Page 2 fetches rows 201-400 (with FETCH_MULTIPLIER=4, PAGE_SIZE=50), scores them in memory, and returns the top 50. This means per-page results are "best leads from this SQL window" rather than globally ranked. This is an acceptable tradeoff for the intended UX (leads change daily, not in real-time).
+**Integration with react-hook-form:** Keep `react-hook-form` for field-level validation and error display. The `useReducer` manages step transitions and conditional visibility, while RHF manages field values and validation. They coexist cleanly because RHF manages form data while the reducer manages wizard navigation.
+
+**Integration pattern:**
+
+```typescript
+// wizard-shell.tsx (modified)
+const [state, dispatch] = useReducer(wizardReducer, initialState);
+const methods = useForm<OnboardingFormData>({
+  resolver: zodResolver(getSchemaForStep(state.currentStep, state.industry)),
+  // ...
+});
+
+// Step navigation uses dispatch, field validation uses methods.trigger()
+async function handleNext() {
+  const valid = await methods.trigger(state.visibleSteps[state.currentStep].fields);
+  if (valid) dispatch({ type: "NEXT" });
+}
+```
+
+**Server action change:** The `completeOnboarding` action currently writes to `companyProfiles`. After rename, it writes to `organizationProfiles` with the expanded fields. The industry field writes to `organization.industry`.
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/components/onboarding/wizard-shell.tsx` | MODIFIED | Replace useState with useReducer, add industry-conditional step logic |
+| `src/components/onboarding/wizard-state.ts` | NEW | Reducer, action types, step configuration |
+| `src/components/onboarding/step-industry.tsx` | NEW | Industry selection cards |
+| `src/components/onboarding/step-company.tsx` | NEW | Company name, website, phone |
+| `src/components/onboarding/step-specializations.tsx` | NEW | Industry-conditional specialization picker |
+| `src/components/onboarding/step-service-types.tsx` | NEW | Industry-conditional service type picker |
+| `src/components/onboarding/step-confirmation.tsx` | NEW | Review and confirm |
+| `src/components/onboarding/step-location.tsx` | MODIFIED | Minor: may add radius inline |
+| `src/components/onboarding/step-equipment.tsx` | MODIFIED | Becomes heavy_equipment specialization variant |
+| `src/components/onboarding/step-radius.tsx` | MODIFIED | May merge into location step |
+| `src/lib/validators/onboarding.ts` | MODIFIED | Add industry-conditional schemas using Zod discriminated unions |
+| `src/actions/onboarding.ts` | MODIFIED | Write to organization.industry + organizationProfiles with expanded fields |
+| `src/app/(onboarding)/onboarding/page.tsx` | MODIFIED | Minor layout adjustments |
+
+**Data flow change:**
+
+```
+BEFORE (3 steps, single industry):
+  Step 1 (Location) -> Step 2 (Equipment) -> Step 3 (Radius)
+      |
+      v
+  completeOnboarding() -> INSERT companyProfiles
+
+AFTER (6 steps, industry-conditional):
+  Step 1 (Industry) -> determines visible steps
+      |
+      v
+  Step 2 (Company Info) -> Step 3 (Location + Radius) ->
+  Step 4 (Specializations, industry-specific) ->
+  Step 5 (Service Types, industry-specific) ->
+  Step 6 (Confirmation)
+      |
+      v
+  completeOnboarding() -> UPDATE organization.industry + INSERT organizationProfiles
+```
 
 ---
 
-### 5. Bookmarks Batch Query (BUG 14)
+### 3. Scraper Registry Expansion (Industry-Mapped)
 
-**Status: MODIFIED (bookmarks page, queries)**
+**Status: MODIFIED (registry.ts, adapters/index.ts, pipeline.ts) + NEW (industry config, adapter factory, 12+ adapters)**
 
-The current bookmarks page has an N+1 query:
+#### Current State
+
+The registry is a flat `Map<string, ScraperAdapter>`:
+- `initializeAdapters()` registers all 8 adapters unconditionally
+- `getRegisteredAdapters()` returns all adapters
+- The cron job runs ALL adapters every time
+- No concept of industry -- all adapters are "construction" focused
+
+#### Target: Industry-Keyed Registry
 
 ```typescript
-// CURRENT: N+1 -- one getLeadById call per bookmark
-const bookmarkedIds = await getBookmarkedLeads();
-const leads = await Promise.all(
-  bookmarkedIds.map((id) => getLeadById(id, { ... }))
+// src/lib/scraper/industry-config.ts (NEW)
+
+export type Industry = "heavy_equipment" | "hvac" | "roofing" | "solar" | "electrical";
+
+export interface IndustryScraperConfig {
+  industry: Industry;
+  adapters: ScraperAdapter[];
+  /** Cron schedule for this industry's scrapers (e.g., "0 6 * * *") */
+  schedule: string;
+}
+
+// Maps industry to its adapter set
+export const INDUSTRY_SCRAPER_MAP: Record<Industry, () => ScraperAdapter[]> = {
+  heavy_equipment: () => [
+    new AustinPermitsAdapter(),
+    new DallasPermitsAdapter(),
+    new AtlantaPermitsAdapter(),
+    new SamGovBidsAdapter(),
+    new EnrNewsAdapter(),
+    new ConstructionDiveNewsAdapter(),
+    new PrNewswireNewsAdapter(),
+    new GoogleDorkingAdapter(),
+  ],
+  hvac: () => [
+    // Permit adapters (shared with construction, filtered by permit type)
+    new PermitAdapterFactory("hvac").create(),
+    new CodeViolationsAdapter("hvac"),
+    new EnergyBenchmarkAdapter(),
+  ],
+  roofing: () => [
+    new PermitAdapterFactory("roofing").create(),
+    new NoaaStormAdapter(),
+    new FemaDisasterAdapter(),
+    new CodeViolationsAdapter("roofing"),
+  ],
+  solar: () => [
+    new PermitAdapterFactory("solar").create(),
+    new DsireIncentivesAdapter(),
+    new NeviChargingAdapter(),
+    new UtilityRateAdapter(),
+  ],
+  electrical: () => [
+    new PermitAdapterFactory("electrical").create(),
+    new CodeViolationsAdapter("electrical"),
+  ],
+};
+```
+
+#### Permit Scraper Factory
+
+The existing permit adapters (Austin, Dallas, Atlanta) scrape ALL permits. For multi-industry, permits need to be filtered by type at the adapter level.
+
+**Strategy: Filter, don't duplicate.** Keep the existing Socrata API adapters but add a `permitTypeFilter` parameter. Each adapter instance filters results by permit type keywords.
+
+```typescript
+// src/lib/scraper/adapters/permit-factory.ts (NEW)
+
+export class PermitAdapterFactory {
+  constructor(private industry: Industry) {}
+
+  create(): ScraperAdapter[] {
+    const filters = PERMIT_TYPE_FILTERS[this.industry];
+    return PERMIT_CITIES.map(city =>
+      new FilteredPermitAdapter(city, filters)
+    );
+  }
+}
+
+const PERMIT_TYPE_FILTERS: Record<Industry, string[]> = {
+  heavy_equipment: ["commercial", "industrial", "demolition", "new construction"],
+  hvac: ["mechanical", "hvac", "heating", "cooling", "furnace"],
+  roofing: ["roofing", "roof", "re-roof", "shingle"],
+  solar: ["solar", "photovoltaic", "pv", "electrical solar"],
+  electrical: ["electrical", "wiring", "panel upgrade", "service upgrade"],
+};
+```
+
+The `FilteredPermitAdapter` extends the base Socrata pattern but applies a `sourceType` filter in the `scrape()` method, either via Socrata `$where` clause (if the dataset supports it) or via post-fetch filtering.
+
+#### Registry Modification
+
+```typescript
+// src/lib/scraper/registry.ts (MODIFIED)
+
+// Add industry dimension
+const adaptersByIndustry = new Map<Industry, Map<string, ScraperAdapter>>();
+
+export function registerAdaptersForIndustry(
+  industry: Industry,
+  adapters: ScraperAdapter[]
+): void {
+  const industryMap = new Map<string, ScraperAdapter>();
+  for (const adapter of adapters) {
+    industryMap.set(adapter.sourceId, adapter);
+  }
+  adaptersByIndustry.set(industry, industryMap);
+}
+
+export function getAdaptersForIndustry(industry: Industry): ScraperAdapter[] {
+  return Array.from(adaptersByIndustry.get(industry)?.values() ?? []);
+}
+
+// Backward compat: get ALL adapters (for global cron)
+export function getAllAdapters(): ScraperAdapter[] {
+  const all: ScraperAdapter[] = [];
+  for (const industryMap of adaptersByIndustry.values()) {
+    all.push(...industryMap.values());
+  }
+  return all;
+}
+```
+
+#### ScraperAdapter Interface Extension
+
+The existing `ScraperAdapter` interface needs an industry tag:
+
+```typescript
+export interface ScraperAdapter {
+  readonly sourceId: string;
+  readonly sourceName: string;
+  readonly sourceType: SourceType;
+  readonly jurisdiction?: string;
+  readonly industries: Industry[];  // NEW: which industries this adapter serves
+  scrape(): Promise<RawLeadData[]>;
+}
+```
+
+Existing adapters get `industries: ["heavy_equipment"]` added. Cross-industry adapters (like permit scrapers that serve multiple industries) list all applicable industries.
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/scraper/registry.ts` | MODIFIED | Add industry dimension |
+| `src/lib/scraper/adapters/base-adapter.ts` | MODIFIED | Add `industries` to ScraperAdapter interface |
+| `src/lib/scraper/industry-config.ts` | NEW | Industry-to-adapter mapping |
+| `src/lib/scraper/adapters/permit-factory.ts` | NEW | Parameterized permit adapter factory |
+| `src/lib/scraper/adapters/index.ts` | MODIFIED | Use industry config for initialization |
+| `src/lib/scraper/adapters/austin-permits.ts` | MODIFIED | Add `industries` field, accept optional type filter |
+| `src/lib/scraper/adapters/dallas-permits.ts` | MODIFIED | Same |
+| `src/lib/scraper/adapters/atlanta-permits.ts` | MODIFIED | Same |
+| `src/lib/scraper/adapters/sam-gov-bids.ts` | MODIFIED | Add `industries` field |
+| `src/lib/scraper/adapters/noaa-storms.ts` | NEW | NOAA weather alerts adapter |
+| `src/lib/scraper/adapters/fema-disaster.ts` | NEW | FEMA disaster declarations |
+| `src/lib/scraper/adapters/code-violations.ts` | NEW | Parameterized code violation adapter |
+| `src/lib/scraper/adapters/energy-benchmark.ts` | NEW | Energy benchmarking data |
+| `src/lib/scraper/adapters/dsire-incentives.ts` | NEW | DSIRE solar incentives |
+| `src/lib/scraper/adapters/nevi-charging.ts` | NEW | NEVI EV charging stations |
+| `src/lib/scraper/adapters/utility-rates.ts` | NEW | Utility rate data |
+| `src/lib/scraper/pipeline.ts` | MODIFIED | Accept industry parameter, pass to registry |
+
+---
+
+### 4. Query-Time Scoring Engine (5 Dimensions)
+
+**Status: MODIFIED (scoring.ts, queries.ts, types.ts) + NEW (score engine, match reasons)**
+
+#### Current State
+
+`scoreLead()` in `src/lib/leads/scoring.ts` computes a 0-100 score with 3 factors:
+- Equipment match: 50 points max (ratio of inferred vs. dealer equipment)
+- Geographic proximity: 30 points max (linear decay)
+- Project value: 20 points max (logarithmic scale)
+
+Called at query time in `getFilteredLeads()` and `getFilteredLeadsWithCount()` -- already computed per subscriber. This is the correct architecture for multi-industry scoring.
+
+#### Target: 5-Dimension Score
+
+| Dimension | Weight | Description | Computation |
+|-----------|--------|-------------|-------------|
+| Distance | 25 pts | Geographic proximity to HQ | Same Haversine as now, linear decay |
+| Relevance | 30 pts | Industry-specific keyword/type match | Replaces equipment match for non-heavy-equipment |
+| Value | 15 pts | Estimated project value | Same logarithmic scale |
+| Freshness | 15 pts | How recently the lead was discovered | Exponential decay from scrapedAt |
+| Urgency | 15 pts | Time-sensitive signals (deadlines, storms, expiring incentives) | Deadline proximity, weather event recency |
+
+**Integration with existing code:**
+
+```typescript
+// src/lib/leads/scoring.ts (MODIFIED)
+
+export interface ScoringInput {
+  // Existing
+  distanceMiles: number;
+  serviceRadiusMiles: number;
+  estimatedValue: number | null;
+  // Modified
+  relevanceFactors: RelevanceInput;  // replaces inferredEquipment + dealerEquipment
+  // New
+  scrapedAt: Date;
+  deadlineDate: Date | null;
+  urgencySignals: UrgencySignal[];
+}
+
+export interface RelevanceInput {
+  industry: Industry;
+  /** For heavy_equipment: equipment match ratio */
+  equipmentMatch?: { inferred: string[]; dealer: string[] };
+  /** For all industries: specialization overlap */
+  specializationMatch?: { leadSpecs: string[]; profileSpecs: string[] };
+  /** Keyword relevance score from text analysis */
+  keywordRelevance?: number;
+}
+
+export interface UrgencySignal {
+  type: "deadline" | "storm" | "incentive_expiry" | "permit_expiry";
+  date: Date;
+  weight: number;  // 0-1 multiplier
+}
+```
+
+The `scoreLead()` function signature changes but the call sites remain the same -- `getFilteredLeads()` and `getFilteredLeadsWithCount()` already call `scoreLead()` inline during enrichment. The change is in what data is passed and how the score is computed.
+
+**Match reasons:** Add a `matchReasons` field to `EnrichedLead` so the UI can show WHY a lead scored highly:
+
+```typescript
+export interface MatchReason {
+  dimension: "distance" | "relevance" | "value" | "freshness" | "urgency";
+  points: number;
+  label: string;  // e.g., "12 miles from HQ", "Matches 3 of 4 specializations"
+}
+```
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/leads/scoring.ts` | MODIFIED | 5-dimension scoring, match reasons |
+| `src/lib/leads/types.ts` | MODIFIED | Add ScoringInput changes, MatchReason, UrgencySignal |
+| `src/lib/leads/queries.ts` | MODIFIED | Pass new scoring inputs (industry, urgency signals) |
+| `src/lib/leads/equipment-inference.ts` | MODIFIED | Generalize to industry-specific relevance inference |
+| `src/lib/leads/relevance-inference.ts` | NEW | Industry-specific relevance rules (extends equipment-inference pattern) |
+
+**Data flow change:**
+
+```
+BEFORE:
+  getFilteredLeads() -> inferEquipmentNeeds() -> scoreLead({ inferredEquipment, dealerEquipment, distance, ... })
+
+AFTER:
+  getFilteredLeads() -> inferRelevance(industry, lead) -> scoreLead({ relevanceFactors, distance, freshness, urgency, ... })
+      |
+      v
+  Returns EnrichedLead with score + matchReasons[]
+```
+
+**Backward compatibility:** Heavy equipment industry retains the equipment match as the primary relevance factor. The `inferEquipmentNeeds()` function is not removed -- it becomes the heavy_equipment implementation of relevance inference. The new `inferRelevance()` function dispatches to industry-specific inference based on the organization's industry.
+
+---
+
+### 5. Cursor-Based Pagination
+
+**Status: MODIFIED (queries.ts, dashboard page) + MODIFIED (pagination component)**
+
+#### Current State
+
+`getFilteredLeadsWithCount()` fetches ALL within-radius leads, enriches them all in memory, sorts by score, then slices a page. This is the pagination approach from Phase 10.
+
+#### Why Cursor Over Offset for v3.0
+
+The v2.1 REQUIREMENTS.md explicitly lists "Cursor-based pagination" as out of scope with rationale "Offset pagination sufficient for current data volumes." The v3.0 PROJECT.md reverses this decision because:
+
+1. Multi-industry = significantly more leads (5x industries = potentially 5x lead volume)
+2. Score-based sorting + offset = inconsistent pages (lead scores change per subscriber, offset-based pages shift)
+3. Cursor-based is more natural for infinite scroll UX patterns
+
+#### Cursor Design
+
+Use a **composite cursor** of `(score, scrapedAt, id)` to ensure stable sort order:
+
+```typescript
+export interface LeadCursor {
+  score: number;
+  scrapedAt: string;  // ISO 8601
+  id: string;         // UUID for tiebreaking
+}
+
+// Encode/decode for URL transport
+export function encodeCursor(cursor: LeadCursor): string {
+  return btoa(JSON.stringify(cursor));
+}
+
+export function decodeCursor(encoded: string): LeadCursor {
+  return JSON.parse(atob(encoded));
+}
+```
+
+**The problem with cursor + in-memory scoring:** The current architecture computes scores in memory after the SQL query. Cursor pagination requires the sort column to exist at the SQL level. This creates a fundamental tension.
+
+**Solution: Two-pass approach.**
+
+1. SQL query fetches leads within radius (same Haversine WHERE), ordered by `scrapedAt DESC, id DESC` (stable, indexable)
+2. In-memory enrichment adds scores
+3. Re-sort by `(score DESC, scrapedAt DESC, id DESC)`
+4. Return page + cursor pointing to last item
+
+For "next page" requests:
+1. Decode cursor to get `(lastScore, lastScrapedAt, lastId)`
+2. SQL WHERE adds: `scrapedAt <= cursor.scrapedAt` (coarse filter to avoid scanning full table)
+3. In-memory: skip all leads until past the cursor position in the `(score, scrapedAt, id)` sort order
+4. Return next pageSize leads
+
+**This is a "keyset-ish" approach** -- the SQL uses a time-based cursor for efficiency (leveraging the `leads_scraped_at_idx` index), and the in-memory enrichment step handles the score-based ordering. It is NOT a pure keyset cursor (which would require the sort column in SQL), but it avoids the offset problem of shifting pages.
+
+**Trade-off acknowledged:** This approach still loads more leads than the page size from SQL (similar to FETCH_MULTIPLIER). For v3.0 volumes (estimated <50k leads per industry per radius), this is acceptable. If volumes grow beyond 100k, the scoring must move to SQL (materialized scores or a scoring column updated on profile change).
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/leads/queries.ts` | MODIFIED | Replace offset param with cursor, add cursor encoding/decoding |
+| `src/lib/leads/cursor.ts` | NEW | Cursor types, encode/decode utilities |
+| `src/app/(dashboard)/dashboard/page.tsx` | MODIFIED | Parse cursor from searchParams instead of page number |
+| `src/components/dashboard/pagination.tsx` | MODIFIED | Change from page numbers to "Load More" / prev/next with cursor |
+
+---
+
+### 6. Vercel Cron Architecture (10 Jobs)
+
+**Status: MODIFIED (vercel.json, existing cron route) + NEW (5+ cron route handlers)**
+
+#### Current State
+
+Single cron job:
+```json
+{
+  "crons": [{ "path": "/api/cron/scrape", "schedule": "0 6 * * *" }]
+}
+```
+
+`maxDuration = 300` (5 minutes). Runs all 8 adapters sequentially, then digest, all in one function.
+
+#### Vercel Cron Limits
+
+- **Pro plan:** 100 crons per project, minimum interval 1 minute, per-minute scheduling precision
+- **Hobby plan:** 100 crons per project, limited to once-per-day execution
+- **Function duration:** Up to 300s without Fluid Compute, up to 800s with Fluid Compute (Pro)
+- **Each cron invokes a Vercel Function** -- subject to standard function limits
+
+#### Target: 10 Cron Jobs
+
+| # | Path | Schedule | Duration Budget | Purpose |
+|---|------|----------|----------------|---------|
+| 1 | `/api/cron/scrape/heavy-equipment` | `0 6 * * *` | 300s | Heavy equipment scrapers |
+| 2 | `/api/cron/scrape/hvac` | `0 6 * * *` | 300s | HVAC scrapers |
+| 3 | `/api/cron/scrape/roofing` | `0 6 * * *` | 300s | Roofing scrapers (non-weather) |
+| 4 | `/api/cron/scrape/solar` | `0 6 * * *` | 300s | Solar scrapers |
+| 5 | `/api/cron/scrape/electrical` | `0 6 * * *` | 300s | Electrical scrapers |
+| 6 | `/api/cron/weather` | `0 */2 * * *` | 60s | NOAA storm alerts (every 2 hours) |
+| 7 | `/api/cron/enrichment` | `30 6 * * *` | 300s | Lead enrichment pipeline (after scrape) |
+| 8 | `/api/cron/digest` | `0 7 * * *` | 120s | Email digests (after enrichment) |
+| 9 | `/api/cron/dedup-maintenance` | `0 3 * * 0` | 300s | Weekly dedup maintenance |
+| 10 | `/api/cron/storm-alerts` | `*/30 * * * *` | 60s | Storm alert emails (every 30 min) |
+
+**Parallel execution:** Vercel crons that fire at the same time (e.g., all 5 industry scrapers at 6 AM) execute as independent function invocations. They share no state and cannot conflict. The only concern is database contention -- 5 concurrent scraper functions all inserting leads simultaneously. Neon handles this fine with row-level locking on the unique indexes.
+
+**Architecture: Shared handler with industry parameter.**
+
+Rather than 5 duplicate route files, use a single parameterized route:
+
+```
+src/app/api/cron/scrape/[industry]/route.ts
+```
+
+```typescript
+// src/app/api/cron/scrape/[industry]/route.ts
+
+export const maxDuration = 300;
+
+const VALID_INDUSTRIES: Industry[] = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ industry: string }> }
+) {
+  const { industry } = await params;
+  if (!VALID_INDUSTRIES.includes(industry as Industry)) {
+    return new Response("Invalid industry", { status: 400 });
+  }
+  // Auth check (same CRON_SECRET pattern)
+  // Initialize adapters for this industry only
+  // Run pipeline
+  // Record results in scraper_runs
+}
+```
+
+**vercel.json:**
+```json
+{
+  "crons": [
+    { "path": "/api/cron/scrape/heavy_equipment", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/scrape/hvac", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/scrape/roofing", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/scrape/solar", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/scrape/electrical", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/weather", "schedule": "0 */2 * * *" },
+    { "path": "/api/cron/enrichment", "schedule": "30 6 * * *" },
+    { "path": "/api/cron/digest", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/dedup-maintenance", "schedule": "0 3 * * 0" },
+    { "path": "/api/cron/storm-alerts", "schedule": "*/30 * * * *" }
+  ]
+}
+```
+
+**Decoupling scrape from digest:** Currently the cron/scrape route fires `generateDigests()` after scraping completes. This coupling must be broken -- the digest cron runs independently at 7 AM (after all scrapers have completed at ~6:05 AM).
+
+| File | Status | Description |
+|------|--------|-------------|
+| `vercel.json` | MODIFIED | 10 cron entries |
+| `src/app/api/cron/scrape/route.ts` | REMOVED | Replaced by industry-specific route |
+| `src/app/api/cron/scrape/[industry]/route.ts` | NEW | Parameterized industry scraper |
+| `src/app/api/cron/weather/route.ts` | NEW | NOAA weather polling |
+| `src/app/api/cron/enrichment/route.ts` | NEW | Lead enrichment pipeline |
+| `src/app/api/cron/digest/route.ts` | NEW | Email digest generation |
+| `src/app/api/cron/dedup-maintenance/route.ts` | NEW | Weekly dedup cleanup |
+| `src/app/api/cron/storm-alerts/route.ts` | NEW | Storm alert email dispatch |
+
+---
+
+### 7. Hash-Based Deduplication
+
+**Status: MODIFIED (dedup.ts, pipeline.ts, base-adapter.ts)**
+
+#### Current State
+
+Two dedup mechanisms:
+1. **Insert-time:** Permit records use `onConflictDoUpdate` on `(sourceId, permitNumber)`. Non-permit records use `onConflictDoNothing` on `(sourceId, sourceUrl)`.
+2. **Post-pipeline:** `deduplicateNewLeads()` uses geographic proximity (Haversine <0.1 miles) AND text similarity (Dice coefficient >0.7) to find cross-source duplicates.
+
+The geographic+text approach is fragile: different text descriptions of the same project at the same address may not match; different geocoding precision creates false negatives.
+
+#### Target: Content Hash
+
+Generate a deterministic hash from normalized lead identity fields. Two leads with the same hash are the same real-world project.
+
+**Hash computation:**
+
+```typescript
+// src/lib/scraper/content-hash.ts (NEW)
+
+import { createHash } from "crypto";
+
+export function computeContentHash(lead: {
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  title?: string | null;
+  permitNumber?: string | null;
+  sourceType: string;
+}): string {
+  const normalized = [
+    // Geographic identity: round to ~0.01 mile precision
+    lead.lat != null ? lead.lat.toFixed(3) : "",
+    lead.lng != null ? lead.lng.toFixed(3) : "",
+    // Textual identity: normalized address or title
+    normalizeForHash(lead.address || lead.title || ""),
+    // Permit identity: exact permit number when available
+    lead.permitNumber || "",
+  ].join("|");
+
+  return createHash("sha256").update(normalized).digest("hex").slice(0, 32);
+}
+
+function normalizeForHash(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+```
+
+**Integration with pipeline:**
+
+```typescript
+// In pipeline.ts processRecords():
+const contentHash = computeContentHash(record);
+const values = { ...existingValues, contentHash };
+
+// Single upsert path for ALL source types:
+const result = await db
+  .insert(leads)
+  .values(values)
+  .onConflictDoUpdate({
+    target: [leads.contentHash],  // Uses the new unique index
+    set: { /* update fields */ },
+  })
+  .returning({ id: leads.id });
+```
+
+**This simplifies the pipeline dramatically.** The current `processRecords()` function has 3 branches (permit with permitNumber, non-permit with sourceUrl, non-permit without sourceUrl). Hash-based dedup collapses these to 1 branch.
+
+**Migration path:** The content hash must be computed for all existing leads. A one-time migration script:
+
+```sql
+-- Run after adding content_hash column but before enabling unique constraint
+-- This must run as application code (not SQL) because the hash function is in TypeScript
+```
+
+The migration script reads all existing leads, computes their content hash, and updates them. If two existing leads hash to the same value, they need manual dedup resolution (merge the older into the newer, transfer lead_sources).
+
+**The geographic+text dedup (`deduplicateNewLeads()`) becomes a FALLBACK** for leads that fail to produce a good content hash (e.g., no address, no coordinates, no title). It is not removed but demoted to a backup.
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/scraper/content-hash.ts` | NEW | Hash computation |
+| `src/lib/scraper/pipeline.ts` | MODIFIED | Compute hash, use hash-based upsert |
+| `src/lib/scraper/dedup.ts` | MODIFIED | Demoted to fallback, only runs on hashless leads |
+| `src/lib/db/schema/leads.ts` | MODIFIED | content_hash column + unique index (done in step 1) |
+
+---
+
+### 8. Lead Enrichment Pipeline
+
+**Status: NEW (enrichment module, cron handler, schema)**
+
+#### Current State
+
+Geocoding is the only "enrichment" and it happens inline during the scrape pipeline (`geocodeBatch()` in `pipeline.ts`). This creates two problems:
+1. Geocoding failures block lead storage (the lead is stored without coordinates)
+2. Adding more enrichment steps (property data, weather, incentives) would make the scrape pipeline too slow
+
+#### Target: Separate Enrichment Pipeline
+
+Enrichment runs AFTER scraping, on a separate cron schedule (`30 6 * * *`). It processes leads that lack enrichment data.
+
+**Architecture:**
+
+```
+Scrape Pipeline (6:00 AM)           Enrichment Pipeline (6:30 AM)
+        |                                    |
+        v                                    v
+  Insert raw leads                   SELECT leads WHERE
+  (with content_hash,                  enrichment_status = 'pending'
+   minimal geocoding)                    |
+        |                                v
+        v                           For each lead:
+  leads table                         1. Geocode (if lat/lng missing)
+  (enrichment_status                  2. Property lookup
+   = 'pending')                       3. Weather overlay
+                                      4. Incentive matching
+                                         |
+                                         v
+                                    INSERT lead_enrichments
+                                    UPDATE leads SET
+                                      enrichment_status = 'complete'
+```
+
+**Enrichment data model:**
+
+```typescript
+// src/lib/db/schema/lead-enrichments.ts (NEW)
+
+export const leadEnrichments = pgTable("lead_enrichments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }).unique(),
+  // Geocoding
+  geocodeSource: text("geocode_source"),  // "google", "census", "fallback"
+  geocodeConfidence: real("geocode_confidence"),
+  // Property data
+  propertyType: text("property_type"),
+  buildingSqft: integer("building_sqft"),
+  yearBuilt: integer("year_built"),
+  ownerName: text("owner_name"),
+  ownerContact: text("owner_contact"),
+  // Weather
+  activeStormAlerts: text("active_storm_alerts").array(),
+  lastStormDate: timestamp("last_storm_date"),
+  // Incentives
+  applicableIncentives: text("applicable_incentives").array(),
+  incentiveTotalValue: integer("incentive_total_value"),
+  // Metadata
+  enrichedAt: timestamp("enriched_at").defaultNow().notNull(),
+  enrichmentVersion: integer("enrichment_version").default(1),
+});
+```
+
+**Integration with lead queries:** The enrichment data is LEFT JOINed at query time, not merged into the leads table. This keeps the leads table clean and allows re-enrichment without data loss.
+
+```typescript
+// In queries.ts:
+const rows = await db
+  .select({
+    ...getTableColumns(leads),
+    enrichment: getTableColumns(leadEnrichments),
+    distance: distanceExpr,
+  })
+  .from(leads)
+  .leftJoin(leadEnrichments, eq(leadEnrichments.leadId, leads.id))
+  // ... existing WHERE, JOINs, etc.
+```
+
+**Geocoding migration:** Move geocoding from `pipeline.ts` into the enrichment pipeline. During migration, the pipeline continues to geocode inline (for backward compatibility) until the enrichment pipeline is stable.
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/db/schema/lead-enrichments.ts` | NEW | Enrichment data table |
+| `src/lib/enrichment/pipeline.ts` | NEW | Enrichment orchestrator |
+| `src/lib/enrichment/geocode.ts` | NEW | Enhanced geocoding (move from scraper) |
+| `src/lib/enrichment/property.ts` | NEW | Property data lookup |
+| `src/lib/enrichment/weather.ts` | NEW | Weather overlay |
+| `src/lib/enrichment/incentives.ts` | NEW | Incentive matching |
+| `src/app/api/cron/enrichment/route.ts` | NEW | Cron handler |
+| `src/lib/leads/queries.ts` | MODIFIED | LEFT JOIN enrichment data |
+| `src/lib/scraper/pipeline.ts` | MODIFIED | Remove geocoding (after enrichment pipeline is stable) |
+
+---
+
+### 9. CRM-Lite Bookmarks
+
+**Status: MODIFIED (bookmarks schema, bookmark action, bookmarks page)**
+
+#### Current State
+
+Bookmarks are a simple toggle: insert or delete a row. No notes, no pipeline status.
+
+- `bookmarks` table: id, leadId, userId, organizationId, createdAt
+- `toggleBookmark()` action: check exists -> delete (if yes) -> insert (if no)
+- Bookmarks page: lists bookmarked leads with same enriched data as feed
+
+#### Target: Bookmarks with Notes + Pipeline Status
+
+**Schema change (from step 1):** `notes` (text), `pipeline_status` (text, default 'saved'), `updated_at` (timestamp)
+
+**Pipeline statuses:** `saved` -> `qualifying` -> `contacted` -> `proposal` -> `won` -> `lost`
+
+This replaces the per-lead `leadStatuses` table for bookmarked leads. The key difference: `leadStatuses` tracks viewing/contact state for ALL leads (including non-bookmarked), while `bookmarks.pipeline_status` tracks deal progress for SAVED leads. They coexist.
+
+**Action changes:**
+
+```typescript
+// src/actions/bookmarks.ts (MODIFIED)
+
+// Existing: toggleBookmark(leadId) -- unchanged for basic toggle
+
+// NEW: update bookmark metadata
+export async function updateBookmarkNotes(
+  leadId: string,
+  notes: string
+): Promise<void> { ... }
+
+export async function updateBookmarkPipelineStatus(
+  leadId: string,
+  status: PipelineStatus
+): Promise<void> { ... }
+
+// MODIFIED: getBookmarkedLeads() returns full bookmark data
+export async function getBookmarkedLeadsWithMetadata(): Promise<BookmarkWithLead[]> {
+  // JOIN bookmarks with leads, include notes and pipeline_status
+}
+```
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/db/schema/bookmarks.ts` | MODIFIED | Add notes, pipeline_status, updated_at (done in step 1) |
+| `src/actions/bookmarks.ts` | MODIFIED | Add updateBookmarkNotes, updateBookmarkPipelineStatus, getBookmarkedLeadsWithMetadata |
+| `src/app/(dashboard)/dashboard/bookmarks/page.tsx` | MODIFIED | Show notes, pipeline status, edit UI |
+| `src/components/dashboard/bookmark-card.tsx` | NEW or MODIFIED | Notes editor, pipeline status dropdown |
+
+---
+
+### 10. Email System Expansion
+
+**Status: MODIFIED (email senders, digest generator) + NEW (React Email templates, storm alert, unsubscribe)**
+
+#### Current State
+
+- 2 email templates: `daily-digest.tsx`, `password-reset.tsx` (React components rendered by Resend)
+- `send-digest.ts` sends via Resend SDK
+- `digest-generator.ts` generates per-user digests
+- No unsubscribe mechanism (CAN-SPAM violation risk)
+
+#### Target: React Email Templates + Storm Alerts + Unsubscribe
+
+**React Email integration:** Already in use. The existing templates use React components rendered by Resend's `react` option. Expand this pattern to all email types.
+
+**New templates:**
+
+| Template | File | Trigger |
+|----------|------|---------|
+| Daily Digest (enhanced) | `src/components/emails/daily-digest.tsx` | MODIFIED |
+| Storm Alert | `src/components/emails/storm-alert.tsx` | NEW |
+| Welcome Email | `src/components/emails/welcome.tsx` | NEW |
+| Trial Expiring (3-day) | `src/components/emails/trial-expiring.tsx` | NEW |
+| Trial Expired | `src/components/emails/trial-expired.tsx` | NEW |
+| Password Reset | `src/components/emails/password-reset.tsx` | EXISTING |
+
+**All templates must include:**
+1. Unsubscribe link (CAN-SPAM)
+2. Physical mailing address (CAN-SPAM)
+3. Company branding
+
+**Unsubscribe mechanism:**
+
+```typescript
+// src/lib/db/schema/unsubscribe-tokens.ts (NEW)
+export const unsubscribeTokens = pgTable("unsubscribe_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  organizationId: text("organization_id").notNull(),
+  token: text("token").notNull().unique(),
+  emailType: text("email_type").notNull(),  // "digest", "storm", "all"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+```
+
+**Unsubscribe flow:**
+
+```
+Email footer contains: "Unsubscribe: https://app.leadforge.com/unsubscribe/{token}"
+    |
+    v
+GET /unsubscribe/[token] -- server component page
+    |
+    v
+Look up token -> show "Unsubscribed from [type] emails" page
+    |
+    v
+Mark user's preference in DB (or delete saved search digest flag)
+```
+
+**Storm alert architecture:**
+
+```
+NOAA cron (every 2h) polls weather API
+    |
+    v
+New severe weather event detected in a region
+    |
+    v
+Query: which organizations have service areas overlapping the storm region?
+    |
+    v
+For each affected org:
+  - Query leads in storm-affected area
+  - Generate storm alert email with affected leads
+  - Send via Resend
+    |
+    v
+Storm alert cron (every 30 min) checks for pending alerts to send
+```
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/components/emails/daily-digest.tsx` | MODIFIED | Add unsubscribe link, branding |
+| `src/components/emails/storm-alert.tsx` | NEW | Storm alert template |
+| `src/components/emails/welcome.tsx` | NEW | Welcome email |
+| `src/components/emails/trial-expiring.tsx` | NEW | Trial expiry warning |
+| `src/lib/email/send-digest.ts` | MODIFIED | Include unsubscribe token |
+| `src/lib/email/send-storm-alert.ts` | NEW | Storm alert sender |
+| `src/lib/email/unsubscribe.ts` | NEW | Token generation and validation |
+| `src/lib/db/schema/unsubscribe-tokens.ts` | NEW | Unsubscribe tokens table |
+| `src/app/unsubscribe/[token]/page.tsx` | NEW | Unsubscribe landing page |
+| `src/app/api/cron/storm-alerts/route.ts` | NEW | Storm alert dispatch cron |
+| `src/lib/email/digest-generator.ts` | MODIFIED | Check unsubscribe status before sending |
+
+---
+
+### 11. Cross-Industry Lead Relevance
+
+**Status: NEW (junction table, query modifications)**
+
+#### Current State
+
+Leads have no industry association. All leads are implicitly "construction/heavy equipment." The `sourceType` field (permit/bid/news/deep-web) is source-specific, not industry-specific.
+
+#### Target: Lead-Industry Junction Table
+
+A lead can be relevant to multiple industries. A permit for "commercial HVAC installation" is relevant to both HVAC and electrical contractors.
+
+```typescript
+// src/lib/db/schema/lead-industries.ts (NEW)
+
+export const leadIndustries = pgTable(
+  "lead_industries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
+    industry: text("industry").notNull(),
+    confidence: real("confidence").default(1.0),  // 0-1 how confident the assignment is
+    assignedAt: timestamp("assigned_at").defaultNow().notNull(),
+    assignedBy: text("assigned_by").notNull(),  // "scraper", "enrichment", "manual"
+  },
+  (table) => [
+    uniqueIndex("lead_industries_lead_industry_idx").on(table.leadId, table.industry),
+    index("lead_industries_industry_idx").on(table.industry),
+  ]
 );
 ```
 
-With 20 bookmarks, this fires 21 queries (1 for IDs + 20 for lead data).
+**Industry assignment happens at two points:**
 
-#### Changes
+1. **Scrape time:** The adapter knows its industry (from the registry). When a lead is inserted, the pipeline also inserts a `lead_industries` row.
+2. **Enrichment time:** The enrichment pipeline analyzes lead content (permit type, description keywords) and may add additional industry assignments.
 
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/leads/queries.ts` | NEW FUNCTION | Add `getLeadsByIds(ids, params)` using Drizzle `inArray()` |
-| `src/app/(dashboard)/dashboard/bookmarks/page.tsx` | MODIFIED | Replace `Promise.all(ids.map(getLeadById))` with single `getLeadsByIds(ids)` |
-
-#### New Function: `getLeadsByIds`
+**Query integration:** The lead feed query adds an industry filter:
 
 ```typescript
-import { inArray } from "drizzle-orm";
-
-export async function getLeadsByIds(
-  ids: string[],
-  params?: GetLeadByIdParams
-): Promise<EnrichedLead[]> {
-  if (ids.length === 0) return [];
-
-  const rows = await db
-    .select()
-    .from(leads)
-    .where(inArray(leads.id, ids));
-
-  return rows.map((row) => {
-    // Same enrichment as getLeadById:
-    const inferred = inferEquipmentNeeds(row.projectType, row.description);
-    let distance: number | null = null;
-    if (params?.hqLat != null && params?.hqLng != null
-        && row.lat != null && row.lng != null) {
-      distance = haversineDistance(params.hqLat, params.hqLng, row.lat, row.lng);
-    }
-    // ... scoring, freshness, timeline ...
-    return { ...row, distance, inferredEquipment: inferred, score, freshness, timeline };
-  });
-}
+// In getFilteredLeads():
+query = query
+  .innerJoin(
+    leadIndustries,
+    and(
+      eq(leadIndustries.leadId, leads.id),
+      eq(leadIndustries.industry, organizationIndustry)
+    )
+  );
 ```
 
-**Data flow change:**
-```
-BEFORE (N+1):
-  getBookmarkedLeads() --> [id1, id2, ..., id20]   (1 query)
-  getLeadById(id1)                                   (query 2)
-  getLeadById(id2)                                   (query 3)
-  ...
-  getLeadById(id20)                                  (query 21)
-  Total: 21 queries
+This ensures a heavy equipment user only sees leads tagged as relevant to heavy equipment, even if the same physical lead is also relevant to HVAC.
 
-AFTER (batch):
-  getBookmarkedLeads() --> [id1, id2, ..., id20]   (1 query)
-  getLeadsByIds([id1, ..., id20])                    (1 query: WHERE id IN (...))
-  Total: 2 queries
-```
+**Backfill migration:** All existing leads are tagged as `heavy_equipment` with confidence 1.0 and assignedBy `migration`.
+
+| File | Status | Description |
+|------|--------|-------------|
+| `src/lib/db/schema/lead-industries.ts` | NEW | Junction table |
+| `src/lib/scraper/pipeline.ts` | MODIFIED | Insert lead_industries rows during scraping |
+| `src/lib/leads/queries.ts` | MODIFIED | INNER JOIN on lead_industries for industry filtering |
+| `src/lib/enrichment/industry-classifier.ts` | NEW | Classify lead into industries by content analysis |
 
 ---
 
-### 6. Digest Email Query Optimization (BUG 10)
+## Build Order (Minimizes Breaking Changes)
 
-**Status: MODIFIED (digest-generator.ts)**
+The following order ensures each phase is independently deployable and does not break existing functionality.
 
-The current digest generator runs one `getFilteredLeads()` call per saved search per user. With a user who has 3 digest-enabled searches, that is 3 full geo+filter queries.
-
-#### Changes
-
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/email/digest-generator.ts` | MODIFIED | Compute union of search params, run 1 broad query per user, then filter per-search in memory |
-
-#### Optimization: Union Query
-
-For a user with multiple saved searches, compute the broadest parameters:
-- `radiusMiles` = MAX of all searches' radii (or service radius)
-- `equipmentFilter` = omit from broad query (apply per-search in memory)
-- `dateFrom` = MIN of (24h ago, all searches' date constraints)
-- `keyword` = omit from broad query (apply per-search via `applyInMemoryFilters`)
-
-Run one broad `getFilteredLeads()` with union params, then filter results per-search in memory using `applyInMemoryFilters()` and `filterByEquipment()` (both already exported from `queries.ts`).
-
-**Data flow change:**
 ```
-BEFORE (per user with 3 searches):
-  For search S1: getFilteredLeads(S1.params)  --> SQL query 1
-  For search S2: getFilteredLeads(S2.params)  --> SQL query 2
-  For search S3: getFilteredLeads(S3.params)  --> SQL query 3
-  Merge + dedup results
-  Total: 3 queries per user
-
-AFTER (per user):
-  Compute unionParams = broadest(S1, S2, S3)
-  getFilteredLeads(unionParams)               --> 1 SQL query
-  For each search Si:
-    applyInMemoryFilters(results, Si.filters)
-    filterByEquipment(filtered, Si.equipment)
-  Merge + dedup filtered results
-  Total: 1 query per user
+Phase A: Schema Foundation
+  |  - Add industry to organization + backfill
+  |  - Rename company_profiles -> organization_profiles + add columns
+  |  - Add columns to leads (content_hash, etc.)
+  |  - Add columns to bookmarks (notes, pipeline_status)
+  |  - Create new tables (lead_enrichments, lead_industries, scraper_runs, unsubscribe_tokens)
+  |  - Update ALL import paths across codebase
+  |  - Backfill: existing leads get lead_industries rows (heavy_equipment)
+  |
+  |  DEPLOYABLE: App works exactly as before (new columns are nullable/defaulted)
+  v
+Phase B: Onboarding Wizard
+  |  - useReducer state machine
+  |  - 6-step wizard with industry selection
+  |  - New onboarding action writing to organization.industry + organization_profiles
+  |  - Industry-conditional validation schemas
+  |
+  |  DEPLOYABLE: New users see expanded onboarding; existing users unaffected
+  v
+Phase C: Scraper Registry + New Adapters
+  |  - Industry-keyed registry
+  |  - Permit adapter factory
+  |  - 4+ new adapters (NOAA, FEMA, code violations, incentives)
+  |  - Parameterized cron route (/api/cron/scrape/[industry])
+  |  - ScraperAdapter interface extension (industries field)
+  |  - Pipeline writes lead_industries rows
+  |
+  |  DEPLOYABLE: New cron jobs fire, new lead types appear
+  v
+Phase D: Hash-Based Dedup
+  |  - Content hash computation
+  |  - Pipeline uses hash-based upsert
+  |  - Backfill existing leads with content hashes
+  |  - Geographic+text dedup demoted to fallback
+  |
+  |  DEPLOYABLE: Dedup is more reliable, no visible UX change
+  v
+Phase E: Scoring Engine + Cursor Pagination
+  |  - 5-dimension scoring
+  |  - Industry-specific relevance inference
+  |  - Match reasons
+  |  - Cursor-based pagination
+  |  - Dashboard query integration
+  |
+  |  DEPLOYABLE: Better scores, stable pagination, match reasons in UI
+  v
+Phase F: Enrichment Pipeline
+  |  - Enrichment module (geocode, property, weather, incentives)
+  |  - lead_enrichments table population
+  |  - Enrichment cron job
+  |  - Query LEFT JOINs enrichment data
+  |  - Migrate geocoding from scrape pipeline to enrichment
+  |
+  |  DEPLOYABLE: Leads gain richer data over time
+  v
+Phase G: CRM-Lite Bookmarks
+  |  - Bookmark notes + pipeline status actions
+  |  - Bookmarks page UI update
+  |  - Pipeline status tracking
+  |
+  |  DEPLOYABLE: Bookmarks gain CRM features
+  v
+Phase H: Email System
+  |  - React Email templates (storm, welcome, trial)
+  |  - Unsubscribe mechanism
+  |  - Storm alert cron
+  |  - Digest enhancement with unsubscribe
+  |
+  |  DEPLOYABLE: New email types, CAN-SPAM compliance
+  v
+Phase I: Dashboard + UI
+  |  - Filter panel redesign
+  |  - Score badges + match reasons
+  |  - Storm alert UI
+  |  - Industry-specific theming
+  |
+  |  DEPLOYABLE: Visual refresh
 ```
+
+**Why this order:**
+
+1. **Schema first** because every other feature depends on the new/modified tables. Additive-only changes ensure zero breakage.
+2. **Onboarding second** because new users need to select an industry before industry-specific features work. Existing users default to `heavy_equipment`.
+3. **Scraper registry third** because new adapters need the industry dimension in the registry and the `lead_industries` junction table.
+4. **Hash dedup fourth** because it simplifies the pipeline before adding more adapters and enrichment.
+5. **Scoring + pagination fifth** because they depend on the industry field existing in organization profiles and lead_industries being populated.
+6. **Enrichment sixth** because it depends on the leads table having content_hash and the enrichments table existing.
+7. **CRM bookmarks seventh** because it is a self-contained UI feature that depends only on the schema change from Phase A.
+8. **Email eighth** because storm alerts depend on weather adapters (Phase C) and enrichment data (Phase F).
+9. **Dashboard UI last** because it consumes all the data produced by Phases C-H and should be built once the data flows are stable.
 
 ---
 
-### 7. Non-Permit Dedup via sourceUrl (BUG 9)
+## Anti-Patterns to Avoid
 
-**Status: MODIFIED (dedup.ts, pipeline.ts, leads schema)**
+### Anti-Pattern 1: Adding `industry` to Better Auth's metadata JSON
 
-Currently, non-permit records check for duplicates by matching `sourceId + title`, which is fragile (different titles for same URL). The fix adds `sourceUrl` as a first-pass exact-match check.
+**What people do:** Store industry in `organization.metadata` (a text column) to avoid "modifying Better Auth tables."
+**Why it's wrong:** `metadata` is untyped, unindexed, and parsed as JSON at every read. Industry is queried constantly (scraper selection, scoring, feed filtering). It must be a first-class column.
+**Do this instead:** Add an `industry` column directly to the `organization` table in the Drizzle schema. Better Auth's Drizzle adapter respects custom columns.
 
-#### Changes
+### Anti-Pattern 2: Global Scraper Run for Multi-Industry
 
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/lib/scraper/dedup.ts` | MODIFIED | Add sourceUrl exact-match before geo+text fuzzy match |
-| `src/lib/scraper/pipeline.ts` | MODIFIED | For non-permit records, check `sourceUrl` for existing lead before insert |
-| `src/lib/db/schema/leads.ts` | MODIFIED | Add index on `sourceUrl` column for fast lookups |
+**What people do:** Keep one cron job that runs ALL adapters for ALL industries.
+**Why it's wrong:** A single function running 30+ adapters will exceed the 300s timeout. One failing adapter blocks all industries.
+**Do this instead:** One cron per industry. Each runs independently, fails independently, and stays within timeout.
 
-#### Dedup Enhancement: Two-Phase Check
+### Anti-Pattern 3: Storing Scores in the Database
 
-```
-New non-permit lead arrives with sourceUrl
-    |
-    v
-PHASE 1: Exact sourceUrl match (NEW)
-    |
-    +--> Does record.sourceUrl exist and is non-null?
-    |       |
-    |       +--> YES: SELECT id FROM leads WHERE source_url = ? LIMIT 1
-    |       |       |
-    |       |       +--> MATCH: Known URL. Add source reference, skip lead insert.
-    |       |       +--> NO MATCH: Continue to Phase 2
-    |       |
-    |       +--> NO (null sourceUrl): Continue to Phase 2
-    |
-    v
-PHASE 2: Geo + text fuzzy match (EXISTING, unchanged)
-    |
-    +--> Bounding box query for nearby leads
-    +--> isLikelyDuplicate() with Haversine + text similarity
-    +--> MATCH: Merge. NO MATCH: Insert as new lead.
-```
+**What people do:** Compute scores at insert time and store in a `score` column.
+**Why it's wrong:** The same lead scores differently for each subscriber (different HQ location, specializations, service radius). Stored scores are subscriber-agnostic.
+**Do this instead:** Compute at query time. The current architecture already does this correctly. Keep it.
 
-**Pipeline change (non-permit branch in `processRecords`):**
+### Anti-Pattern 4: Dropping `company_profiles` and Recreating as `organization_profiles`
 
-```typescript
-// CURRENT: fragile title-based check
-const existing = await db.select({ id: leads.id }).from(leads)
-  .where(and(eq(leads.sourceId, sourceId), eq(leads.title, externalId ?? "")))
-  .limit(1);
+**What people do:** Delete the old table and create a new one.
+**Why it's wrong:** Loses all existing profile data. Drizzle Kit generates DROP TABLE + CREATE TABLE instead of ALTER TABLE RENAME.
+**Do this instead:** Use Drizzle Kit's rename detection. When prompted "Was 'organization_profiles' table created or renamed from another table?", answer "renamed from company_profiles."
 
-// NEW: sourceUrl check first, then fall back to title
-let existing: { id: string }[] = [];
-if (record.sourceUrl) {
-  existing = await db.select({ id: leads.id }).from(leads)
-    .where(eq(leads.sourceUrl, record.sourceUrl))
-    .limit(1);
-}
-if (existing.length === 0) {
-  existing = await db.select({ id: leads.id }).from(leads)
-    .where(and(eq(leads.sourceId, sourceId), eq(leads.title, externalId ?? "")))
-    .limit(1);
-}
-```
+### Anti-Pattern 5: Coupling Storm Alerts to the Scrape Pipeline
 
-**Schema addition:** The `leads` table has `sourceUrl` but no index. Add:
+**What people do:** Check for storms inside the scraping cron.
+**Why it's wrong:** Storms need faster response (every 2 hours or even 30 minutes). The scrape pipeline runs once daily. Coupling means storm alerts are always stale.
+**Do this instead:** Separate weather cron with its own schedule and function.
 
-```typescript
-index("leads_source_url_idx").on(table.sourceUrl),
-```
+### Anti-Pattern 6: Making the Content Hash Too Specific
 
----
+**What people do:** Include ALL lead fields in the hash (description, estimatedValue, dates, etc.).
+**Why it's wrong:** A lead's description may change across sources or over time. An overly-specific hash treats minor text differences as separate leads.
+**Do this instead:** Hash IDENTITY fields only: rounded lat/lng (geographic identity), normalized address/title (textual identity), and permit number (when available). The hash answers "is this the same real-world project?" not "is this the exact same record?"
 
-### 8. Active Nav Highlighting in Sidebar
+### Anti-Pattern 7: Inline Enrichment During Scraping
 
-**Status: MODIFIED (dashboard layout) + NEW (sidebar nav component)**
-
-The mobile nav (`MobileNav`) already has active nav highlighting using `usePathname()`. The desktop sidebar in `(dashboard)/layout.tsx` uses static `<Link>` elements with no active state. The fix extracts nav to a client component.
-
-#### Changes
-
-| Component | Status | What Changes |
-|-----------|--------|--------------|
-| `src/components/dashboard/sidebar-nav.tsx` | NEW | Client component with `usePathname()` for active highlighting |
-| `src/app/(dashboard)/layout.tsx` | MODIFIED | Replace inline nav links with `<SidebarNav />` component |
-
-**Architecture rationale:** The dashboard layout is a server component (it does `await auth.api.getSession()`). `usePathname()` requires a client component. Extract nav into a client component -- exactly what `MobileNav` already does. The layout stays as a server component.
-
-**The `navLinks` array is duplicated between `MobileNav` and the new `SidebarNav`.** Extract to a shared constant to keep them in sync:
-
-```typescript
-// src/components/dashboard/nav-links.ts
-export const navLinks = [
-  { href: "/dashboard", label: "Leads", icon: LayoutDashboard },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: Bookmark },
-  { href: "/dashboard/saved-searches", label: "Saved Searches", icon: Search },
-  { href: "/settings", label: "Settings", icon: Settings },
-];
-```
-
-Both `SidebarNav` and `MobileNav` import from here.
+**What people do:** Call property APIs, weather APIs, and incentive APIs during the scrape pipeline.
+**Why it's wrong:** Adds latency and failure points to the critical path. If the property API is down, scraping fails. Enrichment data can arrive later.
+**Do this instead:** Scrape produces raw leads with minimal processing. Enrichment runs separately, tolerates partial failures, and can be re-run.
 
 ---
 
 ## Component Boundary Summary
 
-| Boundary | Direction | Protocol | v2.1 Changes |
+| Boundary | Direction | Protocol | v3.0 Changes |
 |----------|-----------|----------|--------------|
-| Browser <-> Next.js | HTTP | App Router (RSC, server actions) | New auth pages (forgot-password, reset-password, verify-email) |
-| Server Components <-> Auth | Direct import | `auth.api.getSession({ headers })` | Unchanged |
-| Server Components <-> DB | Direct import | Drizzle query builder on `db` | NEW: count query, batch query |
-| Auth <-> DB | Drizzle adapter | better-auth manages its own tables | Unchanged (verification table pre-exists) |
-| Auth <-> Email | Callback functions | `sendResetPassword`, `sendVerificationEmail` | NEW callbacks in auth config |
-| Email sending <-> Resend | HTTP | Resend SDK | NEW: 2 email types (reset, verify) |
-| Client <-> Auth | HTTP | `authClient.*` hits `/api/auth/[...all]` | NEW: `requestPasswordReset`, `resetPassword`, `sendVerificationEmail` calls |
-| Tests <-> Code | Import + vi.mock | Mock DB, auth; test pure functions directly | 15+ new test files |
+| Browser <-> Next.js | HTTP | App Router (RSC, server actions) | Modified onboarding, new cron routes, unsubscribe route |
+| Server Components <-> Auth | Direct import | `auth.api.getSession()` | Read industry from organization |
+| Server Components <-> DB | Direct import | Drizzle query builder | New JOINs (lead_industries, lead_enrichments), new tables |
+| Scraper <-> Registry | Direct import | Industry-keyed Map | Industry dimension added |
+| Pipeline <-> DB | Direct import | Drizzle insert/upsert | Content hash upsert, lead_industries insert |
+| Enrichment <-> DB | Direct import | Drizzle insert/update | New module, writes to lead_enrichments |
+| Enrichment <-> External APIs | HTTP | Various (NOAA, property APIs) | New external service integrations |
+| Email <-> Resend | HTTP | Resend SDK | New email types, unsubscribe tokens |
+| Cron <-> Functions | HTTP | Vercel Cron -> GET handler | 10 cron jobs (from 1) |
 
-## Build Order (Dependencies)
+---
 
-```
-Phase 1: Regression Tests
-    |  No dependencies -- start immediately
-    |  Validates existing behavior BEFORE changes
-    |  Safety net for subsequent phases
-    v
-Phase 2: DB Query Optimizations (all 4 independent of each other)
-    |  2a. Bookmarks batch query (BUG 14)
-    |  2b. Digest email optimization (BUG 10)
-    |  2c. Non-permit dedup via sourceUrl (BUG 9)
-    |  2d. Lead feed pagination (BUG 13)
-    v
-Phase 3: Auth Flows (sequential: 3a before 3b)
-    |  3a. Forgot password flow
-    |      Requires: Resend (already integrated)
-    |      Produces: password reset as recovery mechanism
-    |
-    |  3b. Email verification on signup
-    |      Requires: forgot password DONE first
-    |      Requires: data migration (set emailVerified=true for existing users)
-    |      Reason: requireEmailVerification blocks unverified users;
-    |              password reset is the escape hatch
-    v
-Phase 4: UI Polish
-    |  Active nav highlighting
-    |  No dependencies, lowest risk
-    v
-Done
-```
+## Scalability Considerations
 
-**Rationale:**
+| Concern | At 100 orgs (current) | At 1K orgs | At 10K orgs |
+|---------|----------------------|------------|-------------|
+| Lead volume | ~10K leads | ~100K leads | ~1M leads |
+| Scraping time | 5 min (1 cron) | 5 min (5 crons, parallel) | May need adapter-level parallelism |
+| Query performance | Haversine adequate | Add composite indexes | Consider PostGIS upgrade |
+| Scoring compute | ~50ms per page | ~200ms per page | Consider materialized scores |
+| Enrichment queue | Process all daily | Batch by priority | Worker queue (BullMQ/Inngest) |
+| Email volume | ~100 emails/day | ~1K emails/day | Resend rate limits, batch sends |
+| Cron duration | Well within 300s | Monitor per-industry | Split large industries by region |
 
-1. **Tests first** -- project constraint: "every fix needs a corresponding test before merge." Regression tests for existing v2.0 behavior establish the safety net before making any changes.
-
-2. **Query optimizations second** -- isolated, low-risk changes (new functions, modified WHERE clauses, new index). Do not touch auth, do not affect existing users. Independently testable. Can be done in any internal order.
-
-3. **Auth flows third** -- `requireEmailVerification: true` is the most disruptive change. It changes the sign-up flow, blocks unverified users, and requires a data migration. Forgot password MUST deploy before verification because:
-   - `requireEmailVerification` gives 403 to any user with `emailVerified = false`
-   - Even with migration, something could go wrong
-   - Password reset works regardless of verification status (recovery path)
-
-4. **UI polish last** -- trivial, zero-risk, no dependencies.
-
-## NEW vs MODIFIED Summary
-
-| Component | Status | Feature |
-|-----------|--------|---------|
-| `tests/**/*.test.ts` (15+ files) | NEW | Regression tests |
-| `src/lib/leads/queries.ts` -- `getLeadsByIds()` | NEW FUNCTION | Bookmarks batch |
-| `src/lib/leads/queries.ts` -- `countFilteredLeads()` | NEW FUNCTION | Pagination count |
-| `src/components/dashboard/pagination.tsx` | NEW | Pagination UI |
-| `src/app/(dashboard)/dashboard/page.tsx` | MODIFIED | Parse page param, render pagination |
-| `src/app/(dashboard)/dashboard/bookmarks/page.tsx` | MODIFIED | Use batch query |
-| `src/lib/email/digest-generator.ts` | MODIFIED | Union query optimization |
-| `src/lib/scraper/dedup.ts` | MODIFIED | sourceUrl pre-check |
-| `src/lib/scraper/pipeline.ts` | MODIFIED | sourceUrl in non-permit path |
-| `src/lib/db/schema/leads.ts` | MODIFIED | Add sourceUrl index |
-| `src/lib/auth.ts` | MODIFIED | sendResetPassword + emailVerification config |
-| `src/lib/email/send-password-reset.ts` | NEW | Reset email sender |
-| `src/lib/email/send-verification.ts` | NEW | Verification email sender |
-| `src/components/emails/password-reset.tsx` | NEW | Reset email template |
-| `src/components/emails/verify-email.tsx` | NEW | Verification email template |
-| `src/components/auth/forgot-password-form.tsx` | NEW | Forgot password form |
-| `src/components/auth/reset-password-form.tsx` | NEW | Reset password form |
-| `src/app/(auth)/forgot-password/page.tsx` | NEW | Forgot password route |
-| `src/app/(auth)/reset-password/page.tsx` | NEW | Reset password route |
-| `src/app/(auth)/verify-email/page.tsx` | NEW | Verification interstitial |
-| `src/components/auth/sign-in-form.tsx` | MODIFIED | Forgot link + 403 handling |
-| `src/components/auth/sign-up-form.tsx` | MODIFIED | Redirect to verify-email, defer org creation |
-| `src/components/dashboard/sidebar-nav.tsx` | NEW | Active nav client component |
-| `src/components/dashboard/nav-links.ts` | NEW | Shared nav link definitions |
-| `src/app/(dashboard)/layout.tsx` | MODIFIED | Use SidebarNav component |
-
-**Totals: ~15 new files, ~11 modified files, 0 new schema tables, 1 new index**
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Testing Against Real Database
-
-**What people do:** Write integration tests that hit Neon PostgreSQL.
-**Why it's wrong:** Flaky (network), slow, pollutes data, costs money, fails in CI.
-**Do this instead:** Mock `@/lib/db` at the module level. Test pure functions directly without mocks. The existing 40+ test files already follow this pattern.
-
-### Anti-Pattern 2: Making Dashboard Layout a Client Component for Active Nav
-
-**What people do:** Convert the server layout to `"use client"` to use `usePathname()`.
-**Why it's wrong:** Breaks server-side auth, subscription, and onboarding checks. All data fetching moves client-side, adding waterfalls.
-**Do this instead:** Extract nav into a `"use client"` component (`SidebarNav`). Keep layout as server component. `MobileNav` already demonstrates this.
-
-### Anti-Pattern 3: Enabling requireEmailVerification Without Migration
-
-**What people do:** Flip `requireEmailVerification: true` without updating existing users.
-**Why it's wrong:** All existing users (admin included) locked out -- `emailVerified` defaults to `false`.
-**Do this instead:** Run `UPDATE "user" SET email_verified = true` before deploying. Deploy forgot password first as escape hatch.
-
-### Anti-Pattern 4: Scoring-Aware Pagination via Full Table Scan
-
-**What people do:** Load all leads, score them all, then paginate the scored list.
-**Why it's wrong:** Defeats pagination. At 10k+ leads, slow and memory-intensive on Vercel (1GB limit).
-**Do this instead:** Accept approximate pagination (SQL sorts by `scrapedAt DESC`, per-page re-sort by score). Users get "best leads from this time window" per page.
-
-### Anti-Pattern 5: Awaiting Email Sends in Auth Callbacks
-
-**What people do:** `await resend.emails.send()` inside `sendResetPassword` or `sendVerificationEmail`.
-**Why it's wrong:** Creates timing oracle that leaks whether an email exists in the system. Also risks Vercel function timeout if Resend is slow.
-**Do this instead:** Use `void sendEmail()` (fire-and-forget). The email send is not on the critical path.
-
-### Anti-Pattern 6: Deploying Email Verification Before Password Reset
-
-**What people do:** Implement verification first because it seems like the "primary" feature.
-**Why it's wrong:** `requireEmailVerification` immediately locks out unverified users. Without password reset, there is no recovery mechanism.
-**Do this instead:** Deploy forgot password first, then verification. Or deploy both simultaneously, never verification alone.
-
-## Integration Points
-
-### External Services
-
-| Service | Integration Pattern | v2.1 Notes |
-|---------|---------------------|------------|
-| Neon PostgreSQL | Drizzle ORM via neon-http | NEW: `inArray()` for batch, `count(*)` for pagination, sourceUrl index |
-| Resend | Direct SDK in `src/lib/email/` | NEW: 2 additional email types (reset, verify) |
-| Stripe | better-auth Stripe plugin | Unchanged |
-| Google Maps | `geocodeAddress()` | Unchanged |
-| better-auth | `/api/auth/[...all]` catch-all | MODIFIED: New config callbacks, no new routes |
-
-### Internal Boundaries
-
-| Boundary | Communication | v2.1 Notes |
-|----------|---------------|------------|
-| Auth config <-> Email senders | Callback (fire-and-forget `void`) | NEW: `sendResetPassword`, `sendVerificationEmail` |
-| Dashboard <-> Lead queries | Direct import | MODIFIED: pagination params + count query |
-| Bookmarks <-> Lead queries | Direct import | MODIFIED: `getLeadsByIds` replaces N+1 |
-| Digest <-> Lead queries | Direct import | MODIFIED: single broad query per user |
-| Pipeline <-> Dedup | Direct import | MODIFIED: sourceUrl pre-check |
-| Server layout <-> Nav | Props/children | MODIFIED: extract to client component |
+---
 
 ## Sources
 
-- [better-auth Email & Password docs](https://better-auth.com/docs/authentication/email-password) -- `sendResetPassword`, `requireEmailVerification`, `forgetPassword`/`resetPassword` client methods (HIGH confidence: official docs)
-- [better-auth Email concepts](https://better-auth.com/docs/concepts/email) -- `sendVerificationEmail`, `sendOnSignUp`, `autoSignInAfterVerification` (HIGH confidence: official docs)
-- Codebase analysis of 25+ source files (HIGH confidence: direct code inspection of `src/lib/auth.ts`, `src/lib/auth-client.ts`, `src/lib/leads/queries.ts`, `src/actions/bookmarks.ts`, `src/lib/scraper/dedup.ts`, `src/lib/scraper/pipeline.ts`, `src/lib/email/digest-generator.ts`, `src/app/(dashboard)/layout.tsx`, `src/app/(dashboard)/dashboard/page.tsx`, `src/app/(dashboard)/dashboard/bookmarks/page.tsx`, `src/components/dashboard/mobile-nav.tsx`, `src/components/auth/sign-in-form.tsx`, `src/components/auth/sign-up-form.tsx`, `src/lib/db/schema/*.ts`, `tests/setup.ts`, `tests/helpers/*.ts`)
+- Codebase analysis of 40+ source files (HIGH confidence: direct code inspection)
+- [Vercel Cron Jobs Usage & Pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) -- 100 crons per project on all plans, Hobby limited to daily (HIGH confidence: official docs, updated January 2026)
+- [Vercel Functions Limits](https://vercel.com/docs/functions/limitations) -- maxDuration 300s default, 800s with Fluid Compute on Pro (HIGH confidence: official docs)
+- [Drizzle ORM Migrations](https://orm.drizzle.team/docs/migrations) -- rename detection, custom migrations, generate workflow (HIGH confidence: official docs)
+- [Drizzle ORM Cursor-Based Pagination](https://orm.drizzle.team/docs/guides/cursor-based-pagination) -- composite cursor patterns, UUID + sequential column requirement (HIGH confidence: official docs)
+- [React Email](https://react.email) -- template library for email rendering (HIGH confidence: official docs)
+- [Resend + Next.js](https://resend.com/docs/send-with-nextjs) -- Server Actions integration pattern (HIGH confidence: official docs)
 
 ---
-*Architecture research for: HeavyLeads v2.1 Bug Fixes & Hardening*
-*Researched: 2026-03-15*
+*Architecture research for: LeadForge v3.0 Multi-Industry Platform*
+*Researched: 2026-03-16*

@@ -1,17 +1,17 @@
 # Project Research Summary
 
-**Project:** HeavyLeads v2.1 Bug Fixes & Hardening
-**Domain:** Multi-tenant B2B SaaS — live production hardening milestone
-**Researched:** 2026-03-15
-**Confidence:** HIGH
+**Project:** LeadForge v3.0 Multi-Industry Expansion
+**Domain:** Multi-tenant B2B SaaS lead generation — heavy equipment, HVAC, roofing, solar, electrical verticals
+**Researched:** 2026-03-16
+**Confidence:** HIGH (verified against 40+ source files, official API docs, Drizzle/Vercel/Neon docs)
 
 ## Executive Summary
 
-HeavyLeads v2.1 is a hardening and bug-fix milestone on a live production app, not a greenfield build. The product already runs on a validated, deployed stack (Next.js, better-auth, Drizzle, Neon, Vitest, Resend, Vercel). Research confirmed that zero new dependencies are required — all eight target features are achievable with the existing library set. The strategic constraint is sequencing: some changes (enabling `requireEmailVerification: true`) are operationally disruptive and must land after prerequisites (password reset as a recovery path, data migration marking existing users verified) to avoid locking out every existing user the moment the deploy lands on a live production app.
+LeadForge v3.0 is an expansion of a live production SaaS platform from a single heavy-equipment vertical to five blue-collar contractor verticals. The existing stack (Next.js 16.1.6, Drizzle ORM, Neon PostgreSQL, Better Auth, Stripe, Crawlee, Resend) is sound and unchanged. All new capabilities layer on top of this foundation: three new npm packages (`p-queue`, `papaparse`, `@types/papaparse`), three new free government APIs (NWS Alerts, FEMA OpenFEMA, EIA electricity), two new env vars (`EIA_API_KEY`, `NREL_API_KEY`), one existing unconfigured var that now must be set (`SAM_GOV_API_KEY`), and a PostGIS database extension. The central challenge is not technology — it is schema evolution on a live system and ensuring existing heavy-equipment users are never disrupted during the expansion.
 
-The recommended approach is a four-phase build ordered around risk: (1) establish a regression test safety net first — zero production code changes, and the testing infrastructure is already mature, (2) make the four isolated query optimizations that carry no user-facing risk and benefit from the safety net, (3) implement the auth flows in the correct deployment order — forgot password before email verification — so there is always a recovery path when the verification flag is enabled, (4) finish with UI polish. The biggest architectural complexity is pagination: the existing FETCH_MULTIPLIER pipeline (over-fetch at SQL level, enrich and score in memory, slice to limit) is incompatible with naive SQL-level offset pagination and must be accounted for by paginating the in-memory enriched result set, not the raw SQL output.
+The recommended build order is strict: schema foundation first, then onboarding redesign, then scoring engine, then new data-source adapters, then intelligence and alerting features. This order is dictated by a hard dependency chain: scoring requires industry profile data, industry profile data requires schema expansion, and all new vertical features require scoring to work. Shortcuts in this order — for example, adding storm alert adapters before the schema is ready — produce either silent failures or broken feeds for existing users. The expand-then-contract migration discipline must be enforced from day one: every schema change must be additive with defaults and backfills before any code ships.
 
-The highest-risk change in the milestone is enabling `requireEmailVerification`. It requires a one-time SQL migration (`UPDATE "user" SET email_verified = true`) deployed to Neon before the code change, and must land in the same release as — or after — the forgot password feature, never before it. Secondary risks are the bookmarks batch query (must preserve full enrichment or every lead card crashes at render time), the dedup improvement (must use `sourceUrl` as a supplementary signal, not the sole dedup key, to avoid collapsing multiple distinct projects scraped from one URL), and the env var / URL-construction pattern that has caused production issues before (`.trim()` all env vars; use relative `redirectTo` paths in auth client calls).
+The primary risks are: (1) Drizzle silently dropping instead of renaming the `company_profiles` table during migration, destroying existing user profile data; (2) existing heavy-equipment users seeing 0 leads if industry-aware queries ship before the `heavy_equipment` backfill runs; (3) the cron architecture hitting Vercel Hobby plan limits when scaling from 1 to 10 scheduled jobs; and (4) in-memory scoring collapsing at 50K+ leads if the scoring rewrite is attempted simultaneously with the industry expansion instead of as a dedicated later phase. All four risks have clear mitigations documented in PITFALLS.md and are achievable without production downtime.
 
 ---
 
@@ -19,158 +19,165 @@ The highest-risk change in the milestone is enabling `requireEmailVerification`.
 
 ### Recommended Stack
 
-All three v2.1 feature areas are fully covered by the installed dependency set. STACK.md verified this against official Drizzle ORM, better-auth, and Next.js/Vitest documentation. The existing testing infrastructure (Vitest 4.1.0, @testing-library/react, jsdom, vitest.config.ts with manual path aliases, 6 test helper modules) and 40+ existing test files are sufficient. The established mocking pattern (`vi.mock("@/lib/db")`, `vi.mock("@/lib/auth")`, `vi.mock("next/headers")`, `vi.mock("next/cache")`) covers server action testing completely.
+The existing stack handles all new capabilities without major additions. Only three new npm dependencies are needed: `p-queue` (rate-limiting 7+ external API queues), `papaparse` (streaming NOAA gzipped CSV parsing), and `@types/papaparse`. PostGIS is a Postgres extension enabled via a single SQL statement — no npm package. Drizzle's built-in `geometry()` column type handles all serialization natively since v0.31. All government APIs use plain `fetch()` following the existing adapter pattern already established by `SamGovBidsAdapter` and `AustinPermitsAdapter`.
 
-**Core technologies:**
-- Vitest 4.1.0: test runner — existing pattern fully covers server action and pure-function unit testing; no new config changes needed beyond adding `"test": "vitest"` to package.json scripts
-- better-auth 1.5.5: auth library — `sendResetPassword` and `emailVerification` callbacks are built-in `emailAndPassword` and `emailVerification` config options; no additional plugins required
-- Drizzle ORM 0.45.1: database layer — `inArray()` (batch queries), `count(*)` (pagination count), and `gt`/`lt` (cursor pagination) are already importable from `drizzle-orm`
-- Resend 6.9.3: email sending — two new email types reuse the existing `send-digest.ts` integration pattern exactly
+**Core new technologies:**
+- `p-queue@^8.1.0`: Per-API sliding-window rate limiting with concurrency control — eliminates the need for custom rate-limiting logic across 7 external APIs; ESM-only, compatible with Next.js App Router
+- `papaparse@^5.5.2`: Streaming CSV parsing for NOAA Storm Events bulk data (50MB+ gzipped files); Node.js built-in `zlib.createGunzip()` handles decompression
+- PostGIS extension on Neon: Enables `ST_DWithin()` spatial radius queries with GiST indexes — dramatically faster than Haversine at multi-industry lead volumes; Drizzle `geometry()` type handles serialization
+- NWS Alerts API (`api.weather.gov/alerts/active`): Free, no API key, real-time storm alerts by state/severity — the upstream source HailTrace itself consumes
+- FEMA OpenFEMA API (`fema.gov/api/open/v2/DisasterDeclarationsSummaries`): Free, OData query syntax, disaster declarations triggering demand signals for roofing/HVAC/electrical
+- EIA API v2 (`api.eia.gov/v2/electricity/retail-sales/data`): Monthly utility rate data for solar ROI context — NREL Utility Rates v3 is deprecated (2012 data only, do not use)
+- Node.js built-in `crypto`: SHA-256 content hashing for fast dedup pre-filter — no new dependency
 
-**Dependencies explicitly researched and rejected:** `vite-tsconfig-paths` (existing manual alias config works identically — switching is churn), `drizzle-cursor`, `drizzle-pagination`, `@testing-library/user-event`, `playwright`, `better-auth-ui`.
+**Critical version and configuration notes:**
+- NREL AFDC API domain migrates from `developer.nrel.gov` to `developer.nlr.gov` by April 30, 2026 — use new domain from the start
+- Socrata SODA3 (released late 2025) requires an app token; existing Austin adapter uses legacy `/resource/` endpoint and must be updated
+- SAM.gov API accepts only one `ncode` per request; multi-NAICS queries require sequential calls — the existing adapter already loops, just needs broader NAICS list
+- DSIRE API is a paid subscription with opaque pricing — use manual curation of top 15 state solar incentive programs as the MVP alternative; covers 80% of value at 10% of cost
+- PostGIS extension must be created manually with `CREATE EXTENSION IF NOT EXISTS postgis;` — Drizzle migration generator does not include this automatically
 
-**Configuration-only changes required:**
-- `src/lib/auth.ts`: add `sendResetPassword` callback to `emailAndPassword` block + new top-level `emailVerification` config block
-- `src/lib/leads/queries.ts`: modify `getFilteredLeads` to accept cursor/pagination params; add `getLeadsByIds` and `countFilteredLeads` functions
-- `package.json`: add `"test": "vitest"` script (currently absent)
+**New env vars required:**
+
+| Variable | Source | Free |
+|----------|--------|------|
+| `EIA_API_KEY` | eia.gov/opendata | Yes |
+| `NREL_API_KEY` | developer.nlr.gov | Yes |
+| `SOCRATA_APP_TOKEN` | dev.socrata.com | Yes |
+| `SAM_GOV_API_KEY` | Already exists, not configured | Yes |
 
 ### Expected Features
 
-FEATURES.md assessed all 8 target features against B2B SaaS production standards. All 8 are table-stakes or high-impact changes; none are safely deferrable.
+**Must have (table stakes — v3.0 launch):**
+- Industry selection as onboarding Step 0 — gates all other configuration; without it the platform cannot differentiate users across verticals
+- Industry-specific onboarding for all 5 verticals — each vertical collects different profile data (HVAC: system types + service categories; roofing: materials + storm restoration flag; solar: residential/commercial focus + certifications; electrical: EV/solar specializations)
+- Company profile schema expansion — `industryType` on `organization` table, expanded `organization_profiles` with `specializations`, `serviceTypes`, `certifications`; backfill existing users as `heavy_equipment`
+- Industry-aware scoring engine — per-vertical scoring dispatch with appropriate weights (storm urgency 25% for roofing; seasonal relevance 10% for HVAC; incentive value 20% for solar; EV growth signal 10% for electrical)
+- Cross-industry lead tagging (`applicableIndustries text[]` on leads) — a commercial permit is relevant to HVAC, electrical, AND roofing simultaneously; each vertical's feed filters by this array
+- Industry inference rules — extend existing `inferEquipmentNeeds()` to `inferIndustryRelevance()` mapping project types to applicable industries at enrichment time
+- Source type filter in lead feed — permit/bid/news/storm/violation badges on lead cards; `sourceTypeFilter` and `projectCategory` facets in filter panel
+- SAM.gov NAICS expansion — HVAC: 238220; roofing: 238160; solar: 221114 + 238220; electrical: 238210
+- CRM-lite pipeline status upgrade — add `quoted` and `in_progress` to existing `new/viewed/contacted/won/lost` statuses
+- Industry-specific email digest templates — one layout per vertical with relevant content hierarchy and urgency indicators
 
-**Must have (table stakes):**
-- Regression tests for 15 v2.0 bug fixes — without these, every subsequent change in this milestone risks silent regression; P0 safety net; 8-12 hours
-- Forgot password flow — locked-out users on a solo-founder product with no support channel churn permanently; two pages + one auth config callback; LOW complexity, 2-3 hours
-- Email verification on signup — protects Resend sender reputation, prevents fake accounts; recommended as delayed-not-blocking (dashboard access allowed, digest subscription gated on verified email); LOW-MEDIUM, 3-4 hours
-- Lead feed pagination — current 50-lead hard cap makes dense metro areas invisible to users; cursor/offset hybrid; MEDIUM, 6-8 hours
-- Active nav highlighting (desktop) — mobile already highlights correctly; desktop inconsistency creates cognitive dissonance; extract to client component; 30 minutes
-- Bookmarks batch query — N+1 (up to 21 queries) degrades linearly; replace with single `inArray` query; LOW-MEDIUM, 2-3 hours
+**Should have (competitive — v3.1, after first non-heavy-equipment subscriber):**
+- NWS storm alert system for roofing — cron polls `/alerts/active` every 30 min, matches alert geometry to service areas, fires immediate email + in-app banner; storm leads get 25pt urgency boost; first mover to a storm area captures 50-78% of work
+- Code violation scraper adapters — start with 2-3 Socrata cities (Austin, NYC, Boston); violation-to-industry mapping (roof violations → roofing; electrical violations → electrical; HVAC violations → HVAC)
+- Urgent notification preferences — per-source-type thresholds (immediate vs. digest); storm leads default to immediate for roofers
+- Solar incentive lookup table — manually curate top 15 state programs; show applicable incentives on solar lead detail pages; update quarterly
+- Cross-industry lead intelligence annotations — "This commercial build will need HVAC + electrical + roofing" on lead detail pages
 
-**Should have (quality/scale):**
-- Digest email query optimization — N*M query pattern (per-search per-user) risks Vercel timeout at scale; batch company profile lookup + union query per user; MEDIUM, 3-4 hours
-- Non-permit dedup via sourceUrl — current `NULL` permitNumber unique index allows duplicate non-permit leads through; two-part fix: partial unique index + application-level pre-check; LOW-MEDIUM, 2-3 hours
-
-**Defer to v2+:**
-- Total lead count display in pagination header, bookmark count badge in sidebar nav (both polish, addable opportunistically)
-- E2E testing (Playwright/Cypress), OAuth/social login, middleware auth guard, full-text search index, password complexity rules beyond 8-char minimum
-
-**Validated UX decisions:**
-- Email verification: `requireEmailVerification: false` (delayed, not blocking dashboard) — correct for B2B with 5-step onboarding and 7-day trial
-- Pagination: "Load more" button (not infinite scroll, not traditional page numbers) — simpler state management, works with server components, avoids Intersection Observer complexity
-- Pagination cursor key: `(scrapedAt, id)` at SQL level; score sort preserved in-memory per-batch (score is not a database column)
+**Defer to v3.2+:**
+- Energy benchmarking data as HVAC leads — NYC/Boston/Chicago mandatory disclosure APIs; high complexity, limited city coverage, defer until HVAC vertical shows traction
+- EV charging infrastructure leads — NEVI program tracking + AFDC API; niche within electrical vertical, validate demand first
+- Permit cross-referencing for upsell signals — "Recent roofing permit = solar installer warm lead"; requires permit completion tracking infrastructure
+- DSIRE API integration — only if solar vertical grows significantly and quarterly manual curation becomes unmanageable
+- ServiceTitan/Housecall Pro CRM integrations — after product-market fit across multiple verticals
+- Geographic exclusivity zones — premium tier feature, premature before multi-vertical traction established
 
 ### Architecture Approach
 
-The system is a standard Next.js App Router multi-tenant SaaS. ARCHITECTURE.md mapped all 8 features against 25+ source files via direct codebase inspection. The key finding is that v2.1 produces approximately 15 new files and 11 modified files with zero new database tables and one new index. Every change fits cleanly into existing layer boundaries: auth config callbacks wire into the existing `/api/auth/[...all]` catch-all (no new API routes needed), email senders follow the `send-digest.ts` pattern, query functions extend `queries.ts`, and the nav client component extraction mirrors the existing `MobileNav` pattern exactly.
+The v3.0 architecture extends the existing Next.js App Router + Drizzle + Neon + Better Auth system with additive-only changes. The `company_profiles` table is renamed to `organization_profiles` via safe `ALTER TABLE RENAME` (not drop+recreate). An `industry` column is added to the Better Auth-managed `organization` table. Four new tables are created: `lead_enrichments`, `lead_industries` (junction), `scraper_runs` (per-adapter tracking), and `unsubscribe_tokens`. The cron architecture moves from a single monolithic scraper to per-industry parameterized routes (`/api/cron/scrape/[industry]`), with separate weather, enrichment, digest, dedup-maintenance, and storm-alert crons — requiring Vercel Pro plan for sub-daily scheduling. The scraper registry's mutable global Map is replaced with per-invocation adapter lists passed as function arguments, eliminating both race conditions and test isolation problems.
 
-**Major component changes:**
-1. `src/lib/auth.ts` (MODIFIED) — add `sendResetPassword` + `emailVerification` callbacks; these are the only auth-layer changes needed
-2. `src/lib/leads/queries.ts` (MODIFIED + NEW FUNCTIONS) — add `getLeadsByIds` (batch), `countFilteredLeads` (pagination count); modify `getFilteredLeads` to accept pagination params
-3. `src/lib/email/` (NEW FILES) — `send-password-reset.ts` and `send-verification.ts` following existing `send-digest.ts` pattern
-4. `src/components/emails/` (NEW FILES) — `password-reset.tsx` and `verify-email.tsx` React Email templates
-5. `src/app/(auth)/` (NEW ROUTES) — `forgot-password/page.tsx`, `reset-password/page.tsx`, `verify-email/page.tsx`
-6. `src/components/dashboard/sidebar-nav.tsx` + `nav-links.ts` (NEW) — client component + shared nav constant extracted from `MobileNav`
-7. `src/lib/email/digest-generator.ts` (MODIFIED) — batch company profile lookup; one broad union query per user
-8. `src/lib/scraper/dedup.ts` + `pipeline.ts` (MODIFIED) — two-phase sourceUrl check before existing fuzzy geo+text dedup
-9. `tests/**/*.test.ts` (NEW — 15+ files) — pure test files; zero production code changes for this deliverable
-
-**Critical architectural constraint — FETCH_MULTIPLIER and pagination:** The existing `getFilteredLeads` over-fetches `limit * 4` rows at SQL level, enriches and scores in memory, then slices to the limit. SQL-level offset does not correspond to user-visible page boundary because score sort is in-memory. Correct approach: offset applies to the in-memory enriched result array, not to SQL. The nationwide fallback (currently fires when `leads.length === 0`) must be suppressed for page > 1.
+**Major components:**
+1. Schema foundation — `organization.industry` column with `heavy_equipment` backfill; `organization_profiles` rename and expansion; `leads.content_hash`, `leads.applicable_industries`; four new tables; PostGIS extension and `geometry` column alongside existing `lat/lng`
+2. Onboarding wizard (useReducer state machine) — replaces `useState(0)` step counter with a proper reducer that derives visible steps from selected industry; persists draft state to `sessionStorage`; existing users with `onboardingCompleted = true` never re-enter the wizard
+3. Industry-aware scoring engine — `scoreLeadForIndustry(industry, input)` dispatcher delegating to per-vertical functions with configurable weight profiles including new signals (storm urgency, seasonal relevance, incentive value)
+4. Industry-inference engine — extends `inferEquipmentNeeds()` to tag leads with all applicable industries at enrichment time; declarative project-type-to-industry mapping rules
+5. Per-industry scraper adapters — factory pattern (`getHVACAdapters()`, `getRoofingAdapters()`, etc.); each adapter declares `industries: string[]`; adapters passed as function arguments to the pipeline, not registered in a global Map
+6. Weather/disaster cron jobs — NWS polling at 30-min intervals, FEMA declaration monitoring, storm-alert email dispatch; all via `p-queue` rate limiting
+7. PostGIS spatial layer — phased migration: add `geometry(Point, 4326)` column alongside existing `lat/lng` real columns; backfill; migrate queries to `ST_DWithin()`; drop old columns only after all queries are migrated
 
 ### Critical Pitfalls
 
-PITFALLS.md identified 5 critical pitfalls (production-outage class) and 11 moderate/minor pitfalls, all verified against specific line numbers in the codebase.
+1. **Drizzle migration drops column instead of renaming it** — Enable `strict: true` in `drizzle.config.ts`; review every generated `.sql` file for `DROP COLUMN` before applying; write manual `ALTER TABLE ... RENAME COLUMN` for the `company_profiles → organization_profiles` rename; test on a Neon branch first; never use `drizzle-kit push` against production
 
-1. **`requireEmailVerification` locks out all existing users** — SQL migration (`UPDATE "user" SET email_verified = true`) MUST deploy before the code change enabling the flag. Forgot password must be live before verification is enabled. Test against a Vercel preview with an existing account before merging to main. (PITFALL 1)
+2. **Industry-aware queries ship before backfill runs** — All existing leads must default to `heavy_equipment` and all existing `organization` rows must have `industry = 'heavy_equipment'` before any industry-filtering code deploys; run migration and verify, then deploy code; keep lead feeds defaulting to "all industries" when no filter is present
 
-2. **FETCH_MULTIPLIER breaks naive SQL-level pagination** — offset pagination at the SQL layer with `FETCH_MULTIPLIER=4` means page 2 skips 200 raw rows (not the 50 the user expects), and the score-based sort order is not preserved across pages. Solution: over-fetch the full candidate pool per page, enrich and sort in memory, slice to the page window from the enriched result. Disable nationwide fallback when `page > 1`. (PITFALL 3)
+3. **Existing users forced through re-onboarding after profile schema change** — New profile fields must be nullable with defaults; the onboarding guard (`if profile.onboardingCompleted → redirect /dashboard`) stays unchanged; existing profile updates go through settings, not re-onboarding; test by logging in as admin account immediately after deploying new onboarding
 
-3. **Bookmarks batch query must preserve enrichment** — a naive `SELECT * WHERE id IN (...)` returns raw database rows; `LeadCard` expects enriched fields (`inferredEquipment`, `score`, `freshness`, `timeline`, `distance`). Must extract `enrichLead(row, params)` as a shared function and map it over batch results before returning. (PITFALL 4)
+4. **Single cron scales to 10 crons, hits Hobby plan limits and race conditions** — Vercel Hobby allows once-per-day only; Pro plan required for 30-minute storm cron; remove mutable global Map from registry and pass adapter lists as arguments; add distributed lock checking `pipeline_runs` for `status = 'running'` within last 15 minutes before starting
 
-4. **Password reset URL misconfiguration silently breaks account recovery** — `redirectTo` in the client `forgetPassword()` call must be a relative path (`/reset-password`), not an absolute URL. Log the generated reset URL in the `sendResetPassword` callback during development. Test end-to-end on the deployed Vercel domain before declaring done. `.trim()` on `BETTER_AUTH_URL` is already in place in auth.ts. (PITFALL 2)
+5. **Query-time in-memory scoring collapses at 50K+ leads** — Current full-fetch and in-memory sort works below ~10K leads; do NOT rewrite scoring to SQL simultaneously with the industry expansion; keep current approach for initial v3.0 launch, then migrate scoring to SQL as a dedicated later phase
 
-5. **`sourceUrl`-only dedup over-merges distinct projects** — one news article or search result page can reference multiple distinct projects under a single URL. Using `sourceUrl` as the sole dedup key collapses those distinct leads into one. Use as a supplementary signal: dedup key is `(sourceId + sourceUrl + externalId)` with fallback to `(sourceId + title)`. Only apply to newly scraped leads — retroactive dedup deletes bookmarked leads via cascade FK. (PITFALLS 8, 11)
+6. **PostGIS extension missing when geometry migrations run** — Execute `CREATE EXTENSION IF NOT EXISTS postgis;` manually on Neon before running any migration that adds `geometry` columns; phase the migration to add `geometry` alongside existing `lat/lng` columns, not replacing them
+
+7. **Government API silent failures at scale** — SAM.gov has a 1,000 req/day hard limit; NOAA has undocumented rate limits that return HTTP 503; configure `p-queue` per-API with conservative `intervalCap` values; add circuit breakers (3 consecutive errors → disable source for 1 hour); use Zod `.passthrough()` for response validation so unexpected new fields do not silently reject all records
 
 ---
 
 ## Implications for Roadmap
 
-Four phases are warranted. Sequencing is driven by: (a) safety-net-first principle, (b) the auth deployment constraint (password reset before email verification), and (c) risk isolation (query changes are independent and low-risk; auth changes are higher-risk and coupled to each other).
+Based on the dependency chain established across all four research files, the following phase structure is recommended:
 
-### Phase 1: Regression Test Safety Net
+### Phase 1: Schema Foundation
 
-**Rationale:** Fifteen v2.0 bug fixes shipped without test coverage. Every subsequent code change in this milestone risks silent regression. The testing infrastructure is already mature — this phase adds only test files, zero production code changes. It establishes the safety net before any behavior is changed.
+**Rationale:** Everything downstream depends on the database schema. Industry cannot be scored, displayed, or scraped without `organization.industry`, `applicable_industries` on leads, and the `organization_profiles` expansion. This phase is a pure prerequisite with no user-visible changes — it is safe to deploy independently.
+**Delivers:** Backward-compatible schema supporting all v3.0 features; existing users and existing heavy-equipment leads entirely unaffected; `company_profiles` renamed to `organization_profiles` with new columns; PostGIS extension enabled; four new tables created
+**Addresses:** Foundation for industry selection, cross-industry tagging, CRM-lite pipeline upgrade (bookmarks table), content-hash dedup pre-filter
+**Avoids:** Pitfall 1 (migration drops data — use `strict: true` and manual review), Pitfall 2 (queries break during deploy window — expand-then-contract with defaults), Pitfall 3 (existing leads disappear — backfill `heavy_equipment` in same migration), Pitfall 13 (PostGIS extension not created)
+**Research flag:** Standard patterns — Drizzle migration workflow is well-documented; follow expand-then-contract strictly
 
-**Delivers:** 15 regression tests covering all v2.0 post-rework fixes; confirmed `npm run test` script; validated mocking patterns for all server action test types.
+### Phase 2: Industry Onboarding Redesign
 
-**Addresses:** Regression tests (P0 from FEATURES.md).
+**Rationale:** New users cannot configure multi-industry profiles without this. Existing users must not be disrupted. This phase gives the app the ability to collect industry-specific profile data, which the scoring engine (Phase 3) requires for correct lead ranking.
+**Delivers:** 6-step industry-conditional wizard for new users using `useReducer` state machine; all 5 verticals can complete onboarding; existing users land on dashboard unchanged with `onboardingCompleted = true` guard intact; `sessionStorage` draft persistence prevents state loss on refresh
+**Addresses:** Industry selection (Step 0), industry-specific onboarding questions per vertical, `profileConfig` population, company profile schema population for all verticals
+**Avoids:** Pitfall 4 (existing users forced through re-onboarding — guard stays unchanged, new fields via settings), Pitfall 12 (wizard state loss on browser refresh — sessionStorage persistence required from day one)
+**Research flag:** Standard patterns — useReducer wizard with react-hook-form and Zod discriminated unions are well-documented; no research phase needed
 
-**Avoids:** Vitest `server-only` import cascade failure (PITFALL 5 — must establish `vi.mock` strategy for `next/headers`, `next/cache`, `@/lib/auth`, `@/lib/db` before writing any server action tests), accidental production Neon database access in tests (PITFALL 13 — add `DATABASE_URL` guard to setup file).
+### Phase 3: Industry-Aware Scoring and Lead Feed
 
-**Implementation notes:** Test pure functions first (no mocking needed: `haversineDistance`, `scoreLead`, `inferEquipmentNeeds`, `normalizeText`, `isLikelyDuplicate`, `getFreshnessBadge`, `getTrialStatus`); then mocked server actions; do NOT attempt to test async server page components (not supported by Vitest).
+**Rationale:** Once profile data is being collected (Phase 2), the scoring engine can use it. This phase makes the feed industry-relevant for all 5 verticals. Without this, new HVAC/roofing/solar/electrical users would see heavy-equipment-scored leads regardless of their profile configuration.
+**Delivers:** `scoreLeadForIndustry()` dispatch; `inferIndustryRelevance()` engine; `applicable_industries` tagging during enrichment pipeline; source type filter panel; cross-industry lead tagging in feed; SAM.gov NAICS expansion for all 5 verticals
+**Addresses:** Industry-aware lead scoring, filter panel with source type and project category facets, cross-industry lead tagging, SAM.gov multi-NAICS expansion
+**Avoids:** Pitfall 7 (scoring performance collapse — keep in-memory approach for now; do not attempt SQL scoring rewrite simultaneously with industry expansion)
+**Research flag:** Standard patterns — scoring dispatch and weight configs are pure TypeScript architecture; well-understood
 
-**Research flag:** Standard patterns — skip `/gsd:research-phase`. Vitest mocking is demonstrated by 40+ existing test files.
+### Phase 4: Cron Architecture and Scraper Expansion
 
-### Phase 2: Query Optimizations
+**Rationale:** The scraper registry must be refactored before adding per-industry adapters. Running 5-industry scraping through the current mutable global Map with a single cron route creates race conditions and makes testing impossible. This phase restructures the cron architecture, then adds new data sources per vertical.
+**Delivers:** Per-industry parameterized cron routes (`/api/cron/scrape/[industry]`), immutable adapter factory pattern, `scraper_runs` per-adapter tracking, `p-queue` rate limiting for all external APIs, Socrata adapter factory for multi-city permit coverage, SODA3 migration for existing Austin adapter
+**Addresses:** SAM.gov expansion (configuration change only), city permits generalization via Socrata factory, per-API rate limiting, distributed lock pattern for cron safety
+**Avoids:** Pitfall 6 (Vercel plan limits — requires Pro plan, non-overlapping or isolated cron schedules), Pitfall 9 (government API silent failures — `p-queue` + circuit breakers), Pitfall 10 (mutable registry tight coupling — factory pattern replaces global Map)
+**Research flag:** Needs `/gsd:research-phase` — Vercel Pro plan concurrent cron behavior needs verification; SODA3 migration for existing Austin adapter requires testing against the live endpoint; SAM.gov daily quota allocation across 5 industries needs calculation
 
-**Rationale:** Four isolated, low-risk query improvements that do not touch auth, do not affect user sessions, and each have a clear before/after comparison. They share a common pattern (add a function to `queries.ts`, update the call site). Phase 1 safety net must be in place before merging these.
+### Phase 5: Storm Alert and Notification System
 
-**Delivers:**
-- Bookmarks page: 21 queries collapsed to 2 via `getLeadsByIds` with `inArray`
-- Digest generator: N per-user SQL queries reduced to 1 via union query + in-memory filter
-- Non-permit dedup: exact sourceUrl pre-check before fuzzy dedup; partial unique index on `(sourceId, sourceUrl)` where sourceUrl is not null
-- Lead feed: cursor/offset hybrid pagination with "Load more" button; `countFilteredLeads` for total count display
+**Rationale:** High-value differentiator for the roofing vertical, but depends on roofing onboarding profile (Phase 2) and the cron architecture (Phase 4). Storm alert cron must be separate and lightweight — 30-minute polling interval, no heavy scraping bundled in.
+**Delivers:** NWS storm alert polling cron (`/api/cron/storm-alerts` at `*/30 * * * *`), storm-sourced leads with 25pt urgency scoring boost, in-app storm banner for roofers, immediate email alert, `StormAlertEmail` React Email template; FEMA disaster declaration monitoring as a secondary signal
+**Addresses:** Storm event alerting differentiator, urgent notification preferences, FEMA-based demand signals for roofing/HVAC/electrical
+**Avoids:** Pitfall 6 (separate lightweight storm cron vs. bundling into scrape cron), Pitfall 9 (NWS rate limiting with conservative `p-queue` config — ~30 req/min)
+**Research flag:** NWS API patterns are standard and well-documented; in-app banner delivery approach (polling vs. SSE vs. toast on next page load) may benefit from a brief research spike
 
-**Avoids:** Bookmarks enrichment crash (PITFALL 4 — extract `enrichLead()` from `getLeadById()` first, then batch), FETCH_MULTIPLIER pagination collision (PITFALL 3 — in-memory slice after enrichment, not SQL offset), sourceUrl over-dedup (PITFALL 8 — compound key), retroactive dedup deleting bookmarks (PITFALL 11 — new leads only), digest Vercel timeout (PITFALL 7 — batch profile lookup with Map cache), scroll position loss post-mutation (PITFALL 9 — accept as known limitation for v2.1, document it).
+### Phase 6: Intelligence, Digests, and Polish
 
-**Recommended internal order:** bookmarks batch (smallest, most isolated) → digest optimization (similar batch pattern, more complex refactor) → sourceUrl dedup (requires schema migration + deployment window) → pagination (largest scope, touches main dashboard page and introduces new server action).
-
-**Research flag:** Standard patterns — skip `/gsd:research-phase`. Exception: the FETCH_MULTIPLIER pagination interaction is non-obvious; implementation should include a code comment explaining the in-memory pagination approach and why SQL-level offset is not used.
-
-### Phase 3: Auth Flows
-
-**Rationale:** The auth features are the highest-risk changes in the milestone. Forgot password deploys first; email verification deploys second. This is non-negotiable: enabling `requireEmailVerification: true` without an operational password recovery path creates a potential permanent lockout scenario for users who receive corrupted or expired verification links.
-
-**Delivers:**
-- Forgot password: `/forgot-password` + `/reset-password` pages, `sendResetPassword` callback in `auth.ts`, password reset email template
-- Email verification: `sendVerificationEmail` callback in `auth.ts`, `requireEmailVerification: true` (with migration), `/verify-email` interstitial page, non-blocking amber dashboard banner, digest-enable gate checking `emailVerified`
-
-**Critical deployment prerequisite:** SQL migration `UPDATE "user" SET email_verified = true WHERE email_verified IS NULL OR email_verified = false` must execute against Neon BEFORE the deploy that enables `requireEmailVerification: true`. This is a hard blocker.
-
-**Sign-up flow structural change:** Currently sign-up creates user + org in one step. With email verification, sign-up creates user only → user verifies → first dashboard visit has no org → redirect to `/onboarding` for org creation (existing path). This separation avoids creating orphaned orgs for users who never verify. The onboarding route must handle both new users (no org) and returning verified users (already have org — skip to dashboard).
-
-**Avoids:** Existing user lockout (PITFALL 1 — migration first), reset URL misconfiguration (PITFALL 2 — relative `redirectTo`, log URL in dev, manual end-to-end test on Vercel), deploying verification before password reset (PITFALL 6 — staged deployment), timing attack on email sends (PITFALL 14 — `void sendEmail()` fire-and-forget or `after()`), spam delivery (PITFALL 16 — configure custom Resend domain before launch), route collision (PITFALL 12 — pages in `(auth)` group, never under `/api/auth/`).
-
-**Recommended internal order:** forgot password complete and tested → SQL migration deployed to Neon → email verification enabled in same or next deploy.
-
-**Research flag:** better-auth auth flows are well-documented. No `/gsd:research-phase` needed. Implementation focus: the sign-up form structural change (defer org creation) needs careful testing to ensure the onboarding redirect guard handles both new and returning users correctly.
-
-### Phase 4: UI Polish
-
-**Rationale:** Lowest risk, zero dependencies on other phases. Trivial `usePathname()` client component extraction that mirrors existing `MobileNav` pattern exactly. Placed last so it does not consume time that could block higher-priority work, and the codebase is fully tested before touching the layout.
-
-**Delivers:** Active nav highlighting on desktop sidebar via `SidebarNav` client component; shared `nav-links.ts` constant that keeps desktop and mobile nav link definitions in sync.
-
-**Avoids:** Breaking the server component dashboard layout by converting it to a client component (ARCHITECTURE.md anti-pattern — extract nav only, keep layout server), nested route matching failure (PITFALL 15 — use `pathname.startsWith(href)` for parent nav items, exact match only for `/dashboard` root).
-
-**Research flag:** Standard pattern already in codebase via `MobileNav` — skip `/gsd:research-phase`.
+**Rationale:** Polish and intelligence features that sit on top of the core multi-industry platform. These improve value density but have no hard blockers beyond the previous phases being stable.
+**Delivers:** Cross-industry lead intelligence annotations on lead detail pages; industry-specific email digest templates (one layout per vertical); solar incentive lookup table (manually curated top 15 state programs); code violation scraper adapters for 2-3 Socrata cities; NOAA historical Storm Events enrichment via papaparse; CRM-lite pipeline status UI (2 new kanban columns)
+**Addresses:** Industry-specific digests, cross-industry intelligence differentiator, solar incentive tracking, code violation leads differentiator
+**Avoids:** Pitfall 11 (hash dedup conflicts with proximity dedup — keep content hash as supplementary fast-path pre-filter only, not a replacement for geographic+text similarity dedup)
+**Research flag:** Code violation Socrata dataset IDs vary by city and must be verified at implementation time using the Socrata discovery endpoint; allow time for per-city adapter discovery and field mapping
 
 ### Phase Ordering Rationale
 
-- Tests before code changes: every query and auth refactor in Phases 2-3 risks regression without the Phase 1 safety net
-- Query optimizations before auth: query changes are isolated and independently testable; auth changes have a deployment-order dependency that adds coordination overhead — doing auth second keeps Phase 2 unblocked
-- Forgot password before email verification: non-negotiable operational safety constraint; violating this order risks locking all users out of the live production app
-- UI polish last: no dependencies, no risk, does not gate anything else
+- Schema precedes onboarding because the `completeOnboarding` server action writes to the new schema; deploying the wizard before the tables exist causes 500 errors
+- Onboarding precedes scoring because scoring dispatches on `organization.industry` from the profile; without profile data the dispatch always falls back to heavy equipment scoring
+- Scoring precedes scraper expansion because new adapters produce industry-tagged leads that need to be scored and filtered correctly on first scrape
+- Cron refactor precedes adding new adapters because the mutable global Map creates race conditions and test isolation problems; new adapters should only be added to the clean factory pattern
+- Storm alerts follow cron refactor because the storm cron requires the same parameterized, isolated architecture established in Phase 4
+- Intelligence and polish have no hard blockers and can stretch across phases 4-5 opportunistically as time allows
 
 ### Research Flags
 
-No additional `/gsd:research-phase` is needed for any phase. All patterns are either well-documented in official sources or already demonstrated in the codebase:
+Needs `/gsd:research-phase` during planning:
+- **Phase 4:** Vercel Pro plan concurrent cron execution behavior (10 crons at the same time), SODA3 migration impact on the existing Austin adapter, SAM.gov daily quota allocation across 5 industries with conservative call budgeting
+- **Phase 5:** Real-time in-app storm notification delivery (Server-Sent Events vs. polling vs. toast on next page load) — brief spike recommended before implementation
 
-- Phase 1: Vitest mocking demonstrated by 40+ existing test files
-- Phase 2: Drizzle query patterns in official docs; FETCH_MULTIPLIER pagination behavior documented in PITFALLS.md
-- Phase 3: better-auth email flow in official docs; risks are deployment-order and operational, not technical unknowns
-- Phase 4: `usePathname()` pattern already in the codebase via `MobileNav`
-
-One area requiring extra care during implementation (not additional research): the pagination + FETCH_MULTIPLIER interaction and the nationwide fallback guard. The logic is fully understood but the code path in `getFilteredLeads` and `dashboard/page.tsx` is non-obvious; the implementation should add a comment explaining the in-memory pagination approach.
+Standard patterns — skip research phase:
+- **Phase 1:** Drizzle expand-then-contract migrations are fully documented with official examples
+- **Phase 2:** useReducer wizard, react-hook-form with Zod discriminated unions are established patterns
+- **Phase 3:** Scoring dispatch with configurable weights is pure TypeScript architecture, no external dependencies
+- **Phase 6:** React Email templates follow the existing `DailyDigestEmail` pattern already in the codebase
 
 ---
 
@@ -178,52 +185,53 @@ One area requiring extra care during implementation (not additional research): t
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Zero new dependencies confirmed against official docs and existing codebase; all capabilities pre-installed and in use |
-| Features | HIGH | All 8 features verified against official docs and 25+ source files; effort estimates grounded in direct code inspection |
-| Architecture | HIGH | Component modification map covers all 8 features with specific line-number references; 25+ source files inspected directly |
-| Pitfalls | HIGH | 5 critical pitfalls with codebase line references; all major ones have confirmed prevention strategies from official docs and GitHub issues |
+| Stack | HIGH | All new dependencies verified against official docs; existing stack validated against 40+ source files; only 3 new packages needed; all government APIs accessed via existing `fetch()` adapter pattern |
+| Features | MEDIUM-HIGH | Table stakes and differentiators well-researched from domain analysis; specific code violation API availability varies by city and needs per-city verification at implementation time; DSIRE API pricing cannot be assessed without contacting the vendor |
+| Architecture | HIGH | Based on direct code analysis of 40+ existing source files; integration points, data flows, migration strategies, and file-level change inventory are specific and verified |
+| Pitfalls | HIGH | 13 pitfalls identified, most verified against specific line numbers in the existing codebase; prior production incidents (500 from env.ts in db/index.ts, Stripe double-nesting, geocoding returning 0,0) confirm these risk categories are real for this project |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **FETCH_MULTIPLIER deep-page over-fetch formula:** The recommended in-memory pagination approach is correct but the exact SQL fetch size for page N needs validation during implementation. Guidance: fetch `(page * pageSize + pageSize) * FETCH_MULTIPLIER` rows from SQL. Verify this produces correct results at page 3+ and that the nationwide fallback guard triggers correctly at the boundary.
-
-- **sourceUrl dedup adapter audit:** PITFALLS.md flags that some adapters may produce multiple projects per URL (news aggregators, Google dorking search result pages). The exact URL patterns per adapter are not fully characterized. Mitigation: implement compound key `(sourceId + sourceUrl + externalId)` with fallback to `(sourceId + title)`; run new dedup logic against existing data in dry-run mode before enabling on the live pipeline.
-
-- **Sign-up flow org-creation refactor edge case:** Moving org creation from `sign-up-form.tsx` to post-verification onboarding is architecturally clean but introduces a flow guard: returning verified users who already have an org must not be re-directed to `/onboarding`. The onboarding layout guard needs to handle this case — it likely already does (checks for existing org), but must be verified.
-
-- **Custom Resend domain status:** PITFALL 16 flags that `onboarding@resend.dev` goes to spam for corporate email filters. Password reset and email verification emails landing in spam defeats the features entirely. Verify whether a custom sending domain (e.g., `noreply@heavyleads.com`) with SPF/DKIM/DMARC is configured in Resend before enabling these features in production. The env var `RESEND_FROM_EMAIL` controls the from address — setting it is sufficient if the domain is already verified in Resend.
+- **DSIRE API pricing:** Cannot be assessed until contacting DSIRE-Admin@ncsu.edu. Manual curation is the confirmed MVP approach; revisit if solar vertical gains significant traction and quarterly updates become a burden.
+- **Code violation Socrata dataset IDs:** Must be verified per city before adapter implementation. Discovery endpoint: `api.us.socrata.com/api/catalog/v1?q=code+violations`. NYC, Austin, and Boston are the highest-confidence starting cities.
+- **Neon HTTP driver PostGIS compatibility:** Must run a test `ST_Distance()` query against the actual Neon project before committing to the PostGIS migration. If the HTTP driver has limitations with binary PostGIS types, the WebSocket driver may be needed, which requires auth configuration changes.
+- **Vercel Pro plan concurrent cron behavior:** Plan limits are confirmed (100 crons, per-minute scheduling), but the actual concurrent execution behavior when 5 industry crons all fire at 6 AM simultaneously needs a test deploy verification before relying on it.
+- **Federal solar ITC expiration (Dec 31, 2025):** The residential 30% ITC expired. Solar lead value now depends on state-level incentives. The manual incentive lookup table should prioritize states with strong programs (NY 25%, SC 25%, MA 15%, NJ SREC-II, IL Adjustable Block). This context should surface prominently on solar lead detail pages.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [better-auth Email & Password Docs](https://better-auth.com/docs/authentication/email-password) — `sendResetPassword`, `requireEmailVerification`, `forgetPassword`/`resetPassword` client methods
-- [better-auth Email Concepts](https://better-auth.com/docs/concepts/email) — `sendVerificationEmail`, `sendOnSignUp`, `autoSignInAfterVerification`, timing attack guidance
-- [Drizzle ORM Cursor-Based Pagination](https://orm.drizzle.team/docs/guides/cursor-based-pagination) — official cursor guide
-- [Drizzle ORM Offset Pagination](https://orm.drizzle.team/docs/guides/limit-offset-pagination) — official offset guide
-- [Drizzle ORM Operators (inArray)](https://orm.drizzle.team/docs/operators) — batch query pattern
-- [Next.js Vitest Testing Guide](https://nextjs.org/docs/app/guides/testing/vitest) — official Vitest setup, async server component limitation
-- [Next.js `after()` Function Docs](https://nextjs.org/docs/app/api-reference/functions/after) — background task scheduling for serverless email sends
-- Codebase analysis of 25+ source files — direct inspection of `src/lib/auth.ts`, `src/lib/leads/queries.ts`, `src/actions/bookmarks.ts`, `src/lib/scraper/dedup.ts`, `src/lib/email/digest-generator.ts`, `src/app/(dashboard)/layout.tsx`, `src/app/(dashboard)/dashboard/page.tsx`, `tests/setup.ts`, `tests/helpers/*.ts`
+- NWS API OpenAPI spec (`api.weather.gov`) — alerts endpoint, parameters, GeoJSON format
+- FEMA OpenFEMA API documentation (`fema.gov/about/openfema/api`) — disaster declarations query syntax, OData filtering
+- EIA API v2 documentation (`eia.gov/opendata/documentation.php`) — electricity retail sales endpoint
+- NREL AFDC API documentation (`developer.nlr.gov`) — EV station data, April 2026 domain migration
+- Neon PostGIS extension docs (`neon.com/docs/extensions/postgis`) — extension setup, compatibility
+- Drizzle ORM PostGIS guide (`orm.drizzle.team/docs/guides/postgis-geometry-point`) — geometry column type, insert/query patterns
+- Drizzle ORM cursor pagination guide (`orm.drizzle.team/docs/guides/cursor-based-pagination`) — official cursor pattern
+- Vercel cron documentation — plan limits, scheduling precision, `maxDuration`
+- p-queue GitHub (`github.com/sindresorhus/p-queue`) — rate limiting API, `intervalCap`, ESM compatibility
+- Node.js Crypto documentation — built-in SHA-256 hashing
+- SAM.gov Get Opportunities API (`open.gsa.gov/api/get-opportunities-public-api/`) — NAICS filtering, single-NAICS-per-request limitation
+- Socrata SODA developer docs (`dev.socrata.com`) — SODA3 migration, app token requirement, discovery API
+- NYC Open Data code violations (`data.cityofnewyork.us`) — Housing Maintenance Code Violations dataset
+- Codebase analysis of 40+ source files — direct inspection of `src/lib/scraper/registry.ts`, `src/lib/leads/queries.ts`, `src/lib/leads/scoring.ts`, `src/lib/db/schema/`, `src/actions/onboarding.ts`, `src/app/api/cron/scrape/route.ts`
 
 ### Secondary (MEDIUM confidence)
-- [better-auth Issue #3461](https://github.com/better-auth/better-auth/issues/3461) — invalid token errors from URL misconfiguration
-- [better-auth Issue #2082](https://github.com/better-auth/better-auth/issues/2082) — forget password flow edge cases
-- [Next.js GitHub Issue #49087](https://github.com/vercel/next.js/issues/49087) — scroll position reset on `revalidatePath` after pagination
-- [Next.js GitHub Issue #60038](https://github.com/vercel/next.js/issues/60038) — server-only + Vitest incompatibility
-- [Email verification with better-auth + Resend tutorial](https://dev.to/daanish2003/email-verification-using-betterauth-nextjs-and-resend-37gn) — practical setup
-- [Forgot/reset password with better-auth + Resend tutorial](https://dev.to/daanish2003/forgot-and-reset-password-using-betterauth-nextjs-and-resend-ilj) — client-side token extraction pattern
-- [Five ways to paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/) — canonical reference
-- [Keyset Cursors, Not Offsets, for Postgres Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/) — cursor pagination rationale
+- Roofing industry storm response data (PredictiveSalesAI, KnockBase) — 50-78% first-mover storm work capture, 22% storm-caused roof replacements in 2024
+- Solar incentive 2026 state-by-state analysis (ACDirect, Powerlutions) — ITC expiration context, state program landscape post-federal-credit era
+- NEVI program status (AFDC, Qmerit) — $885M FY2026 apportionment, EV charger contractor opportunity scope
+- Competitor analysis (Shovels.ai, Construction Monitor, BuildZoom, HailTrace) — feature gap identification; LeadForge's differentiation is integrated scoring across verticals vs. raw data providers
+- Code violation lead gen feasibility (Data.gov catalog, NYC Open Data) — dataset availability by city, Socrata coverage
 
-### Tertiary (MEDIUM confidence)
-- [Google AIP-158](https://google.aip.dev/158) — pagination design guidance
-- [Slack Engineering: Evolving API Pagination](https://slack.engineering/evolving-api-pagination-at-slack/) — real-world migration lessons
-- [Vercel waitUntil Docs](https://vercel.com/changelog/waituntil-is-now-available-for-vercel-functions) — background task execution on serverless
+### Tertiary (LOW confidence)
+- DSIRE API pricing — contact-for-pricing, cannot be independently verified; manual curation is the de-risked alternative
+- HailTrace API pricing — opaque, no public pricing; NWS is the free upstream alternative
+- Socrata dataset IDs for cities beyond Austin, NYC, Boston — require per-city verification at implementation time
 
 ---
-*Research completed: 2026-03-15*
+*Research completed: 2026-03-16*
 *Ready for roadmap: yes*
