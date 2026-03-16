@@ -8,17 +8,19 @@ A multi-tenant SaaS web application that automatically discovers and aggregates 
 
 Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed — no cold calling, no Googling, no guesswork.
 
-## Current Milestone: v2.0 Production Rework
+## Current Milestone: v2.1 Bug Fixes & Hardening
 
-**Goal:** Fix production blockers, add free trial, professionalize onboarding, automate lead generation, and add custom search — make the app actually work end-to-end.
+**Goal:** Harden the production app with regression tests for all recent fixes, resolve remaining deferred bugs, and add auth polish (forgot password, email verification, active nav).
 
 **Target features:**
-- 1-week free trial for all new signups
-- Fix Stripe customer creation error on registration
-- Robust onboarding (company details, team invites, guided dashboard tour)
-- Automatic lead generation (daily cron + first-login trigger + on-demand refresh)
-- Custom lead search (location/keywords/project type beyond default filters)
-- Overall polish and production readiness
+- Regression tests for 15 bug fixes shipped in v2.0 post-rework
+- Lead feed pagination (BUG 13)
+- Bookmarks batch query replacing N+1 (BUG 14)
+- Digest email query optimization (BUG 10)
+- Non-permit dedup improvement using sourceUrl (BUG 9)
+- Active nav highlighting in sidebar
+- Forgot password flow via email
+- Email verification on signup
 
 ## Requirements
 
@@ -33,18 +35,30 @@ Shipped in v1.0 (2026-03-14):
 - ✓ Basic onboarding (location, equipment, radius) — v1.0
 - ✓ Stripe billing infrastructure — v1.0
 
+Shipped in v2.0 (2026-03-15):
+- ✓ Free trial billing with Stripe-native trial period — v2.0
+- ✓ Stripe customer creation fix (lazy org-level) — v2.0
+- ✓ Automatic lead generation via Vercel Cron — v2.0
+- ✓ First-login auto-trigger + on-demand refresh — v2.0
+- ✓ Mobile navigation drawer — v2.0 post-rework
+- ✓ Landing page for unauthenticated visitors — v2.0 post-rework
+- ✓ Permit upsert data integrity fix (excluded.* pattern) — v2.0 post-rework
+- ✓ Geocoding null-safe (no more 0,0 coords) — v2.0 post-rework
+- ✓ Lead scoring fetch-multiplier (high-score leads no longer dropped) — v2.0 post-rework
+- ✓ Error boundaries and loading skeletons — v2.0 post-rework
+- ✓ Sign-in redirect loop fix — v2.0 post-rework
+- ✓ Onboarding upsert (double-submit safe) — v2.0 post-rework
+
 ### Active
 
-- [ ] 1-week free trial on signup (no credit card required to explore)
-- [ ] Fix Stripe customer creation error during registration
-- [ ] Professional onboarding: company details (name, website, phone, logo, industry segment)
-- [ ] Team setup during onboarding: invite members, assign roles
-- [ ] Guided dashboard tour after onboarding
-- [ ] Automatic lead generation via Vercel Cron (daily schedule)
-- [ ] First-login lead trigger so new companies see leads immediately
-- [ ] On-demand "Refresh Leads" for manual trigger
-- [ ] Custom lead search: user-specified location, keywords, project type
-- [ ] Overall UI/UX polish for production readiness
+- [ ] Regression tests for all v2.0 post-rework bug fixes
+- [ ] Lead feed pagination
+- [ ] Bookmarks batch query (replace N+1)
+- [ ] Digest email query optimization
+- [ ] Non-permit dedup via sourceUrl
+- [ ] Active nav highlighting in sidebar
+- [ ] Forgot password flow
+- [ ] Email verification on signup
 
 ### Out of Scope
 
@@ -54,24 +68,25 @@ Shipped in v1.0 (2026-03-14):
 - Real-time chat/messaging — not core to lead discovery
 - International markets — U.S. only
 - Manual lead entry/import — defer to future
+- Middleware auth (BUG 17) — layout-level checks sufficient for current route count
+- Env var startup validation — caused production 500; validate at usage points instead
 
 ## Context
 
-- v1.0 is deployed on Vercel at heavy-leads.vercel.app but has production issues
-- Stripe customer creation fails on signup (likely missing/misconfigured Stripe keys or plugin config)
-- Onboarding feels thin — only 3 steps, no company branding, no team setup
-- Scraper only runs when API endpoint is manually hit — no automation
-- Dashboard is empty for new users — no leads until scraper runs
-- Target user is the sales rep or sales manager at a heavy machinery dealership or rental company
+- v2.0 is deployed on Vercel at heavy-leads.vercel.app
+- 15 bug fixes shipped from battle test report (2026-03-15) — need regression coverage
+- 4 deferred bugs remain (pagination, bookmarks N+1, digest N+1, dedup)
+- Target user is the sales rep or sales manager at a heavy machinery dealership
 - Database is Neon PostgreSQL, project ID: restless-bonus-58249089
+- better-auth supports password reset and email verification natively
 
 ## Constraints
 
 - **Production-first**: All changes must work on Vercel deployment, not just locally
-- **Data access**: Public permit/bid data varies by municipality — scraping handles inconsistent formats
+- **Safety**: Site is live and working — changes must not break existing functionality
+- **Testing**: Every fix needs a corresponding test before merge
+- **Data access**: Public permit/bid data varies by municipality
 - **Legal**: Web scraping respects robots.txt and terms of service
-- **Freshness**: Leads must be daily — stale data kills trust
-- **Free trial**: Must not require credit card — reduce friction to explore
 
 ## Key Decisions
 
@@ -81,9 +96,10 @@ Shipped in v1.0 (2026-03-14):
 | Multi-tenant SaaS from day 1 | Broader market, not tied to one customer | ✓ Good |
 | Radius-based geo filtering | More intuitive than state selection for equipment dealers with regional coverage | ✓ Good |
 | One-time fee + subscription | Customer preference for setup + ongoing model | ✓ Good |
-| 1-week free trial | Reduce signup friction, let users see value before paying | — Pending |
-| Vercel Cron for scraping | Serverless-friendly, no separate infra to manage | — Pending |
-| Custom search as user-initiated | Complements automatic leads without overloading scraper | — Pending |
+| 1-week free trial | Reduce signup friction, let users see value before paying | ✓ Good |
+| Vercel Cron for scraping | Serverless-friendly, no separate infra to manage | ✓ Good |
+| No env.ts on critical path | Caused production 500 — validate at usage points instead | ✓ Good |
+| FETCH_MULTIPLIER = 4 for lead queries | Over-fetch rows before scoring so high-score older leads aren't excluded | — Pending |
 
 ---
-*Last updated: 2026-03-15 after v2.0 milestone start*
+*Last updated: 2026-03-15 after v2.1 milestone start*
