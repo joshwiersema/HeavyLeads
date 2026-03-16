@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Bug Fixes & Hardening
-status: completed
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-16T06:13:01.605Z"
-last_activity: 2026-03-16 -- Completed 12-01 active navigation highlighting (desktop sidebar + mobile nav fix)
+milestone: v3.0
+milestone_name: LeadForge Multi-Industry Platform
+status: defining_requirements
+stopped_at: null
+last_updated: "2026-03-16T12:00:00.000Z"
+last_activity: 2026-03-16 -- Milestone v3.0 started
 progress:
-  total_phases: 12
-  completed_phases: 12
-  total_plans: 27
-  completed_plans: 27
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -20,88 +20,36 @@ progress:
 
 See: .planning/PROJECT.md (updated 2026-03-16)
 
-**Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Phase 12 - UI Polish (Complete)
+**Core value:** Every morning, a blue-collar business owner opens LeadForge and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
+**Current focus:** Defining requirements for v3.0
 
 ## Current Position
 
-Phase: 12 of 12 (UI Polish)
-Plan: 1 of 1 complete
-Status: Milestone Complete
-Last activity: 2026-03-16 -- Completed 12-01 active navigation highlighting (desktop sidebar + mobile nav fix)
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-16 — Milestone v3.0 started
 
 ## Performance Metrics
 
-**Velocity:**
-- Total plans completed: 24 (15 v1.0 + 4 v2.0 + 5 v2.1)
-- Average duration: ~5.4 min
-- Total execution time: ~2.26 hours
-
-| Phase | Plan | Duration | Tasks | Files |
-|-------|------|----------|-------|-------|
-| 09    | 01   | 3min     | 2     | 3     |
-| 09    | 02   | 4min     | 2     | 9     |
-| 09    | 03   | 4min     | 2     | 6     |
-| 10    | 01   | 7min     | 2     | 7     |
-| 10    | 02   | 7min     | 2     | 6     |
-| 11    | 01   | 6min     | 2     | 9     |
-| 11    | 02   | 3min     | 2     | 3     |
-| 12    | 01   | 3min     | 2     | 6     |
+**Previous milestones:**
+- v1.0: 6 phases, 15 plans, ~1.7 hours
+- v2.0: 2 phases, 4 plans, ~0.3 hours
+- v2.1: 4 phases, 8 plans, ~0.6 hours
 
 ## Accumulated Context
 
 ### Decisions
 
-Key decisions from v2.0 post-rework:
+Key decisions carried forward:
 - Permit upsert uses sql`excluded.column_name` for correct Drizzle conflict updates
-- Geocoding returns null coords (not 0,0) when API key missing; callers check for null
-- Lead query uses FETCH_MULTIPLIER = 4 to over-fetch before in-memory scoring
+- Geocoding returns null coords (not 0,0) when API key missing
+- Lead query uses FETCH_MULTIPLIER = 4 (will be replaced by cursor-based pagination in v3.0)
 - Org slug gets random suffix to prevent collision
-- Sign-in wraps org fetch in try-catch; empty orgs route to onboarding
 - Stripe customer creation uses idempotency key per org
-- Onboarding uses onConflictDoUpdate for double-submit safety
-- Never add side-effect imports to db/index.ts or auth.ts -- caused production 500
-
-v2.1 roadmap decisions:
-- Tests first, then production changes (safety net principle)
-- Phases 11 and 12 depend only on Phase 9 (not on Phase 10), enabling parallel execution
-- Email verification deferred to future -- ship forgot password first as recovery path
-
-v2.1 Phase 9 decisions:
-- drizzle-orm mock must include sql as tagged template function when testing pipeline code that uses sql`excluded.*`
-- Used closure counter for unique mock returning() IDs -- simpler and deterministic vs crypto.randomUUID()
-- vi.fn() handle pattern before vi.mock enables assertion on onConflictDoUpdate arguments (set/target)
-- Geocoding null test uses real function with deleted env var -- tests actual behavior, not mock behavior
-- Non-exported functions (slugify, Array.isArray guard, sort) tested as inline pattern replication
-- Server component (page.tsx) tested by calling async function directly and rendering result -- avoids next/headers jsdom issues
-- Base-UI primitives (merge-props, use-render, separator) mocked for jsdom -- avoids DOM API incompatibilities
-- afterEach(cleanup) required in all component test describe blocks to prevent DOM leakage
-
-v2.1 Phase 10 decisions:
-- Widest-filter envelope for digest: max radius, earliest dateFrom, null dateTo = no upper bound, smallest minProjectSize, largest maxProjectSize (null = Infinity)
-- Raw sql template literal for partial index WHERE clause (workaround for Drizzle Kit bug #4790)
-- onConflictDoNothing with SELECT fallback for non-permit sourceUrl dedup
-- limit: 500 for widest digest query to capture sufficient candidates for in-memory filtering
-- FETCH_MULTIPLIER pagination resolved: enrichLead extracted for single-lead enrichment, getFilteredLeadsWithCount for server-side count
-- getFilteredLeadsWithCount fetches all within-radius leads (no FETCH_MULTIPLIER) for accurate totalCount
-- Filter changes reset page to 1 via buildParams deleting page param
-- getLeadsByIds batch query replaces N+1 getLeadById pattern on bookmarks page
-
-v2.1 Phase 11 decisions:
-- Resend client instantiated inside sendResetPassword callback, not at module top level (no side-effect imports in auth.ts)
-- Missing RESEND_API_KEY throws error on password reset (critical path -- unlike digest which silently skips)
-- Generic success message on forgot-password prevents user enumeration
-- vi.hoisted() pattern for mock references in vi.mock factories (vitest hoisting requirement)
-- class-based mock for Resend constructor (arrow function mocks fail with new keyword)
-- Exact string matchers for getByLabelText when labels share substrings (e.g., "New Password" vs "Confirm New Password")
-- Three-state UI pattern for reset-password: error (expired/invalid/missing token), form (valid token), success (password reset)
-
-v2.1 Phase 12 decisions:
-- Shared nav-links.ts is a plain TypeScript module (not a component) exporting config + logic, consumed by both sidebar-nav.tsx and mobile-nav.tsx
-- isNavActive special-cases /dashboard to match exactly OR /dashboard/leads/* but NOT /dashboard/bookmarks or /dashboard/saved-searches
-- SidebarNav wraps its own <nav> element, so layout.tsx renders <SidebarNav /> directly after Separator
+- Never add side-effect imports to db/index.ts or auth.ts — caused production 500
+- Resend client instantiated inside callbacks, not at module top level
+- Shared nav-links.ts config consumed by both sidebar and mobile nav
 
 ### Pending Todos
 
@@ -109,13 +57,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- ~~FETCH_MULTIPLIER pagination interaction needs careful implementation~~ (RESOLVED in 10-01: getFilteredLeadsWithCount provides server-side count)
-- ~~Bookmarks batch query must extract enrichLead() before batching~~ (RESOLVED in 10-01: enrichLead extracted, getLeadsByIds uses batch query)
-- Custom Resend domain status unknown -- password reset emails may land in spam without SPF/DKIM
+- Custom Resend domain status unknown — password reset emails may land in spam without SPF/DKIM
 - Schema push needed: `npx drizzle-kit push` to apply leads_source_url_dedup_idx partial unique index
+- Database migration strategy for v3.0 schema changes needs careful planning (preserve existing data)
 
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Completed 12-01-PLAN.md
+Stopped at: null
 Resume file: None
