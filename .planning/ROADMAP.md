@@ -127,9 +127,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 14-01-PLAN.md -- Wizard infrastructure (types, config, reducer, sessionStorage persistence, Zod schemas) and first two steps (Industry Selection, Company Basics with Google Places autocomplete)
-- [ ] 14-02-PLAN.md -- Remaining wizard steps (Service Area map, Specializations, Lead Preferences, Review & Confirm), server action rewrite, and end-to-end wiring
-- [ ] 14-03-PLAN.md -- Industry-specific Stripe pricing config, webhook handler, welcome email, and signup industry parameter
+- [x] 14-01-PLAN.md -- Wizard infrastructure (types, config, reducer, sessionStorage persistence, Zod schemas) and first two steps (Industry Selection, Company Basics with Google Places autocomplete)
+- [x] 14-02-PLAN.md -- Remaining wizard steps (Service Area map, Specializations, Lead Preferences, Review & Confirm), server action rewrite, and end-to-end wiring
+- [x] 14-03-PLAN.md -- Industry-specific Stripe pricing config, webhook handler, welcome email, and signup industry parameter
 
 ### Phase 15: Scoring Engine & Lead Feed
 **Goal**: Every user sees a personalized lead feed where the same lead scores differently per subscriber based on their industry, location, specializations, and preferences
@@ -141,11 +141,12 @@ Plans:
   3. User can filter leads by source type, distance, value range, project type, date range, and sort by score/date/distance using a filter panel
   4. Lead feed uses cursor-based pagination that maintains stable ordering even as new leads are inserted
   5. Lead detail page shows enrichment data (weather, property, incentives), map, contacts, and similar leads from other industries
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 15-01: TBD
-- [ ] 15-02: TBD
+- [ ] 15-01-PLAN.md -- 5-dimension scoring engine (distance, relevance, value, freshness, urgency) with match reasons, cursor-based feed query, and unit tests
+- [ ] 15-02-PLAN.md -- Lead card redesign with score/match reasons, industry-aware filter panel, cursor pagination UI, and industry badge in sidebar
+- [ ] 15-03-PLAN.md -- Lead detail page with score breakdown, enrichment data sections, dual-marker map with service radius, and similar leads
 
 ### Phase 16: Cron & Scraper Architecture
 **Goal**: The scraping system runs per-industry pipelines on independent schedules with proper rate limiting, hash-based deduplication, and health monitoring
@@ -214,8 +215,8 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 11. Forgot Password | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 12. UI Polish | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 13. Schema Foundation | v3.0 | 2/2 | Complete | 2026-03-16 |
-| 14. Industry Onboarding | 3/3 | Complete    | 2026-03-16 | - |
-| 15. Scoring Engine & Lead Feed | v3.0 | 0/TBD | Not started | - |
+| 14. Industry Onboarding | v3.0 | 3/3 | Complete | 2026-03-16 |
+| 15. Scoring Engine & Lead Feed | v3.0 | 0/3 | Not started | - |
 | 16. Cron & Scraper Architecture | v3.0 | 0/TBD | Not started | - |
 | 17. Storm Alerts & Weather | v3.0 | 0/TBD | Not started | - |
 | 18. Intelligence & Polish | v3.0 | 0/TBD | Not started | - |
