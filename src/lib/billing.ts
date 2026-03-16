@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { subscription } from "@/lib/db/schema/subscriptions";
 import { eq, or, and } from "drizzle-orm";
 import { PRICES } from "@/lib/stripe";
+import { getIndustryPricing } from "@/lib/billing/config";
 
 /**
  * Query the subscription table for an active or trialing subscription
@@ -102,7 +103,8 @@ interface CheckoutSubscription {
  */
 export function buildCheckoutSessionParams(
   plan: CheckoutPlan,
-  sub: CheckoutSubscription | null | undefined
+  sub: CheckoutSubscription | null | undefined,
+  industry?: string
 ): Record<string, unknown> {
   // Trial checkout: no setup fee (Stripe charges one-time items immediately)
   const isTrialCheckout = !!plan.freeTrial && !sub?.trialStart;
@@ -113,11 +115,19 @@ export function buildCheckoutSessionParams(
   // Post-trial first-time paid: include setup fee
   const isFirstTimePaid = sub?.trialStart && !sub?.stripeSubscriptionId;
   if (isFirstTimePaid) {
+    // Use industry-specific pricing when available, fall back to generic PRICES
+    const monthlyPriceId = industry
+      ? getIndustryPricing(industry).monthlyPriceId
+      : plan.priceId;
+    const setupFeeId = industry
+      ? getIndustryPricing(industry).setupFeeId
+      : PRICES.setupFee;
+
     return {
       params: {
         line_items: [
-          { price: plan.priceId, quantity: 1 },
-          { price: PRICES.setupFee, quantity: 1 },
+          { price: monthlyPriceId, quantity: 1 },
+          { price: setupFeeId, quantity: 1 },
         ],
       },
     };

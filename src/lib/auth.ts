@@ -4,7 +4,7 @@ import { stripe } from "@better-auth/stripe";
 import { nextCookies } from "better-auth/next-js";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db";
-import { member } from "./db/schema/auth";
+import { member, organization as orgTable } from "./db/schema/auth";
 import { eq, and } from "drizzle-orm";
 import { stripeClient, PRICES } from "./stripe";
 import { buildCheckoutSessionParams } from "./billing";
@@ -102,7 +102,15 @@ export const auth = betterAuth({
           },
         ],
         getCheckoutSessionParams: async ({ plan, subscription }) => {
-          return buildCheckoutSessionParams(plan, subscription);
+          let industry: string | undefined;
+          if (subscription?.referenceId) {
+            const org = await db.query.organization.findFirst({
+              where: eq(orgTable.id, subscription.referenceId),
+              columns: { industry: true },
+            });
+            industry = org?.industry ?? undefined;
+          }
+          return buildCheckoutSessionParams(plan, subscription, industry);
         },
       },
       organization: { enabled: true },
