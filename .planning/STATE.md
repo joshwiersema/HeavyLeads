@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v2.1
 milestone_name: Bug Fixes & Hardening
-status: defining_requirements
-stopped_at: Milestone initialized
+status: roadmap_complete
+stopped_at: Roadmap created with 4 phases (9-12)
 last_updated: "2026-03-15"
-last_activity: 2026-03-15 -- Milestone v2.1 started
+last_activity: 2026-03-15 -- Roadmap created for v2.1
 progress:
-  total_phases: 0
+  total_phases: 4
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Every morning, a heavy machinery sales rep opens HeavyLeads and sees fresh, relevant project leads they would have otherwise missed.
-**Current focus:** Defining requirements for v2.1 Bug Fixes & Hardening
+**Current focus:** Phase 9 - Regression Test Safety Net
 
 ## Current Position
 
-Phase: Not started (defining requirements)
-Plan: —
-Status: Defining requirements
-Last activity: 2026-03-15 — Milestone v2.1 started
+Phase: 9 of 12 (Regression Test Safety Net)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-03-15 -- Roadmap created for v2.1 Bug Fixes & Hardening
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -51,9 +51,12 @@ Key decisions from v2.0 post-rework:
 - Sign-in wraps org fetch in try-catch; empty orgs route to onboarding
 - Stripe customer creation uses idempotency key per org
 - Onboarding uses onConflictDoUpdate for double-submit safety
-- Landing page uses styled Links (not Link>Button nesting) for valid HTML
-- Never add side-effect imports to db/index.ts or auth.ts — caused production 500
-- better-auth stripe plugin expects { params: { line_items } } format (confirmed from source)
+- Never add side-effect imports to db/index.ts or auth.ts -- caused production 500
+
+v2.1 roadmap decisions:
+- Tests first, then production changes (safety net principle)
+- Phases 11 and 12 depend only on Phase 9 (not on Phase 10), enabling parallel execution
+- Email verification deferred to future -- ship forgot password first as recovery path
 
 ### Pending Todos
 
@@ -61,11 +64,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- nextstepjs React 19 compatibility unverified (from v2.0 Phase 10 — not in this milestone)
-- Vercel function timeout risk for 8 sequential scraper adapters
+- FETCH_MULTIPLIER pagination interaction needs careful implementation (in-memory pagination, not SQL offset)
+- Bookmarks batch query must extract enrichLead() before batching to preserve lead card data
+- Custom Resend domain status unknown -- password reset emails may land in spam without SPF/DKIM
 
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Milestone v2.1 initialized
+Stopped at: Roadmap created for v2.1 -- ready to plan Phase 9
 Resume file: None

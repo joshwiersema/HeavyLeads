@@ -191,22 +191,21 @@ Requirements for Bug Fixes & Hardening milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
-| PERF-01 | TBD | Pending |
-| PERF-02 | TBD | Pending |
-| PERF-03 | TBD | Pending |
-| PERF-04 | TBD | Pending |
-| AUTH-01 | TBD | Pending |
-| UI-01 | TBD | Pending |
+| TEST-01 | Phase 9 | Pending |
+| TEST-02 | Phase 9 | Pending |
+| PERF-01 | Phase 10 | Pending |
+| PERF-02 | Phase 10 | Pending |
+| PERF-03 | Phase 10 | Pending |
+| PERF-04 | Phase 10 | Pending |
+| AUTH-01 | Phase 11 | Pending |
+| UI-01 | Phase 12 | Pending |
 
 **Coverage:**
 - v1.0 requirements: 25 total, 25 complete
 - v2.0 requirements: 11 complete, 10 deferred
-- v2.1 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 (awaiting roadmap)
+- v2.1 requirements: 8 total, 8 mapped to phases
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-13 (v1.0)*
-*Last updated: 2026-03-15 after v2.1 requirements definition*
+*Last updated: 2026-03-15 after v2.1 roadmap creation*

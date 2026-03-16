@@ -3,7 +3,8 @@
 ## Milestones
 
 - [x] **v1.0 Core Product** - Phases 1-6 (shipped 2026-03-14)
-- [ ] **v2.0 Production Rework** - Phases 7-11 (in progress)
+- [x] **v2.0 Production Rework** - Phases 7-8 (shipped 2026-03-15)
+- [ ] **v2.1 Bug Fixes & Hardening** - Phases 9-12 (in progress)
 
 ## Phases
 
@@ -25,13 +26,20 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 </details>
 
-### v2.0 Production Rework
+<details>
+<summary>v2.0 Production Rework (Phases 7-8) - SHIPPED 2026-03-15</summary>
 
-- [x] **Phase 7: Billing Fix and Free Trial** - Fix Stripe customer creation, add 7-day trial via Stripe Checkout, trial UI (completed 2026-03-15)
-- [x] **Phase 8: Lead Automation** - Vercel Cron daily scraping, first-login trigger, on-demand refresh, empty state (completed 2026-03-15)
-- [ ] **Phase 9: Onboarding Expansion** - Company details step, logo upload, team invites
-- [ ] **Phase 10: Guided Tour and Conversion Emails** - Dashboard product tour, pre-expiry conversion email sequence
-- [ ] **Phase 11: Custom Search and Polish** - User-initiated location/keyword search, UI consistency pass
+- [x] **Phase 7: Billing Fix and Free Trial** - Fix Stripe customer creation, add 7-day trial via Stripe Checkout, trial UI
+- [x] **Phase 8: Lead Automation** - Vercel Cron daily scraping, first-login trigger, on-demand refresh, empty state
+
+</details>
+
+### v2.1 Bug Fixes & Hardening
+
+- [ ] **Phase 9: Regression Test Safety Net** - Test infrastructure and regression tests for all 15 v2.0 post-rework bug fixes
+- [ ] **Phase 10: Query Optimizations** - Pagination, bookmarks batch query, digest optimization, and non-permit dedup
+- [ ] **Phase 11: Forgot Password** - Password reset flow via email link from sign-in page
+- [ ] **Phase 12: UI Polish** - Active nav highlighting in desktop sidebar and mobile nav drawer
 
 ## Phase Details
 
@@ -133,6 +141,9 @@ Plans:
 
 </details>
 
+<details>
+<summary>v2.0 Phase Details (Phases 7-8) - SHIPPED 2026-03-15</summary>
+
 ### Phase 7: Billing Fix and Free Trial
 **Goal**: New users can sign up, start a 7-day free trial via Stripe Checkout, and see clear trial status throughout the app
 **Depends on**: Phase 6
@@ -165,54 +176,68 @@ Plans:
 - [x] 08-01-PLAN.md -- Pipeline runs schema, Vercel Cron GET route with CRON_SECRET auth, secured user-trigger POST route with DB rate limiting, vercel.json cron config
 - [x] 08-02-PLAN.md -- First-login pipeline auto-trigger, pipeline progress indicator, Refresh Leads button, context-aware dashboard empty state
 
-### Phase 9: Onboarding Expansion
-**Goal**: New companies provide professional details and invite their team during a polished 5-step onboarding flow
+</details>
+
+### Phase 9: Regression Test Safety Net
+**Goal**: All 15 v2.0 post-rework bug fixes have regression test coverage, establishing a safety net before any production code changes in this milestone
 **Depends on**: Phase 8
-**Requirements**: ONBD-01, ONBD-02, ONBD-03
+**Requirements**: TEST-01, TEST-02
 **Success Criteria** (what must be TRUE):
-  1. Onboarding wizard collects company name, website, phone, industry segment, and logo as a new step before the existing location/equipment/radius steps
-  2. User can upload a company logo during onboarding with a live preview, stored via Vercel Blob
-  3. User can invite team members by email with role selection during onboarding, or skip the step to complete later
+  1. Running `npm run test` executes the full test suite and all tests pass with zero configuration errors
+  2. Every v2.0 post-rework bug fix has at least one test that would fail if the fix were reverted (permit upsert, geocoding null, lead query sort, org slug, sign-in redirect, Stripe idempotency, onboarding upsert, mobile nav, landing page, pricing display, error boundaries, date formatting, loading states, equipmentTypes guard, geocoding error handling)
+  3. Server actions can be tested using established mocking patterns for `@/lib/db`, `@/lib/auth`, `next/headers`, and `next/cache` without hitting the production database
+  4. Zero production source files are modified in this phase -- only test files and test infrastructure
 **Plans**: TBD
 
 Plans:
 - [ ] 09-01: TBD
 - [ ] 09-02: TBD
 
-### Phase 10: Guided Tour and Conversion Emails
-**Goal**: New users get a guided walkthrough of the dashboard, and trial users receive email nudges before their trial expires
+### Phase 10: Query Optimizations
+**Goal**: Lead feed supports page navigation, bookmarks load in a single query, digest emails generate efficiently, and non-permit leads are deduplicated by source URL
 **Depends on**: Phase 9
-**Requirements**: ONBD-04, ONBD-05, PLSH-01
+**Requirements**: PERF-01, PERF-02, PERF-03, PERF-04
 **Success Criteria** (what must be TRUE):
-  1. After completing onboarding, user sees a guided dashboard tour (5-6 steps) covering the lead feed, filters, lead detail, bookmarks, and saved searches
-  2. Tour only appears once per user -- returning users never see it again
-  3. Trial users receive conversion emails at 3 days remaining, 1 day remaining, and on expiry day with a link to subscribe
+  1. User can navigate between pages of leads using Previous/Next controls with a page indicator, and the current page persists in the URL alongside all existing filters
+  2. Bookmarks page loads all bookmarked leads in a single round-trip instead of one query per bookmark, and every lead card displays the same enriched data (score, equipment, freshness, distance) as the main feed
+  3. Digest email generation runs one broad query per user instead of one query per saved search, completing within Vercel function timeout limits
+  4. When the scraping pipeline processes non-permit leads, duplicates with matching source URLs are detected and skipped instead of creating duplicate lead records
 **Plans**: TBD
 
 Plans:
 - [ ] 10-01: TBD
 - [ ] 10-02: TBD
 
-### Phase 11: Custom Search and Polish
-**Goal**: Users can search beyond their default filters and the app feels production-ready across all screens
-**Depends on**: Phase 8
-**Requirements**: SRCH-01, SRCH-02, SRCH-03, PLSH-03
+### Phase 11: Forgot Password
+**Goal**: Locked-out users can recover their account via email without contacting support
+**Depends on**: Phase 9
+**Requirements**: AUTH-01
 **Success Criteria** (what must be TRUE):
-  1. User can search for leads by specifying a custom location, keywords, and project type beyond their default organization filters
-  2. Custom search results merge into the main lead feed with clear source attribution showing they came from a custom search
-  3. Custom searches are rate-limited (3 per day for trial users, 10 per day for paid users) with remaining quota visible in the UI
-  4. All screens have consistent styling, loading states, and error handling suitable for production use
+  1. User can click "Forgot password?" on the sign-in page, enter their email, and receive a password reset link via email
+  2. User can set a new password using the reset link and immediately log in with the new credentials
+  3. Password reset emails are delivered reliably (not caught by spam filters) and expired/used reset links show a clear error message
 **Plans**: TBD
 
 Plans:
 - [ ] 11-01: TBD
-- [ ] 11-02: TBD
+
+### Phase 12: UI Polish
+**Goal**: Navigation clearly shows the user where they are in the app at all times
+**Depends on**: Phase 9
+**Requirements**: UI-01
+**Success Criteria** (what must be TRUE):
+  1. The currently active page is visually highlighted in the desktop sidebar navigation
+  2. The currently active page is visually highlighted in the mobile navigation drawer
+  3. Nested routes (e.g., lead detail pages under /dashboard) correctly highlight their parent nav item
+**Plans**: TBD
+
+Plans:
+- [ ] 12-01: TBD
 
 ## Progress
 
 **Execution Order:**
-v1.0 phases (1-6) are complete. v2.0 phases execute: 7 -> 8 -> 9 -> 10 -> 11.
-Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with Phases 9-10.
+v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases execute: 9 -> 10, 11, 12 (Phases 11 and 12 depend only on Phase 9 and can run after Phase 10 or in parallel).
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -222,8 +247,9 @@ Note: Phase 11 depends on Phase 8 (not Phase 10) and could run in parallel with 
 | 4. Multi-Source Expansion | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 5. Lead Management and Notifications | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 6. Billing and Launch Readiness | v1.0 | 2/2 | Complete | 2026-03-14 |
-| 7. Billing Fix and Free Trial | 2/2 | Complete   | 2026-03-15 | - |
-| 8. Lead Automation | 2/2 | Complete | 2026-03-15 | - |
-| 9. Onboarding Expansion | v2.0 | 0/? | Not started | - |
-| 10. Guided Tour and Conversion Emails | v2.0 | 0/? | Not started | - |
-| 11. Custom Search and Polish | v2.0 | 0/? | Not started | - |
+| 7. Billing Fix and Free Trial | v2.0 | 2/2 | Complete | 2026-03-15 |
+| 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
+| 9. Regression Test Safety Net | v2.1 | 0/? | Not started | - |
+| 10. Query Optimizations | v2.1 | 0/? | Not started | - |
+| 11. Forgot Password | v2.1 | 0/? | Not started | - |
+| 12. UI Polish | v2.1 | 0/? | Not started | - |
