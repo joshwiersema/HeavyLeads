@@ -368,7 +368,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 10. Query Optimizations | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 11. Forgot Password | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 12. UI Polish | v2.1 | 1/1 | Complete | 2026-03-16 |
-| 13. Schema Foundation | v3.0 | 0/2 | In Progress | - |
+| 13. Schema Foundation | 1/2 | In Progress|  | - |
 | 14. Industry Onboarding | v3.0 | 0/TBD | Not started | - |
 | 15. Scoring Engine & Lead Feed | v3.0 | 0/TBD | Not started | - |
 | 16. Cron & Scraper Architecture | v3.0 | 0/TBD | Not started | - |

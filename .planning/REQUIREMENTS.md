@@ -78,13 +78,13 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 
 ### Schema & Data Model
 
-- [ ] **SCHM-01**: Organization has an industry field (heavy_equipment, hvac, roofing, solar, electrical) with existing orgs backfilled as heavy_equipment
-- [ ] **SCHM-02**: Organization profiles store industry-specific specializations, service areas, certifications, and target project values
-- [ ] **SCHM-03**: Leads have source type, cross-industry relevance tags, value tier, severity, deadline, and content-hash deduplication
-- [ ] **SCHM-04**: Lead enrichments stored in separate table (weather data, property data, incentive programs)
-- [ ] **SCHM-05**: Bookmarks support notes and pipeline status (saved/contacted/in_progress/won/lost)
-- [ ] **SCHM-06**: Scraper runs tracked per-adapter with status, counts, and error logging
-- [ ] **SCHM-07**: PostGIS extension enabled with geometry column on leads for spatial queries
+- [x] **SCHM-01**: Organization has an industry field (heavy_equipment, hvac, roofing, solar, electrical) with existing orgs backfilled as heavy_equipment
+- [x] **SCHM-02**: Organization profiles store industry-specific specializations, service areas, certifications, and target project values
+- [x] **SCHM-03**: Leads have source type, cross-industry relevance tags, value tier, severity, deadline, and content-hash deduplication
+- [x] **SCHM-04**: Lead enrichments stored in separate table (weather data, property data, incentive programs)
+- [x] **SCHM-05**: Bookmarks support notes and pipeline status (saved/contacted/in_progress/won/lost)
+- [x] **SCHM-06**: Scraper runs tracked per-adapter with status, counts, and error logging
+- [x] **SCHM-07**: PostGIS extension enabled with geometry column on leads for spatial queries
 
 ### Onboarding
 
@@ -260,13 +260,13 @@ Requirements for LeadForge Multi-Industry Platform expansion.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHM-01 | Phase 13 | Pending |
-| SCHM-02 | Phase 13 | Pending |
-| SCHM-03 | Phase 13 | Pending |
-| SCHM-04 | Phase 13 | Pending |
-| SCHM-05 | Phase 13 | Pending |
-| SCHM-06 | Phase 13 | Pending |
-| SCHM-07 | Phase 13 | Pending |
+| SCHM-01 | Phase 13 | Complete |
+| SCHM-02 | Phase 13 | Complete |
+| SCHM-03 | Phase 13 | Complete |
+| SCHM-04 | Phase 13 | Complete |
+| SCHM-05 | Phase 13 | Complete |
+| SCHM-06 | Phase 13 | Complete |
+| SCHM-07 | Phase 13 | Complete |
 | AUTH-02v3 | Phase 13 | Pending |
 | AUTH-03v3 | Phase 13 | Pending |
 | AUTH-04v3 | Phase 13 | Pending |

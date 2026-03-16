@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: LeadForge Multi-Industry Platform
-status: ready_to_plan
-stopped_at: null
-last_updated: "2026-03-16T14:00:00.000Z"
-last_activity: 2026-03-16 -- Roadmap created for v3.0 (6 phases, 61 requirements)
+status: executing
+stopped_at: Completed 13-01-PLAN.md
+last_updated: "2026-03-16T17:17:20Z"
+last_activity: 2026-03-16 -- Completed Phase 13 Plan 01 (schema definitions + migrations)
 progress:
-  total_phases: 6
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_phases: 18
+  completed_phases: 12
+  total_plans: 29
+  completed_plans: 28
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-16)
 ## Current Position
 
 Phase: 13 of 18 (Schema Foundation) -- first phase of v3.0
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-03-16 -- Roadmap created for v3.0 milestone
+Plan: 1 of 2 complete
+Status: Executing
+Last activity: 2026-03-16 -- Completed Phase 13 Plan 01 (schema definitions + migrations)
 
-Progress: [░░░░░░░░░░] 0% (v3.0)
+Progress: [█░░░░░░░░░] 8% (v3.0: 1/12 plans)
 
 ## Performance Metrics
 
@@ -39,7 +39,11 @@ Progress: [░░░░░░░░░░] 0% (v3.0)
 - v2.0: 2 phases, 4 plans, ~0.3 hours
 - v2.1: 4 phases, 8 plans, ~0.6 hours
 
-**v3.0:** No plans executed yet.
+**v3.0:**
+
+| Phase | Plan | Duration | Tasks | Files |
+|-------|------|----------|-------|-------|
+| 13    | 01   | 6min     | 2     | 20    |
 
 ## Accumulated Context
 
@@ -55,6 +59,11 @@ Key decisions carried forward:
 - Shared nav-links.ts config consumed by both sidebar and mobile nav
 - Query-time scoring (not insert-time) -- same lead scores differently per subscriber
 - Expand-then-contract migration discipline -- every schema change additive with defaults/backfills
+- Retained company-profiles.ts as backward-compat re-export shim to avoid breaking 30+ consumer imports
+- Hand-wrote all 9 migrations to prevent drizzle-kit from interpreting table rename as drop+create
+- PostGIS geometry uses mode xy with srid 4326 (x=longitude, y=latitude)
+- content_hash unique index uses WHERE NOT NULL to accommodate existing leads
+- All new columns nullable or defaulted for zero-disruption to existing heavy-equipment users
 
 ### Pending Todos
 
@@ -71,5 +80,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Roadmap created for v3.0 milestone
+Stopped at: Completed 13-01-PLAN.md
 Resume file: None
