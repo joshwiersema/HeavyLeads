@@ -29,6 +29,7 @@ export async function atomicSignUp(data: {
   email: string;
   password: string;
   companyName: string;
+  industry?: string;
 }): Promise<SignUpResult> {
   let userId: string | null = null;
   let orgId: string | null = null;
@@ -47,7 +48,7 @@ export async function atomicSignUp(data: {
       "-" +
       Math.random().toString(36).slice(2, 6);
     const orgResult = await auth.api.createOrganization({
-      body: { name: data.companyName, slug, industry: "heavy_equipment" },
+      body: { name: data.companyName, slug, industry: data.industry ?? "heavy_equipment" },
       headers: await headers(),
     });
     if (!orgResult?.id) throw new Error("Organization creation returned no ID");

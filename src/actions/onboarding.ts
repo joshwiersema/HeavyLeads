@@ -115,6 +115,38 @@ export async function completeOnboarding(
       },
     });
 
+  // Send welcome email (non-blocking -- don't fail onboarding if email fails)
+  try {
+    const { Resend } = await import("resend");
+    const apiKey = (process.env.RESEND_API_KEY ?? "").trim();
+    if (apiKey) {
+      const resend = new Resend(apiKey);
+      const from =
+        (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
+        "LeadForge <onboarding@resend.dev>";
+      const baseUrl = (process.env.BETTER_AUTH_URL ?? "").trim();
+
+      // Import at usage time to avoid module-level side effects
+      const { WelcomeEmail } = await import("@/components/emails/welcome");
+
+      await resend.emails.send({
+        from,
+        to: session.user.email,
+        subject: "Welcome to LeadForge!",
+        react: WelcomeEmail({
+          userName: session.user.name,
+          companyName: data.companyName || "your company",
+          industry: data.industry ?? "heavy_equipment",
+          dashboardUrl: `${baseUrl}/dashboard`,
+        }),
+      });
+      console.log("[onboarding] Welcome email sent to", session.user.email);
+    }
+  } catch (emailError) {
+    // Log but don't fail onboarding -- email is best-effort
+    console.error("[onboarding] Failed to send welcome email:", emailError);
+  }
+
   revalidatePath("/");
 
   return { success: true };
