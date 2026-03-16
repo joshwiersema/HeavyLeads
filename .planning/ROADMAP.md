@@ -253,5 +253,5 @@ v1.0 phases (1-6) are complete. v2.0 phases (7-8) are complete. v2.1 phases exec
 | 8. Lead Automation | v2.0 | 2/2 | Complete | 2026-03-15 |
 | 9. Regression Test Safety Net | v2.1 | 3/3 | Complete | 2026-03-16 |
 | 10. Query Optimizations | v2.1 | 2/2 | Complete | 2026-03-16 |
-| 11. Forgot Password | v2.1 | 2/2 | Complete | 2026-03-16 |
+| 11. Forgot Password | v2.1 | Complete    | 2026-03-16 | 2026-03-16 |
 | 12. UI Polish | v2.1 | 0/? | Not started | - |
