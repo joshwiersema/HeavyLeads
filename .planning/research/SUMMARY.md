@@ -1,177 +1,228 @@
 # Project Research Summary
 
-**Project:** HeavyLeads v2.0 Production Rework
-**Domain:** B2B SaaS lead intelligence platform (construction/heavy machinery)
+**Project:** HeavyLeads v2.1 Bug Fixes & Hardening
+**Domain:** Multi-tenant B2B SaaS — live production hardening milestone
 **Researched:** 2026-03-15
 **Confidence:** HIGH
 
 ## Executive Summary
 
-HeavyLeads v2.0 is a production rework of an existing B2B SaaS lead generation platform targeting heavy machinery businesses. The application already has a functional base stack (Next.js 16, Better Auth, Stripe, Drizzle/Neon, Crawlee, shadcn/ui), but it has a critical production blocker: the Stripe customer creation flow is broken due to a user-level vs. organization-level customer mismatch. Beyond that fix, v2.0 needs to add a no-credit-card free trial, expand onboarding from 3 to 5 steps with company details and team invites, automate daily lead generation via Vercel Cron (replacing dead `node-cron` code), trigger a first-login lead scrape so new users are never dropped on an empty dashboard, and add a custom search page and guided product tour. The only new npm packages required are `@vercel/blob` (logo upload) and `nextstepjs + motion` (product tour) — everything else builds on the existing stack.
+HeavyLeads v2.1 is a hardening and bug-fix milestone on a live production app, not a greenfield build. The product already runs on a validated, deployed stack (Next.js, better-auth, Drizzle, Neon, Vitest, Resend, Vercel). Research confirmed that zero new dependencies are required — all eight target features are achievable with the existing library set. The strategic constraint is sequencing: some changes (enabling `requireEmailVerification: true`) are operationally disruptive and must land after prerequisites (password reset as a recovery path, data migration marking existing users verified) to avoid locking out every existing user the moment the deploy lands on a live production app.
 
-The single most important architectural decision is how free trials work. The `@better-auth/stripe` plugin does not support checkout-free trials (GitHub issue #4631, closed as "not planned"), so the trial subscription must be created directly in the database at onboarding completion, bypassing Stripe Checkout entirely. This is safe because the plugin's existing `getActiveSubscription()` guard already recognizes `status: "trialing"`, and the subscription table already has `trialStart`/`trialEnd` columns. The trial is enforced purely at the application layer with a `trialEnd > now` check — no Stripe involvement until the user converts to a paid plan. This approach is simpler, faster, and fully under our control.
+The recommended approach is a four-phase build ordered around risk: (1) establish a regression test safety net first — zero production code changes, and the testing infrastructure is already mature, (2) make the four isolated query optimizations that carry no user-facing risk and benefit from the safety net, (3) implement the auth flows in the correct deployment order — forgot password before email verification — so there is always a recovery path when the verification flag is enabled, (4) finish with UI polish. The biggest architectural complexity is pagination: the existing FETCH_MULTIPLIER pipeline (over-fetch at SQL level, enrich and score in memory, slice to limit) is incompatible with naive SQL-level offset pagination and must be accounted for by paginating the in-memory enriched result set, not the raw SQL output.
 
-The core execution risk is the scraper pipeline exceeding Vercel's 5-minute function timeout when 8 adapters run sequentially. The current `node-cron` scheduler is dead code on Vercel's serverless infrastructure and must be replaced with a `vercel.json` cron configuration. If adapter execution time proves problematic, the fix is `Promise.allSettled()` parallelization. The second major risk is the first-login user experience: new users who complete onboarding and land on an empty dashboard while the scraper runs will abandon immediately. The fire-and-forget + client polling pattern with a purposeful loading state ("Finding leads near Austin, TX...") is the mitigation — it must be built as part of the scraper trigger work, not as an afterthought.
+The highest-risk change in the milestone is enabling `requireEmailVerification`. It requires a one-time SQL migration (`UPDATE "user" SET email_verified = true`) deployed to Neon before the code change, and must land in the same release as — or after — the forgot password feature, never before it. Secondary risks are the bookmarks batch query (must preserve full enrichment or every lead card crashes at render time), the dedup improvement (must use `sourceUrl` as a supplementary signal, not the sole dedup key, to avoid collapsing multiple distinct projects scraped from one URL), and the env var / URL-construction pattern that has caused production issues before (`.trim()` all env vars; use relative `redirectTo` paths in auth client calls).
+
+---
 
 ## Key Findings
 
 ### Recommended Stack
 
-The existing stack is well-chosen and requires minimal additions. Three new packages are needed: `@vercel/blob` for logo storage (native Vercel integration, serves via CDN, avoids the 4.5MB serverless body limit), `nextstepjs` for the guided tour (built specifically for Next.js App Router), and `motion` as a required peer dependency. Vercel Cron requires no new package — it is a `vercel.json` configuration change plus a new API route. The free trial and scraper trigger features require no new packages at all.
+All three v2.1 feature areas are fully covered by the installed dependency set. STACK.md verified this against official Drizzle ORM, better-auth, and Next.js/Vitest documentation. The existing testing infrastructure (Vitest 4.1.0, @testing-library/react, jsdom, vitest.config.ts with manual path aliases, 6 test helper modules) and 40+ existing test files are sufficient. The established mocking pattern (`vi.mock("@/lib/db")`, `vi.mock("@/lib/auth")`, `vi.mock("next/headers")`, `vi.mock("next/cache")`) covers server action testing completely.
 
-**Core technology additions:**
-- `@vercel/blob`: Company logo upload and CDN storage — avoids Vercel's 4.5MB serverless body limit; logos served directly from Vercel's CDN
-- `nextstepjs ^2.2.0`: Guided dashboard tour — native Next.js App Router support, declarative step definitions, cross-page routing; fallback is driver.js (1.4.0) if stability issues arise
-- `motion ^11.x`: Required peer dependency for nextstepjs animations — do NOT install "framer-motion", use "motion" (renamed in v11)
-- `vercel.json` (config, not a package): Vercel Cron daily scrape at 06:00 UTC — replaces dead `node-cron` scheduler; sends GET requests to API route
-- New environment variables: `BLOB_READ_WRITE_TOKEN` (auto-created via Vercel Blob store) and `CRON_SECRET` (random 16+ char string added in Vercel project settings)
+**Core technologies:**
+- Vitest 4.1.0: test runner — existing pattern fully covers server action and pure-function unit testing; no new config changes needed beyond adding `"test": "vitest"` to package.json scripts
+- better-auth 1.5.5: auth library — `sendResetPassword` and `emailVerification` callbacks are built-in `emailAndPassword` and `emailVerification` config options; no additional plugins required
+- Drizzle ORM 0.45.1: database layer — `inArray()` (batch queries), `count(*)` (pagination count), and `gt`/`lt` (cursor pagination) are already importable from `drizzle-orm`
+- Resend 6.9.3: email sending — two new email types reuse the existing `send-digest.ts` integration pattern exactly
+
+**Dependencies explicitly researched and rejected:** `vite-tsconfig-paths` (existing manual alias config works identically — switching is churn), `drizzle-cursor`, `drizzle-pagination`, `@testing-library/user-event`, `playwright`, `better-auth-ui`.
+
+**Configuration-only changes required:**
+- `src/lib/auth.ts`: add `sendResetPassword` callback to `emailAndPassword` block + new top-level `emailVerification` config block
+- `src/lib/leads/queries.ts`: modify `getFilteredLeads` to accept cursor/pagination params; add `getLeadsByIds` and `countFilteredLeads` functions
+- `package.json`: add `"test": "vitest"` script (currently absent)
 
 ### Expected Features
 
+FEATURES.md assessed all 8 target features against B2B SaaS production standards. All 8 are table-stakes or high-impact changes; none are safely deferrable.
+
 **Must have (table stakes):**
-- Free 7-day trial with no credit card — every modern B2B SaaS; missing this loses ~50% of potential signups
-- Trial countdown banner in dashboard — users need to know days remaining; without it, trial end is a surprise
-- Trial expiry gate — expired trial + no subscription redirects to billing; ungated expired trials train users to never pay
-- Company details onboarding step — company name, website, phone, logo, industry segment establish organizational identity
-- Empty state with progress on first login — dashboard with zero leads looks broken; users leave within 30 seconds
-- Automatic daily lead refresh via Vercel Cron — the core value proposition ("fresh leads every morning") fails without automation
-- On-demand refresh button — power users expect to trigger a manual data update
+- Regression tests for 15 v2.0 bug fixes — without these, every subsequent change in this milestone risks silent regression; P0 safety net; 8-12 hours
+- Forgot password flow — locked-out users on a solo-founder product with no support channel churn permanently; two pages + one auth config callback; LOW complexity, 2-3 hours
+- Email verification on signup — protects Resend sender reputation, prevents fake accounts; recommended as delayed-not-blocking (dashboard access allowed, digest subscription gated on verified email); LOW-MEDIUM, 3-4 hours
+- Lead feed pagination — current 50-lead hard cap makes dense metro areas invisible to users; cursor/offset hybrid; MEDIUM, 6-8 hours
+- Active nav highlighting (desktop) — mobile already highlights correctly; desktop inconsistency creates cognitive dissonance; extract to client component; 30 minutes
+- Bookmarks batch query — N+1 (up to 21 queries) degrades linearly; replace with single `inArray` query; LOW-MEDIUM, 2-3 hours
 
-**Should have (competitive differentiators):**
-- First-login scraper trigger — ConstructConnect/PlanHub show results instantly from massive databases; HeavyLeads must close this gap; users who complete onboarding and see a populated dashboard convert at dramatically higher rates
-- Team invite step in onboarding — getting the whole team on board during the trial window is the highest-leverage conversion tactic
-- Guided dashboard tour (nextstepjs, 6 steps) — reduces time-to-value from minutes to seconds; competitors have no guided onboarding
-- Custom search page — search by location/keyword/project type beyond org defaults; reuses existing `getFilteredLeads()` with overridden lat/lng
-- Pre-expiry conversion emails at 3 days, 1 day, and expiry day
+**Should have (quality/scale):**
+- Digest email query optimization — N*M query pattern (per-search per-user) risks Vercel timeout at scale; batch company profile lookup + union query per user; MEDIUM, 3-4 hours
+- Non-permit dedup via sourceUrl — current `NULL` permitNumber unique index allows duplicate non-permit leads through; two-part fix: partial unique index + application-level pre-check; LOW-MEDIUM, 2-3 hours
 
-**Defer to v2.1+:**
-- One-time 3-day trial extension (auto-granted) — worth building only after seeing conversion metrics
-- Onboarding checklist widget — nice to have after core onboarding works
-- Smart conversion triggers based on usage analytics — requires analytics foundation first
-- Custom search scheduling — depends on custom search proving valuable in v2.0
+**Defer to v2+:**
+- Total lead count display in pagination header, bookmark count badge in sidebar nav (both polish, addable opportunistically)
+- E2E testing (Playwright/Cypress), OAuth/social login, middleware auth guard, full-text search index, password complexity rules beyond 8-char minimum
+
+**Validated UX decisions:**
+- Email verification: `requireEmailVerification: false` (delayed, not blocking dashboard) — correct for B2B with 5-step onboarding and 7-day trial
+- Pagination: "Load more" button (not infinite scroll, not traditional page numbers) — simpler state management, works with server components, avoids Intersection Observer complexity
+- Pagination cursor key: `(scrapedAt, id)` at SQL level; score sort preserved in-memory per-batch (score is not a database column)
 
 ### Architecture Approach
 
-The v2.0 features integrate cleanly with the existing component structure because the codebase already has all foundational pieces in place: the subscription table has trial columns, `getActiveSubscription()` already accepts trialing status, the onboarding wizard uses an extensible `STEPS` array, the scraper pipeline is stateless and idempotent, and the existing `getFilteredLeads()` function already accepts the parameters needed for custom search. The primary architectural changes are a direct-DB-write trial creation (bypassing plugin checkout), two new wizard steps by extending the STEPS array, a Vercel Cron GET endpoint replacing `node-cron`, and a fire-and-forget + polling mechanism for first-login scraping.
+The system is a standard Next.js App Router multi-tenant SaaS. ARCHITECTURE.md mapped all 8 features against 25+ source files via direct codebase inspection. The key finding is that v2.1 produces approximately 15 new files and 11 modified files with zero new database tables and one new index. Every change fits cleanly into existing layer boundaries: auth config callbacks wire into the existing `/api/auth/[...all]` catch-all (no new API routes needed), email senders follow the `send-digest.ts` pattern, query functions extend `queries.ts`, and the nav client component extraction mirrors the existing `MobileNav` pattern exactly.
 
-**Major components:**
-1. **Trial subscription creation** — new `createTrialSubscription()` server action writes directly to the subscription table with `status: "trialing"` and `trialEnd: now + 7 days`; no Stripe Checkout involved
-2. **Dashboard guard update** — `getActiveSubscription()` updated to exclude expired trials (`trialEnd < now`), handling all 5 subscription states: active, trialing, past_due, paused, canceled
-3. **Vercel Cron endpoint** — new `GET /api/cron/scrape` route with `CRON_SECRET` auth; existing pipeline code reused unchanged; `export const maxDuration = 300`
-4. **First-login trigger + polling** — `triggerFirstScrape()` server action fires pipeline async; client polls `/api/leads/count` every 10s; dashboard shows purposeful loading state until leads appear
-5. **Expanded onboarding wizard** — two new steps (StepCompanyDetails, StepTeamInvites) inserted into existing STEPS array; team invites are non-blocking client-side calls, not part of form schema
-6. **Custom search** — new `/dashboard/search` page calls existing `getFilteredLeads()` with geocoded user-specified location instead of HQ coordinates; no new query logic needed
+**Major component changes:**
+1. `src/lib/auth.ts` (MODIFIED) — add `sendResetPassword` + `emailVerification` callbacks; these are the only auth-layer changes needed
+2. `src/lib/leads/queries.ts` (MODIFIED + NEW FUNCTIONS) — add `getLeadsByIds` (batch), `countFilteredLeads` (pagination count); modify `getFilteredLeads` to accept pagination params
+3. `src/lib/email/` (NEW FILES) — `send-password-reset.ts` and `send-verification.ts` following existing `send-digest.ts` pattern
+4. `src/components/emails/` (NEW FILES) — `password-reset.tsx` and `verify-email.tsx` React Email templates
+5. `src/app/(auth)/` (NEW ROUTES) — `forgot-password/page.tsx`, `reset-password/page.tsx`, `verify-email/page.tsx`
+6. `src/components/dashboard/sidebar-nav.tsx` + `nav-links.ts` (NEW) — client component + shared nav constant extracted from `MobileNav`
+7. `src/lib/email/digest-generator.ts` (MODIFIED) — batch company profile lookup; one broad union query per user
+8. `src/lib/scraper/dedup.ts` + `pipeline.ts` (MODIFIED) — two-phase sourceUrl check before existing fuzzy geo+text dedup
+9. `tests/**/*.test.ts` (NEW — 15+ files) — pure test files; zero production code changes for this deliverable
+
+**Critical architectural constraint — FETCH_MULTIPLIER and pagination:** The existing `getFilteredLeads` over-fetches `limit * 4` rows at SQL level, enriches and scores in memory, then slices to the limit. SQL-level offset does not correspond to user-visible page boundary because score sort is in-memory. Correct approach: offset applies to the in-memory enriched result array, not to SQL. The nationwide fallback (currently fires when `leads.length === 0`) must be suppressed for page > 1.
 
 ### Critical Pitfalls
 
-1. **createCustomerOnSignUp user/org mismatch** — `createCustomerOnSignUp: true` creates a user-level Stripe customer during signup, but subscriptions use `referenceId: organizationId`. This is almost certainly the current production blocker (confirmed via GitHub #3670, #2440). Fix: set `createCustomerOnSignUp: false`; create organization-level customers explicitly during onboarding.
+PITFALLS.md identified 5 critical pitfalls (production-outage class) and 11 moderate/minor pitfalls, all verified against specific line numbers in the codebase.
 
-2. **Setup fee charged during free trial checkout** — the existing `getCheckoutSessionParams` adds `PRICES.setupFee` for "first-time" subscribers. A trial IS a first-time subscription, so this fires and charges users $499+ for what was marketed as a free trial. Fix: exclude setup fee line items when the checkout is for a trial; charge setup fee only at trial-to-paid conversion via `onTrialEnd` callback.
+1. **`requireEmailVerification` locks out all existing users** — SQL migration (`UPDATE "user" SET email_verified = true`) MUST deploy before the code change enabling the flag. Forgot password must be live before verification is enabled. Test against a Vercel preview with an existing account before merging to main. (PITFALL 1)
 
-3. **Vercel Cron route must use GET, not POST** — Vercel Cron sends GET requests only. The existing `/api/scraper/run` is POST-only. A new `/api/cron/scrape` GET route with `CRON_SECRET` auth is required; the existing POST route remains for user-triggered runs with session auth.
+2. **FETCH_MULTIPLIER breaks naive SQL-level pagination** — offset pagination at the SQL layer with `FETCH_MULTIPLIER=4` means page 2 skips 200 raw rows (not the 50 the user expects), and the score-based sort order is not preserved across pages. Solution: over-fetch the full candidate pool per page, enrich and sort in memory, slice to the page window from the enriched result. Disable nationwide fallback when `page > 1`. (PITFALL 3)
 
-4. **First-login + cron race condition creates duplicate leads** — if a new user signs up near the daily cron time, both triggers run concurrently. The non-permit dedup uses check-then-insert (not atomic), causing duplicates. Fix: add a unique constraint on `(source_id, external_id)` and use `onConflictDoNothing()` for all lead inserts.
+3. **Bookmarks batch query must preserve enrichment** — a naive `SELECT * WHERE id IN (...)` returns raw database rows; `LeadCard` expects enriched fields (`inferredEquipment`, `score`, `freshness`, `timeline`, `distance`). Must extract `enrichLead(row, params)` as a shared function and map it over batch results before returning. (PITFALL 4)
 
-5. **trialStart/trialEnd stay NULL in database** — known Better Auth Stripe plugin bug (GitHub #4046, #2345): trial date fields fail to persist after checkout. The recommended direct-DB-write approach sidesteps this bug, but must be verified after implementation with a direct database query.
+4. **Password reset URL misconfiguration silently breaks account recovery** — `redirectTo` in the client `forgetPassword()` call must be a relative path (`/reset-password`), not an absolute URL. Log the generated reset URL in the `sendResetPassword` callback during development. Test end-to-end on the deployed Vercel domain before declaring done. `.trim()` on `BETTER_AUTH_URL` is already in place in auth.ts. (PITFALL 2)
+
+5. **`sourceUrl`-only dedup over-merges distinct projects** — one news article or search result page can reference multiple distinct projects under a single URL. Using `sourceUrl` as the sole dedup key collapses those distinct leads into one. Use as a supplementary signal: dedup key is `(sourceId + sourceUrl + externalId)` with fallback to `(sourceId + title)`. Only apply to newly scraped leads — retroactive dedup deletes bookmarked leads via cascade FK. (PITFALLS 8, 11)
+
+---
 
 ## Implications for Roadmap
 
-Based on the dependency graph across all four research files, five phases emerge naturally. The critical path is: fix the Stripe production blocker first, then automate lead generation, then polish the user experience.
+Four phases are warranted. Sequencing is driven by: (a) safety-net-first principle, (b) the auth deployment constraint (password reset before email verification), and (c) risk isolation (query changes are independent and low-risk; auth changes are higher-risk and coupled to each other).
 
-### Phase 1: Stripe Fix + Free Trial Foundation
-**Rationale:** The Stripe customer creation bug is a production blocker — no new user can successfully complete signup. Everything else in v2.0 is built on top of a working auth/billing flow. The free trial system must be designed in this same phase because it touches the same subscription table and guard logic as the Stripe fix; splitting them would require touching the same files twice.
-**Delivers:** Working signup flow; 7-day no-CC trial via direct DB write; trial countdown banner; trial expiry gate redirecting to billing; trial-aware billing page showing "X days remaining" vs. "Trial expired" vs. "Active" states
-**Addresses:** Free trial (table stakes), trial countdown, trial expiry gate, updated billing page
-**Avoids:** createCustomerOnSignUp mismatch (Pitfall 1), setup fee during trial (Pitfall 11), trial status guard failures (Pitfall 2), trialStart/trialEnd NULL bug (Pitfall 3), trial abuse (Pitfall 4)
+### Phase 1: Regression Test Safety Net
 
-### Phase 2: Vercel Cron + Automated Lead Generation
-**Rationale:** The core value proposition of HeavyLeads — fresh leads delivered automatically — does not work in production because `node-cron` is dead code on Vercel. This phase replaces it with Vercel Cron and adds the first-login trigger that ensures new users see leads within minutes of completing onboarding. This is the single highest-impact v2.0 feature for trial conversion. It must come before onboarding expansion so that the improved onboarding flows into a populated dashboard.
-**Delivers:** `vercel.json` Vercel Cron daily job at 06:00 UTC; secured `/api/cron/scrape` GET endpoint; first-login trigger with fire-and-forget + polling; "Finding leads near [city]..." loading state; on-demand refresh button with rate limiting; informative empty state
-**Addresses:** Automatic daily lead refresh (table stakes), first-login lead trigger (differentiator), on-demand refresh (table stakes), empty state (table stakes)
-**Avoids:** Unauthenticated scraper endpoint (Pitfall 9), cron timeout from sequential adapters (Pitfall 5), first-login + cron race condition duplicates (Pitfall 6), blocking first login on scraper completion (Pitfall 10)
+**Rationale:** Fifteen v2.0 bug fixes shipped without test coverage. Every subsequent code change in this milestone risks silent regression. The testing infrastructure is already mature — this phase adds only test files, zero production code changes. It establishes the safety net before any behavior is changed.
 
-### Phase 3: Professional Onboarding Expansion
-**Rationale:** With a working trial flow and a populated dashboard, the onboarding wizard can be safely extended. Existing users need migration defaults for new schema fields. The team invite step depends on the `sendInvitationEmail` callback being wired into auth.ts. Logo upload uses client-side direct upload to Vercel Blob, sidestepping the 4.5MB serverless body limit. This phase comes after automated lead generation because the improved onboarding immediately flows into the first-login trigger — users completing the new 5-step wizard land on a dashboard that starts populating leads right away.
-**Delivers:** 5-step onboarding wizard (company details, location, equipment, radius, team invites); company logo upload via Vercel Blob client-side direct upload; team invite flow with email; accept-invite page; team management settings page; migration for existing v1 users with sensible defaults
-**Addresses:** Company details step (table stakes), team invite differentiator, logo upload
-**Avoids:** Image upload body size limit (Pitfall 8), onboarding expansion breaking existing users (Pitfall 7), invite step blocking onboarding completion (Architecture anti-pattern 3)
+**Delivers:** 15 regression tests covering all v2.0 post-rework fixes; confirmed `npm run test` script; validated mocking patterns for all server action test types.
 
-### Phase 4: Guided Tour + Pre-Expiry Emails
-**Rationale:** The guided tour depends on the dashboard having leads to show — it must fire after the first-login trigger has populated data. Pre-expiry emails depend on a working trial system (Phase 1) and a reliable daily cron (Phase 2) to trigger the checks. Both are conversion-maximizing polish features that have no upstream blockers other than Phases 1-3 being complete.
-**Delivers:** nextstepjs dashboard tour (6 steps: lead feed, lead card, filters, lead detail, bookmarks, saved searches); `hasSeenTour` flag preventing re-trigger; pre-expiry conversion emails at 3 days, 1 day, and expiry via Resend and daily cron check
-**Addresses:** Guided dashboard tour (differentiator), pre-expiry conversion emails (table stakes)
-**Avoids:** Showing tour on empty dashboard (dependency failure), emails blocking other flows on Resend errors
+**Addresses:** Regression tests (P0 from FEATURES.md).
 
-### Phase 5: Custom Search
-**Rationale:** Custom search is the most architecturally independent feature — it reuses `getFilteredLeads()` with overridden coordinates and adds a new `/dashboard/search` page. It is listed last because it requires the pipeline to be working reliably (Phase 2) before adding user-initiated pipeline runs, and requires the trial system (Phase 1) for proper rate limiting differentiation between trial and paid users.
-**Delivers:** `/dashboard/search` page with location/keyword/project type form; geocoded location override into existing `getFilteredLeads()`; search result display reusing lead-card component; "save this search" extending saved_searches table with `searchLat`/`searchLng`/`searchLocation` columns; rate limits (3/day trial, 10/day paid) with remaining quota shown in UI
-**Addresses:** Custom search (differentiator)
-**Avoids:** Duplicate query logic (Architecture anti-pattern 5), unbounded custom searches causing scraper rate bans
+**Avoids:** Vitest `server-only` import cascade failure (PITFALL 5 — must establish `vi.mock` strategy for `next/headers`, `next/cache`, `@/lib/auth`, `@/lib/db` before writing any server action tests), accidental production Neon database access in tests (PITFALL 13 — add `DATABASE_URL` guard to setup file).
+
+**Implementation notes:** Test pure functions first (no mocking needed: `haversineDistance`, `scoreLead`, `inferEquipmentNeeds`, `normalizeText`, `isLikelyDuplicate`, `getFreshnessBadge`, `getTrialStatus`); then mocked server actions; do NOT attempt to test async server page components (not supported by Vitest).
+
+**Research flag:** Standard patterns — skip `/gsd:research-phase`. Vitest mocking is demonstrated by 40+ existing test files.
+
+### Phase 2: Query Optimizations
+
+**Rationale:** Four isolated, low-risk query improvements that do not touch auth, do not affect user sessions, and each have a clear before/after comparison. They share a common pattern (add a function to `queries.ts`, update the call site). Phase 1 safety net must be in place before merging these.
+
+**Delivers:**
+- Bookmarks page: 21 queries collapsed to 2 via `getLeadsByIds` with `inArray`
+- Digest generator: N per-user SQL queries reduced to 1 via union query + in-memory filter
+- Non-permit dedup: exact sourceUrl pre-check before fuzzy dedup; partial unique index on `(sourceId, sourceUrl)` where sourceUrl is not null
+- Lead feed: cursor/offset hybrid pagination with "Load more" button; `countFilteredLeads` for total count display
+
+**Avoids:** Bookmarks enrichment crash (PITFALL 4 — extract `enrichLead()` from `getLeadById()` first, then batch), FETCH_MULTIPLIER pagination collision (PITFALL 3 — in-memory slice after enrichment, not SQL offset), sourceUrl over-dedup (PITFALL 8 — compound key), retroactive dedup deleting bookmarks (PITFALL 11 — new leads only), digest Vercel timeout (PITFALL 7 — batch profile lookup with Map cache), scroll position loss post-mutation (PITFALL 9 — accept as known limitation for v2.1, document it).
+
+**Recommended internal order:** bookmarks batch (smallest, most isolated) → digest optimization (similar batch pattern, more complex refactor) → sourceUrl dedup (requires schema migration + deployment window) → pagination (largest scope, touches main dashboard page and introduces new server action).
+
+**Research flag:** Standard patterns — skip `/gsd:research-phase`. Exception: the FETCH_MULTIPLIER pagination interaction is non-obvious; implementation should include a code comment explaining the in-memory pagination approach and why SQL-level offset is not used.
+
+### Phase 3: Auth Flows
+
+**Rationale:** The auth features are the highest-risk changes in the milestone. Forgot password deploys first; email verification deploys second. This is non-negotiable: enabling `requireEmailVerification: true` without an operational password recovery path creates a potential permanent lockout scenario for users who receive corrupted or expired verification links.
+
+**Delivers:**
+- Forgot password: `/forgot-password` + `/reset-password` pages, `sendResetPassword` callback in `auth.ts`, password reset email template
+- Email verification: `sendVerificationEmail` callback in `auth.ts`, `requireEmailVerification: true` (with migration), `/verify-email` interstitial page, non-blocking amber dashboard banner, digest-enable gate checking `emailVerified`
+
+**Critical deployment prerequisite:** SQL migration `UPDATE "user" SET email_verified = true WHERE email_verified IS NULL OR email_verified = false` must execute against Neon BEFORE the deploy that enables `requireEmailVerification: true`. This is a hard blocker.
+
+**Sign-up flow structural change:** Currently sign-up creates user + org in one step. With email verification, sign-up creates user only → user verifies → first dashboard visit has no org → redirect to `/onboarding` for org creation (existing path). This separation avoids creating orphaned orgs for users who never verify. The onboarding route must handle both new users (no org) and returning verified users (already have org — skip to dashboard).
+
+**Avoids:** Existing user lockout (PITFALL 1 — migration first), reset URL misconfiguration (PITFALL 2 — relative `redirectTo`, log URL in dev, manual end-to-end test on Vercel), deploying verification before password reset (PITFALL 6 — staged deployment), timing attack on email sends (PITFALL 14 — `void sendEmail()` fire-and-forget or `after()`), spam delivery (PITFALL 16 — configure custom Resend domain before launch), route collision (PITFALL 12 — pages in `(auth)` group, never under `/api/auth/`).
+
+**Recommended internal order:** forgot password complete and tested → SQL migration deployed to Neon → email verification enabled in same or next deploy.
+
+**Research flag:** better-auth auth flows are well-documented. No `/gsd:research-phase` needed. Implementation focus: the sign-up form structural change (defer org creation) needs careful testing to ensure the onboarding redirect guard handles both new and returning users correctly.
+
+### Phase 4: UI Polish
+
+**Rationale:** Lowest risk, zero dependencies on other phases. Trivial `usePathname()` client component extraction that mirrors existing `MobileNav` pattern exactly. Placed last so it does not consume time that could block higher-priority work, and the codebase is fully tested before touching the layout.
+
+**Delivers:** Active nav highlighting on desktop sidebar via `SidebarNav` client component; shared `nav-links.ts` constant that keeps desktop and mobile nav link definitions in sync.
+
+**Avoids:** Breaking the server component dashboard layout by converting it to a client component (ARCHITECTURE.md anti-pattern — extract nav only, keep layout server), nested route matching failure (PITFALL 15 — use `pathname.startsWith(href)` for parent nav items, exact match only for `/dashboard` root).
+
+**Research flag:** Standard pattern already in codebase via `MobileNav` — skip `/gsd:research-phase`.
 
 ### Phase Ordering Rationale
 
-- Phase 1 must come first: it fixes the production blocker and establishes the trial data model that all subsequent phases depend on for guard logic and user state.
-- Phase 2 comes before onboarding expansion: the expanded wizard flows directly into the first-login trigger — users must land on a populating dashboard, not an empty one. Building onboarding before fixing the scraper would create an improved flow that still ends in disappointment.
-- Phase 3 depends on Phase 1 being complete (trial active before onboarding completes) and Phase 2 being complete (first-login trigger available to fire after onboarding).
-- Phase 4 depends on Phase 3 (tour requires leads from first-login trigger) and Phase 1 (trial dates for email scheduling).
-- Phase 5 is independent of Phases 3-4 and could be parallelized with Phase 4 if resources allow.
+- Tests before code changes: every query and auth refactor in Phases 2-3 risks regression without the Phase 1 safety net
+- Query optimizations before auth: query changes are isolated and independently testable; auth changes have a deployment-order dependency that adds coordination overhead — doing auth second keeps Phase 2 unblocked
+- Forgot password before email verification: non-negotiable operational safety constraint; violating this order risks locking all users out of the live production app
+- UI polish last: no dependencies, no risk, does not gate anything else
 
 ### Research Flags
 
-Phases likely needing deeper research during planning:
-- **Phase 2:** First-login trigger has several edge cases (concurrent cron + user trigger, Vercel function timeout, partial pipeline results) that warrant specific task-level design before implementation. The idempotency strategy (unique constraint vs. `scraper_runs` table) should be decided before writing code. Also verify the actual Vercel plan to confirm Hobby vs. Pro limits.
-- **Phase 2:** Pipeline duration on production Vercel is unknown until tested. Must instrument adapters with timing logs after first deployment. If total duration exceeds 240s (leaving 60s buffer under the 300s Hobby limit), parallelize adapters with `Promise.allSettled()` before declaring the phase complete.
+No additional `/gsd:research-phase` is needed for any phase. All patterns are either well-documented in official sources or already demonstrated in the codebase:
 
-Phases with standard patterns (skip research-phase):
-- **Phase 1:** The Stripe fix and direct-DB-write trial approach are fully specified in ARCHITECTURE.md with exact code samples. No new research needed.
-- **Phase 3:** Onboarding wizard extension via STEPS array is documented in ARCHITECTURE.md. Vercel Blob client upload pattern is from official docs.
-- **Phase 4:** nextstepjs integration is a straightforward provider + steps config. Pre-expiry email is a standard cron-triggered Resend call.
-- **Phase 5:** Custom search is a parameter override on an existing query function with low implementation risk.
+- Phase 1: Vitest mocking demonstrated by 40+ existing test files
+- Phase 2: Drizzle query patterns in official docs; FETCH_MULTIPLIER pagination behavior documented in PITFALLS.md
+- Phase 3: better-auth email flow in official docs; risks are deployment-order and operational, not technical unknowns
+- Phase 4: `usePathname()` pattern already in the codebase via `MobileNav`
+
+One area requiring extra care during implementation (not additional research): the pagination + FETCH_MULTIPLIER interaction and the nationwide fallback guard. The logic is fully understood but the code path in `getFilteredLeads` and `dashboard/page.tsx` is non-obvious; the implementation should add a comment explaining the in-memory pagination approach.
+
+---
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All new packages verified against official Vercel and library documentation. nextstepjs is MEDIUM confidence (newer library), but driver.js fallback is HIGH confidence. |
-| Features | HIGH | Free trial UX patterns verified across multiple B2B SaaS sources. Competitor analysis confirms table stakes. Feature prioritization is grounded in dependency analysis, not opinion. |
-| Architecture | HIGH | Integration patterns verified against Better Auth GitHub issues, Vercel Cron docs, and existing codebase analysis. Direct-DB trial approach confirmed safe by subscription table schema inspection. |
-| Pitfalls | HIGH | All critical pitfalls traced to specific GitHub issues and official documentation. These are confirmed bugs and constraints, not speculative risks. |
+| Stack | HIGH | Zero new dependencies confirmed against official docs and existing codebase; all capabilities pre-installed and in use |
+| Features | HIGH | All 8 features verified against official docs and 25+ source files; effort estimates grounded in direct code inspection |
+| Architecture | HIGH | Component modification map covers all 8 features with specific line-number references; 25+ source files inspected directly |
+| Pitfalls | HIGH | 5 critical pitfalls with codebase line references; all major ones have confirmed prevention strategies from official docs and GitHub issues |
 
 **Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **nextstepjs React 19 compatibility**: MEDIUM confidence. The library is designed for Next.js App Router but its maturity with React 19 is unverified at scale. Validate in a spike before committing to it in Phase 4. Driver.js is the confirmed fallback with zero React dependency.
-- **Pipeline actual duration on production Vercel**: Unknown until Phase 2 runs in production. Must instrument each adapter with timing logs. If total duration exceeds 240s, parallelize adapters before declaring Phase 2 complete.
-- **Better Auth Stripe plugin version pinning**: The direct-DB-write trial approach is safe at current plugin version (`^1.5.5`) but could break on upgrades if the schema changes. Pin `@better-auth/stripe` version in package.json during Phase 1 and document the constraint.
-- **Resend free tier limits**: Free tier is 100 emails/day. Pre-expiry emails (3 per trial user) plus team invites plus daily digest could approach this limit at scale. Verify the Resend plan before Phase 4 ships.
-- **Organization-scoped trial timing**: The `onCustomerCreate` hook fires during signup, but the recommended direct-DB-write trial approach fires at onboarding completion (after org creation). This is the correct order — verify the organization ID is available in the `completeOnboarding()` action context before writing the subscription row.
+- **FETCH_MULTIPLIER deep-page over-fetch formula:** The recommended in-memory pagination approach is correct but the exact SQL fetch size for page N needs validation during implementation. Guidance: fetch `(page * pageSize + pageSize) * FETCH_MULTIPLIER` rows from SQL. Verify this produces correct results at page 3+ and that the nationwide fallback guard triggers correctly at the boundary.
+
+- **sourceUrl dedup adapter audit:** PITFALLS.md flags that some adapters may produce multiple projects per URL (news aggregators, Google dorking search result pages). The exact URL patterns per adapter are not fully characterized. Mitigation: implement compound key `(sourceId + sourceUrl + externalId)` with fallback to `(sourceId + title)`; run new dedup logic against existing data in dry-run mode before enabling on the live pipeline.
+
+- **Sign-up flow org-creation refactor edge case:** Moving org creation from `sign-up-form.tsx` to post-verification onboarding is architecturally clean but introduces a flow guard: returning verified users who already have an org must not be re-directed to `/onboarding`. The onboarding layout guard needs to handle this case — it likely already does (checks for existing org), but must be verified.
+
+- **Custom Resend domain status:** PITFALL 16 flags that `onboarding@resend.dev` goes to spam for corporate email filters. Password reset and email verification emails landing in spam defeats the features entirely. Verify whether a custom sending domain (e.g., `noreply@heavyleads.com`) with SPF/DKIM/DMARC is configured in Resend before enabling these features in production. The env var `RESEND_FROM_EMAIL` controls the from address — setting it is sufficient if the domain is already verified in Resend.
+
+---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [Vercel Cron Jobs documentation](https://vercel.com/docs/cron-jobs) — configuration, expressions, security, idempotency
-- [Vercel Cron Management](https://vercel.com/docs/cron-jobs/manage-cron-jobs) — CRON_SECRET, duration limits, no-retry behavior, production-only
-- [Vercel Function Duration](https://vercel.com/docs/functions/configuring-functions/duration) — Hobby 300s max, Pro 800s max with Fluid Compute
-- [Vercel Blob documentation](https://vercel.com/docs/vercel-blob) — server and client upload patterns, 4.5MB limit workaround
-- [Vercel Blob Server Upload](https://vercel.com/docs/vercel-blob/server-upload) — server action pattern, BLOB_READ_WRITE_TOKEN, 4.5MB limit
-- [Better Auth Stripe plugin](https://better-auth.com/docs/plugins/stripe) — freeTrial config, subscription lifecycle, organization support
-- [Better Auth Organization Plugin](https://better-auth.com/docs/plugins/organization) — inviteMember API, sendInvitationEmail, invitation acceptance flow
-- [Stripe trial periods](https://docs.stripe.com/billing/subscriptions/trials) — trial_period_days, payment_method_collection, trial_settings
-- [Stripe free trial checkout](https://docs.stripe.com/payments/checkout/free-trials) — no-card trial setup
+- [better-auth Email & Password Docs](https://better-auth.com/docs/authentication/email-password) — `sendResetPassword`, `requireEmailVerification`, `forgetPassword`/`resetPassword` client methods
+- [better-auth Email Concepts](https://better-auth.com/docs/concepts/email) — `sendVerificationEmail`, `sendOnSignUp`, `autoSignInAfterVerification`, timing attack guidance
+- [Drizzle ORM Cursor-Based Pagination](https://orm.drizzle.team/docs/guides/cursor-based-pagination) — official cursor guide
+- [Drizzle ORM Offset Pagination](https://orm.drizzle.team/docs/guides/limit-offset-pagination) — official offset guide
+- [Drizzle ORM Operators (inArray)](https://orm.drizzle.team/docs/operators) — batch query pattern
+- [Next.js Vitest Testing Guide](https://nextjs.org/docs/app/guides/testing/vitest) — official Vitest setup, async server component limitation
+- [Next.js `after()` Function Docs](https://nextjs.org/docs/app/api-reference/functions/after) — background task scheduling for serverless email sends
+- Codebase analysis of 25+ source files — direct inspection of `src/lib/auth.ts`, `src/lib/leads/queries.ts`, `src/actions/bookmarks.ts`, `src/lib/scraper/dedup.ts`, `src/lib/email/digest-generator.ts`, `src/app/(dashboard)/layout.tsx`, `src/app/(dashboard)/dashboard/page.tsx`, `tests/setup.ts`, `tests/helpers/*.ts`
 
 ### Secondary (MEDIUM confidence)
-- [GitHub #4631: Trial without checkout](https://github.com/better-auth/better-auth/issues/4631) — confirmed no official API for checkout-free trials; closed "not planned"
-- [GitHub #4046: trialStart/trialEnd not updated](https://github.com/better-auth/better-auth/issues/4046) — trial dates NULL bug confirmed
-- [GitHub #6863: hasEverTrialed uses wrong subscription](https://github.com/better-auth/better-auth/issues/6863) — trial abuse prevention bug via findOne vs findMany
-- [GitHub #3670: Duplicate customers on signup](https://github.com/better-auth/better-auth/issues/3670) — createCustomerOnSignUp conflict
-- [GitHub #2440: subscription.upgrade creates new customer](https://github.com/better-auth/better-auth/issues/2440) — duplicate customer creation
-- [NextStep.js](https://nextstepjs.com/) — product tour library for Next.js App Router, declarative steps API
-- [OnboardJS: 5 best React onboarding libraries 2026](https://onboardjs.com/blog/5-best-react-onboarding-libraries-in-2025-compared) — library comparison confirming driver.js as proven fallback
-- Various B2B SaaS sources on free trial UX best practices (Userpilot, Maxio, Encharge) — directional, not precise on statistics
+- [better-auth Issue #3461](https://github.com/better-auth/better-auth/issues/3461) — invalid token errors from URL misconfiguration
+- [better-auth Issue #2082](https://github.com/better-auth/better-auth/issues/2082) — forget password flow edge cases
+- [Next.js GitHub Issue #49087](https://github.com/vercel/next.js/issues/49087) — scroll position reset on `revalidatePath` after pagination
+- [Next.js GitHub Issue #60038](https://github.com/vercel/next.js/issues/60038) — server-only + Vitest incompatibility
+- [Email verification with better-auth + Resend tutorial](https://dev.to/daanish2003/email-verification-using-betterauth-nextjs-and-resend-37gn) — practical setup
+- [Forgot/reset password with better-auth + Resend tutorial](https://dev.to/daanish2003/forgot-and-reset-password-using-betterauth-nextjs-and-resend-ilj) — client-side token extraction pattern
+- [Five ways to paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/) — canonical reference
+- [Keyset Cursors, Not Offsets, for Postgres Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/) — cursor pagination rationale
 
-### Tertiary (LOW confidence)
-- Competitor analysis sources (PlanHub, ConstructConnect comparisons) — directional only; competitor features may have changed since publication
+### Tertiary (MEDIUM confidence)
+- [Google AIP-158](https://google.aip.dev/158) — pagination design guidance
+- [Slack Engineering: Evolving API Pagination](https://slack.engineering/evolving-api-pagination-at-slack/) — real-world migration lessons
+- [Vercel waitUntil Docs](https://vercel.com/changelog/waituntil-is-now-available-for-vercel-functions) — background task execution on serverless
 
 ---
 *Research completed: 2026-03-15*

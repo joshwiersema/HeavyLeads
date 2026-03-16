@@ -1,386 +1,494 @@
-# Feature Research: v2.0 Production Rework
+# Feature Landscape: v2.1 Bug Fixes & Hardening
 
 **Domain:** B2B SaaS lead intelligence platform (construction/heavy machinery)
 **Researched:** 2026-03-15
-**Confidence:** HIGH (patterns verified across Stripe docs, Vercel docs, and multiple B2B SaaS sources)
+**Confidence:** HIGH (features verified against better-auth official docs, Drizzle ORM docs, Next.js App Router patterns, and existing codebase analysis)
 
-## Feature Landscape
+## Scope
 
-This research covers the five new feature areas for HeavyLeads v2.0. Each is assessed against industry B2B SaaS patterns, the existing codebase, and the specific constraints of Vercel deployment with Stripe billing.
+This research covers the 8 target features for HeavyLeads v2.1: regression tests, lead feed pagination, bookmarks batch query, digest email optimization, non-permit dedup improvement, active nav highlighting, forgot password flow, and email verification on signup. Each is assessed for implementation pattern, complexity, and dependencies.
 
 ---
 
-### Table Stakes (Users Expect These)
+## Table Stakes
 
-Features users assume exist. Missing these means the product feels broken or amateurish.
+Features that production B2B SaaS apps must have. Missing these signals the product is unfinished.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Free trial without credit card | Every modern B2B SaaS offers risk-free exploration. Requiring CC upfront loses ~50% of potential signups. | MEDIUM | Better-auth's Stripe plugin does NOT natively support no-CC trials. Must implement at the application level with a `trialEndsAt` column on `company_profiles`, not through Stripe Checkout. |
-| Trial countdown banner | Users need to know how long they have left. Without it, trial feels undefined and conversions drop. | LOW | Persistent banner in dashboard layout showing days remaining. Computed from `trialEndsAt` minus current date. |
-| Trial expiry gate | When trial ends, users must be prompted to subscribe or lose access. Ungated expired trials train users to never pay. | LOW | Middleware check: if `trialEndsAt < now` AND no active subscription, redirect to billing page with "Trial expired" messaging. |
-| Company details in onboarding | B2B products that skip company branding feel like toys. Company name/logo/website establish organizational identity. | LOW | Add 1 new step to existing wizard. New columns on `company_profiles`: `companyName`, `website`, `phone`, `logoUrl`, `industrySegment`. |
-| Empty state for new users | Dashboard with zero leads looks broken. New users conclude the product does not work and leave within 30 seconds. | MEDIUM | Must trigger lead generation on first login AND show informative empty state with progress indicator while pipeline runs. |
-| Automatic daily lead refresh | The core value proposition is "fresh leads every morning." Without automation, the product delivers nothing until someone manually hits an API endpoint. | MEDIUM | Vercel Cron job at `/api/cron/scrape` triggered daily. Hobby plan allows once/day with up to 5 min execution (fluid compute). Must convert existing `node-cron` scheduler to Vercel Cron via `vercel.json`. |
-| On-demand lead refresh | Power users expect to be able to manually trigger a data update when they want fresh results NOW, not wait until tomorrow. | LOW | Button in dashboard header calling the existing `/api/scraper/run` endpoint with proper auth guard. Rate-limit to 1 per hour per org. |
-| Pre-expiry conversion emails | Industry standard: nudge at 3 days remaining, 1 day remaining, and on expiry day. Without these, users forget they are on trial and simply churn. | MEDIUM | Trigger-based emails (not time-based). Check trial status in daily cron. Use existing email infrastructure (Resend). |
+| Forgot password flow | Every SaaS app has this. Users who cannot recover access leave permanently. No support channel to fall back on as a solo-founder product. | LOW | better-auth has native `sendResetPassword` config on `emailAndPassword`. Requires email sending integration (Resend already configured for digests). Two pages: request form + reset form. |
+| Email verification on signup | Prevents fake accounts, ensures digest emails reach real inboxes, maintains Resend sender reputation. B2B users expect this from any tool touching their business data. | LOW-MEDIUM | better-auth has native `emailVerification.sendVerificationEmail` config. Decision: use delayed verification (allow access, gate at first meaningful action like digest subscription) vs immediate verification (block dashboard until verified). Recommend delayed -- see rationale below. |
+| Lead feed pagination | Current feed renders up to 50 leads in a single page load. Users with dense metro areas or wide service radii will hit this ceiling immediately. No "load more" or "next page" means stale leads below the fold are invisible. | MEDIUM | Cursor-based pagination using `(scrapedAt, id)` compound cursor at the SQL level, with in-memory score sorting preserved. Server action for loading more. |
+| Active nav highlighting (desktop sidebar) | Mobile nav already highlights the active link. Desktop sidebar does not. Users navigating between Leads, Bookmarks, Saved Searches, and Settings have no visual indicator of where they are. Creates cognitive dissonance on desktop. | LOW | Extract desktop sidebar nav into a client component using `usePathname()`. Mirror the existing pattern from `MobileNav` component. |
+| Bookmarks batch query | Current bookmarks page fires N individual `getLeadById()` calls via `Promise.all(bookmarkedIds.map(...))`. With 20 bookmarks, that is 20 separate SQL queries. Page load degrades linearly. | LOW-MEDIUM | Replace with a single `SELECT ... WHERE id IN (...)` query using Drizzle's `inArray` operator, then enrich results in a single pass. |
+| Digest email query optimization | Current digest generator calls `getFilteredLeads()` once per saved search per user inside a nested loop. A user with 3 saved searches triggers 3 full Haversine geo queries. With 50 users, that could mean 150+ heavy queries per digest run. | MEDIUM | Consolidate: group saved searches by org, batch-fetch company profiles with `inArray`, and cache profile lookups in a Map within the digest run. |
+| Non-permit dedup via sourceUrl | Current unique index is `(sourceId, permitNumber)`. Non-permit sources (news, bids, deep-web) have null permitNumber, so duplicates slip through. BUG 9 in the battle test report. | LOW-MEDIUM | Add a partial unique index on `(sourceId, sourceUrl)` where sourceUrl is not null and sourceType is not permit. Also add application-level pre-insert check for non-permit types. |
+| Regression tests for v2.0 fixes | 15 bug fixes shipped without test coverage. Any future change risks reintroducing them. Production safety requires automated verification that each fix holds. | MEDIUM-HIGH | 15 individual test cases covering: permit upsert, geocoding null-safe, scoring fetch multiplier, error boundaries, sign-in redirect, onboarding upsert, mobile nav, landing page, lead status, bookmarks, saved searches, email digest, pipeline progress, dedup, and billing fixes. Mix of unit tests and integration tests. |
 
-### Differentiators (Competitive Advantage)
+### Email Verification Strategy: Delayed, Not Blocking
 
-Features that set HeavyLeads apart from ConstructConnect, PlanHub, and generic lead gen platforms.
+**Recommendation:** Allow dashboard access without email verification. Gate digest email subscriptions and team invites on verified email.
+
+**Rationale:**
+1. HeavyLeads targets sales reps at heavy machinery dealerships -- not a self-serve consumer app. These users sign up with legitimate work emails because their employer told them to.
+2. The signup flow already requires org creation + onboarding (5+ steps). Adding email verification before any of that compounds friction during the highest-churn moment.
+3. The core risk of unverified emails is digest delivery failure and sender reputation damage. Gating digest subscription on verification addresses this without blocking the core experience.
+4. better-auth's `requireEmailVerification: true` returns a 403 on signin for unverified users. This is heavy-handed for a B2B product with a 7-day trial. Every minute of blocked access is lost trial time.
+
+**Implementation:** Set `requireEmailVerification: false` in better-auth config (or omit it, as false is the default). Add a `sendVerificationEmail` handler that fires on signup. Show a non-blocking banner in dashboard: "Verify your email to enable daily digest emails." When user tries to enable digest on a saved search, check `emailVerified` and prompt verification if false.
+
+### Forgot Password: Standard Token-Based Flow
+
+**Pattern:** better-auth's native password reset uses a time-limited token sent via email link.
+
+**Flow:**
+1. User clicks "Forgot password?" on sign-in page
+2. Client calls `authClient.requestPasswordReset({ email, redirectTo: '/reset-password' })`
+3. Server calls configured `sendResetPassword({ user, url, token })` handler
+4. Handler sends email via Resend with reset link containing token
+5. User clicks link, lands on `/reset-password?token=...`
+6. User enters new password, client calls `authClient.resetPassword({ newPassword, token })`
+7. Redirect to sign-in with success message
+
+**Security notes from better-auth docs:**
+- Use `void sendEmail(...)` (fire-and-forget) in the `sendResetPassword` handler to prevent timing attacks that reveal whether an email exists
+- On Vercel serverless, use `waitUntil` or similar to ensure the email actually sends after the response returns
+- Token expiration defaults to 1 hour (adequate for B2B)
+
+### Pagination: Cursor-Based with Load More
+
+**Why cursor, not offset:**
+1. The current query already uses `OFFSET` but with a fixed `limit=50` and `offset=0` (always page 1). Extending this with offset pagination would degrade for deep pages -- PostgreSQL must scan and discard all rows before the offset.
+2. Lead scores change over time (new leads push old ones down). Offset pagination across multiple page loads causes duplicates and missed leads.
+3. Cursor pagination using `(scrapedAt, id)` is stable across data mutations.
+
+**Important complication:** The current query sorts by `scrapedAt DESC` in SQL, then re-sorts by `score DESC` in memory after enrichment. This means the SQL-level cursor cannot use the score column directly because scores are computed in application code, not stored in the database.
+
+**Recommended approach:** Use `(scrapedAt, id)` as the SQL-level cursor. This enables efficient keyset pagination in PostgreSQL. The in-memory score sort still happens per-batch, and the FETCH_MULTIPLIER ensures high-score leads within each batch are not dropped. Across batches, leads are roughly time-ordered, which is acceptable because users scrolling deep into the feed are exploring older leads anyway.
+
+**Reduce default page size from 50 to 25:** Faster initial load, more granular loading. The FETCH_MULTIPLIER stays at 4 (fetch 100 from DB, score/filter to 25).
+
+**Client-side implementation:**
+- Initial page load: server component fetches first batch (25 leads) via `getFilteredLeads()`
+- "Load more" button at bottom of feed (not infinite scroll -- avoids scroll position bugs, simpler state management, works better with server components)
+- Button calls a server action with the cursor (last lead's scrapedAt + id)
+- Client component appends results to existing list
+- Shows "No more leads" when fewer results than limit are returned
+
+**Why "Load more" button, not infinite scroll:**
+- Infinite scroll requires an Intersection Observer, scroll position management, and complex state handling for the accumulated leads list
+- With server components, search param-based pagination causes re-renders of the entire page
+- A "Load more" button with a server action is simpler, more predictable, and matches the mental model of batch-loaded data
+- Can upgrade to infinite scroll in a future polish pass if user feedback requests it
+
+**Complexity:** MEDIUM
+**Estimated effort:** 6-8 hours
+
+### Active Nav: Client Component Extraction
+
+**Current state:** Desktop sidebar in `layout.tsx` uses plain `<Link>` components with no active state. Mobile nav (`MobileNav` component) already implements active highlighting using `usePathname()`.
+
+**Pattern:** Extract the desktop sidebar nav links into a `SidebarNav` client component. Reuse the same `navLinks` array and `isActive` logic already in `MobileNav`. Keep the rest of the layout as a server component.
+
+**Matching logic (from existing MobileNav):**
+```typescript
+const isActive = href === "/dashboard"
+  ? pathname === "/dashboard"
+  : pathname.startsWith(href);
+```
+
+This correctly handles exact match for the root dashboard path and prefix match for nested routes like `/dashboard/bookmarks`.
+
+---
+
+## Differentiators
+
+Features that go beyond baseline expectations for a hardening release but add meaningful value.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Guided dashboard tour | Reduces time-to-value from minutes to seconds. Most B2B lead platforms dump users into a complex dashboard with no guidance. A 5-6 step tour showing lead feed, filters, lead details, bookmarks, and saved searches creates an immediate "aha" moment. | MEDIUM | Use Driver.js (4KB, framework-agnostic, Next.js compatible) over React Joyride (not updated for React 19). Tour triggers once after onboarding completion via a `hasSeenTour` flag on user record. |
-| First-login lead trigger | While competitors make you wait 24 hours for your first batch of leads, HeavyLeads shows you relevant leads within minutes of completing onboarding. This is the single most important differentiator for trial conversion. | HIGH | Trigger scraping pipeline immediately after onboarding completes. Must run asynchronously (fire-and-forget from the client perspective) because pipeline takes 1-3 minutes. Show a progress card in dashboard: "Finding leads near [city]... checking permits, bids, news..." |
-| Team invite during onboarding | Most B2B lead platforms require the admin to invite team members after setup, which means the team never gets invited. Embedding invites in onboarding gets the whole team using the product during the trial window, dramatically increasing conversion. | MEDIUM | New wizard step after company details. Uses existing better-auth organization plugin's `inviteMember` API. Invite via email with "Skip for now" option. |
-| Custom search beyond defaults | Users can search for leads in a location, keyword, or project type that is different from their onboarding defaults. Competitors like ConstructConnect charge extra for broader search. HeavyLeads includes it. | MEDIUM | Separate search page/modal with city/state, keywords, project type fields. Runs the existing scraping pipeline against user-specified parameters (not just the org defaults). Results merge into the main lead feed with a "custom search" source tag. |
-| Pipeline progress indicator | When lead generation is running (first-login or on-demand), show real-time progress: which adapters are running, how many leads found so far, estimated time remaining. This turns a boring wait into engagement. | MEDIUM | Server-Sent Events (SSE) or polling endpoint. Pipeline already tracks per-adapter results. Expose status via `/api/scraper/status` endpoint with adapter-level progress. |
+| Total lead count in pagination | Show "Showing 25 of 142 leads" instead of just "25 leads within X miles". Gives users confidence the system found comprehensive results and encourages scrolling. | LOW | Add a `COUNT(*)` query alongside the main query (or use a window function). Display total in the header. |
+| Bookmark count badge in sidebar | Show number of bookmarked leads next to "Bookmarks" in sidebar nav. Provides at-a-glance visibility without navigating to the page. | LOW | Query bookmark count during layout render. Pass to SidebarNav component. |
+| "Verify email" inline prompt on saved search digest toggle | Instead of a generic banner, show the verification prompt exactly when it matters -- when the user tries to enable digest emails. Context-sensitive prompting converts better than global banners. | LOW | Check `user.emailVerified` when toggling `isDigestEnabled`. If false, show modal/toast with "Verify your email to receive digest emails" and a resend button. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+---
 
-Features that seem good but create problems. Explicitly choosing NOT to build these.
+## Anti-Features
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| Freemium tier (permanent free plan) | "Let users always use a limited version for free." | Heavy machinery sales teams either need the product or they do not. A freemium tier creates support burden for users who will never convert, and devalues the product. The pipeline has real scraping/geocoding costs per-org. | 7-day free trial with full access. Users experience full value, then make a clear buy/no-buy decision. |
-| Credit card required at trial start | "Higher quality leads, fewer spam signups." | Cuts signups by ~50% per industry data. For a niche B2B product, every signup matters. Spam risk is low because signup requires email verification + org creation. | Application-level trial (no Stripe involvement until conversion). Bot prevention via email verification in better-auth. |
-| Real-time lead notifications (push/SMS) | "Notify me instantly when a new lead appears." | Scraping runs daily/on-demand, not real-time. Push notifications for batch data create false urgency and notification fatigue. Construction projects do not require minute-level response times. | Daily email digest (already built). On-demand refresh button for when users actively want fresh data. |
-| Unlimited custom searches | "Let me search any city, any time." | Each custom search runs the full scraping pipeline against 8 adapters with geocoding. Unrestricted access creates infrastructure cost issues and potential scraper rate-limit/ban risks. | Rate-limited custom search: 3 per day during trial, 10 per day on paid plan. Queue-based with clear limits shown in UI. |
-| AI-generated lead summaries | "Use AI to summarize each lead." | Adds LLM API costs per-lead, latency to every page load, and questionable value -- the leads already have structured data (title, description, equipment inference, scoring). AI summaries would paraphrase existing data. | Existing equipment inference + scoring provides structured intelligence without LLM costs. |
-| Onboarding video walkthrough | "Record a video showing how to use the product." | Videos go stale quickly as UI changes. Users skip them. They are a maintenance burden. | Interactive guided tour (Driver.js) that walks through the actual live UI. Always up-to-date because it highlights real elements. |
-| Multi-step trial extensions | "Let users request a trial extension if they haven't explored enough." | Creates operational overhead, inconsistent policies, and trains users to ask for free access instead of converting. | One extension option: 3 additional days, granted automatically if user completed onboarding but has not yet subscribed. One-time only, tracked in DB. |
+Features to explicitly NOT build in v2.1, even if they seem adjacent.
+
+| Anti-Feature | Why It Seems Relevant | Why Avoid | What to Do Instead |
+|--------------|----------------------|-----------|-------------------|
+| Traditional page numbers (1, 2, 3...) | Familiar pagination pattern | Offset-based page numbers are a poor fit for a score-sorted feed where scores change between page loads. Users clicking "page 3" would see different results than the first time. Creates confusion. | "Load more" button with cursor pagination. This matches the mental model of a feed, not a catalog. |
+| Infinite scroll | Modern UX for feeds | Adds Intersection Observer complexity, scroll position management bugs, and state management overhead for accumulated results. The existing page is a server component -- infinite scroll pushes more logic client-side. | "Load more" button. Simpler, more predictable, upgradeable to infinite scroll later. |
+| OAuth / social login (Google, GitHub) | Seems like it should ship with auth hardening | Adds complexity (OAuth provider configuration, callback handling, account linking edge cases). B2B users at heavy machinery companies use work email -- not personal Google accounts. The existing email/password flow is the right fit. | Keep email/password. Add OAuth in a future milestone if user feedback requests it. |
+| Password complexity rules beyond minimum | "Enterprise" feel | Overly strict rules (uppercase, special chars, etc.) frustrate users without meaningfully improving security. NIST guidelines discourage composition rules. | Enforce minimum 8 characters. Consider `zxcvbn` password strength meter in a future polish pass. |
+| Rate limiting on password reset requests | Security hardening | better-auth already returns 200 for both valid and invalid emails (prevents enumeration). Rate limiting the endpoint adds implementation complexity for a problem that does not exist yet at current scale. | Monitor Resend send volume. Add rate limiting if abuse appears. |
+| Full-text search index (tsvector) | Keyword search optimization | Current `ILIKE` queries on title, description, address are adequate for <100K leads. Full-text search adds migration complexity and Neon compatibility considerations. | Keep ILIKE. Revisit when lead volume exceeds 100K and keyword search latency becomes measurable. |
+| Middleware auth guard (BUG 17) | Centralized auth checking | Evaluated in v2.0 battle test. Layout-level checks are sufficient for current route count. Middleware adds complexity and a new failure point. | Keep layout-level session checks in dashboard layout. |
+| Env var startup validation | Catch config errors early | Caused production 500 in v2.0. Validate at usage points with `.trim()` instead. | Continue point-of-use validation. |
+| E2E test suite (Playwright/Cypress) | Comprehensive testing | Valuable but out of scope for a hardening milestone. Unit and integration tests cover the regression needs. E2E adds CI complexity and flakiness risk. | Defer to future milestone. Unit tests for v2.1. |
+
+---
 
 ## Feature Dependencies
 
 ```
-[Free Trial System]
-    |-- requires --> [Fix Stripe Customer Creation Bug]
-    |-- requires --> [Application-Level Trial Tracking]
-    |                    |-- requires --> [company_profiles.trialEndsAt column]
-    |                    |-- enables --> [Trial Countdown Banner]
-    |                    |-- enables --> [Trial Expiry Gate (middleware)]
-    |                    |-- enables --> [Pre-Expiry Conversion Emails]
-    |
-    |-- must-precede --> [Billing Page Updates] (show trial status, not just subscription)
+[Regression Tests]
+    |-- independent of all other features
+    |-- should be written FIRST to establish safety net
+    |-- enables: safe refactoring of queries, auth, and dedup logic
 
-[Professional Onboarding]
-    |-- extends --> [Existing 3-Step Wizard]
-    |-- requires --> [company_profiles schema additions]
-    |-- step: Company Details
-    |-- step: Team Invites
-    |       |-- requires --> [better-auth organization.inviteMember API]
-    |-- step: Existing Location
-    |-- step: Existing Equipment
-    |-- step: Existing Radius
-    |-- after-complete --> [First-Login Lead Trigger]
-    |                          |-- requires --> [Automatic Lead Generation]
-    |-- after-complete --> [Guided Dashboard Tour]
-    |                          |-- requires --> [Dashboard has leads to show]
-    |                          |-- requires --> [Driver.js integration]
+[Active Nav Highlighting]
+    |-- independent of all other features
+    |-- requires: extracting sidebar nav into client component
+    |-- no schema changes, no API changes
 
-[Automatic Lead Generation]
-    |-- requires --> [Vercel Cron Configuration (vercel.json)]
-    |-- requires --> [Auth guard on /api/scraper/run]
-    |-- requires --> [Convert node-cron scheduler to Vercel Cron]
-    |-- enables --> [First-Login Lead Trigger]
-    |-- enables --> [On-Demand Refresh Button]
-    |-- enables --> [Pipeline Progress Indicator]
+[Forgot Password Flow]
+    |-- requires --> [Resend email integration] (already configured for digests)
+    |-- requires --> [Two new pages: /forgot-password, /reset-password]
+    |-- requires --> [better-auth emailAndPassword.sendResetPassword config]
+    |-- independent of email verification
 
-[Custom Search]
-    |-- extends --> [Existing Scraping Pipeline]
-    |-- extends --> [Existing Saved Searches]
-    |-- requires --> [New custom_searches table or extension of saved_searches]
-    |-- requires --> [Rate limiting per org]
-    |-- requires --> [Automatic Lead Generation working first]
+[Email Verification on Signup]
+    |-- requires --> [Resend email integration] (already configured)
+    |-- requires --> [better-auth emailVerification.sendVerificationEmail config]
+    |-- requires --> [Verification banner component in dashboard layout]
+    |-- gates --> [Digest email subscription toggle]
+    |-- should-follow --> [Forgot Password] (share email sending patterns)
 
-[Guided Dashboard Tour]
-    |-- requires --> [Leads visible in dashboard]
-    |       |-- requires --> [First-Login Lead Trigger complete]
-    |-- requires --> [Driver.js installed]
-    |-- triggered-by --> [Onboarding completion + hasSeenTour flag]
+[Lead Feed Pagination]
+    |-- requires --> [Modified getFilteredLeads to accept cursor params]
+    |-- requires --> [New Server Action for loading next page]
+    |-- requires --> [Client component for "Load more" button + lead list]
+    |-- impacts --> [Dashboard page.tsx must change from rendering all leads to first batch]
+    |-- should-follow --> [Regression Tests] (query changes need safety net)
+
+[Bookmarks Batch Query]
+    |-- requires --> [New getLeadsByIds() function in queries.ts]
+    |-- requires --> [Drizzle inArray operator for WHERE id IN (...)]
+    |-- replaces --> [Current N+1 pattern in bookmarks/page.tsx]
+    |-- should-follow --> [Regression Tests] (query refactor needs safety net)
+
+[Digest Email Query Optimization]
+    |-- requires --> [Refactored digest-generator.ts]
+    |-- requires --> [Company profile caching within digest run]
+    |-- should-follow --> [Regression Tests] (digest logic refactor needs safety net)
+
+[Non-Permit Dedup via sourceUrl]
+    |-- requires --> [New partial unique index on leads table]
+    |-- requires --> [Migration: add index on (sourceId, sourceUrl) WHERE conditions]
+    |-- requires --> [Updated dedup logic in pipeline to check sourceUrl for non-permit types]
+    |-- should-follow --> [Regression Tests] (dedup logic change needs safety net)
 ```
 
-### Dependency Notes
+### Critical Path
 
-- **Free Trial requires fixing Stripe bug first:** The Stripe customer creation error during registration must be resolved before trial flow works. Currently, signup fails at Stripe customer creation, which blocks everything downstream.
-- **First-Login Lead Trigger requires Automatic Lead Generation:** The pipeline must be callable from server actions/API routes before it can be triggered on first login. The existing `node-cron` scheduler does not work on Vercel serverless.
-- **Guided Tour requires leads in dashboard:** Showing a tour of an empty dashboard is counterproductive. The tour must fire AFTER the first-login lead trigger has populated at least some leads. This means: onboarding completes -> trigger pipeline -> show progress indicator -> when leads arrive -> trigger tour.
-- **Custom Search requires working pipeline:** Custom search extends the scraping pipeline with user-specified parameters. The pipeline must be reliably callable and monitored before adding user-triggered ad-hoc runs.
-- **Team Invites are independent:** The better-auth organization plugin already supports `inviteMember`. This step can be built in parallel with other onboarding work.
+```
+Regression Tests (safety net)
+    |
+    +---> [Auth Features]      +---> [Query Optimizations]     +---> [UI Polish]
+    |     - Forgot password    |     - Bookmarks batch         |     - Active nav
+    |     - Email verification |     - Digest optimization     |
+    |                          |     - sourceUrl dedup         |
+    |                          |     - Pagination              |
+```
 
-## Implementation Priority (v2.0 Scope)
+Auth features, query optimizations, and UI polish can proceed in parallel after regression tests establish the safety net. Within each track, the ordering matters:
 
-### Phase 1: Foundation (Must Ship First)
+- **Auth track:** Forgot password first (simpler, establishes email sending pattern), then email verification (builds on same pattern, adds gate logic).
+- **Query track:** Bookmarks batch query first (smallest scope, isolated change), then digest optimization (similar pattern, more complex), then sourceUrl dedup (schema migration required), then pagination (largest scope, touches the main dashboard page).
+- **UI track:** Active nav is a single independent change.
 
-Critical path items that unblock everything else.
+---
 
-- [ ] **Fix Stripe customer creation error** -- Production blocker. Auth/billing flow is broken. Debug the better-auth Stripe plugin configuration.
-- [ ] **Application-level free trial** -- Add `trialEndsAt` to `company_profiles`, set to `now + 7 days` on org creation. Middleware gate checks trial OR subscription status.
-- [ ] **Trial countdown banner** -- Persistent UI element showing days remaining in trial. Simple date math from `trialEndsAt`.
-- [ ] **Trial expiry redirect** -- Middleware: expired trial + no subscription = redirect to billing with "Trial expired" message.
+## MVP Recommendation
 
-### Phase 2: Professional Onboarding
+All 8 features are in scope and should ship. Prioritize in this order:
 
-Transform the thin 3-step wizard into a professional B2B experience.
+### Priority 0: Safety Net
+1. **Regression tests for 15 bug fixes** -- Without these, every subsequent change in this milestone risks reintroducing bugs. This is the foundation.
 
-- [ ] **Company details step** -- New step 1 in wizard: company name, website, phone, logo upload, industry segment.
-- [ ] **Team invite step** -- New step 2: email-based invites using better-auth org plugin. "Skip for now" option.
-- [ ] **Updated billing page** -- Show trial status ("5 days remaining"), conversion CTA, feature comparison. Not just "Subscribe."
+### Priority 1: Core Deliverables (Low Risk, High Visibility)
+2. **Forgot password flow** -- Lowest complexity auth feature. Establishes the email sending pattern reused by verification. Two new pages + one config change.
+3. **Email verification on signup** -- Builds on the forgot password email pattern. Adds verification banner + digest gate. Does not block dashboard access.
+4. **Bookmarks batch query** -- Replace N+1 with single `inArray` query. Isolated change, clear before/after comparison.
+5. **Active nav highlighting** -- Quick win. Extract client component, reuse existing mobile nav pattern.
 
-### Phase 3: Automatic Lead Generation
+### Priority 2: Larger Scope (Medium Risk, High Impact)
+6. **Digest email query optimization** -- Reduce per-user query count. More complex refactor but contained within `digest-generator.ts`.
+7. **Non-permit dedup via sourceUrl** -- Schema migration + dedup logic update. Test carefully against existing permit dedup.
+8. **Lead feed pagination** -- Largest scope feature. Touches the main dashboard page, adds new server action, requires cursor encoding, and changes the feed UX. Ship last when all regression tests are passing.
 
-The core value enabler -- making leads appear automatically.
+### Defer
+- Total lead count display (nice-to-have, add with pagination if time permits)
+- Bookmark count badge (polish, not blocking)
+- E2E testing, middleware auth, any new feature development
 
-- [ ] **Vercel Cron configuration** -- Create `vercel.json` with daily cron job. Auth guard via `CRON_SECRET`.
-- [ ] **Cron API route** -- New `/api/cron/scrape` GET handler (Vercel Cron sends GET, not POST). Replace `node-cron` scheduler.
-- [ ] **First-login lead trigger** -- After onboarding completes, fire pipeline asynchronously. Show progress card in dashboard.
-- [ ] **On-demand refresh** -- "Refresh Leads" button in dashboard header. Rate-limited, shows progress.
-- [ ] **Pipeline progress indicator** -- Polling endpoint or SSE for pipeline status. Per-adapter progress.
-- [ ] **Empty state design** -- Informative card when no leads: "We're finding leads near [city]..." with progress, or "No leads yet" with action prompts.
-
-### Phase 4: Guided Tour + Custom Search
-
-Polish features that maximize trial conversion and engagement.
-
-- [ ] **Dashboard tour** -- Driver.js integration. 5-6 steps covering lead feed, filters, lead detail, bookmarks, saved searches. Triggered once after first leads arrive.
-- [ ] **Custom search page** -- Search form: city/state, keywords, project type. Runs pipeline with custom params. Results merge into lead feed.
-- [ ] **Pre-expiry emails** -- Automated emails at 3 days, 1 day, and expiry. Trigger from daily cron check.
-
-### Future Consideration (Post v2.0)
-
-Features to defer until v2.0 is stable and conversion data is available.
-
-- [ ] **One-time trial extension** -- Auto-grant 3 extra days if user completed onboarding but hasn't subscribed. Track in DB. Only worth building after seeing trial conversion metrics.
-- [ ] **Onboarding checklist widget** -- Persistent sidebar checklist showing setup progress (company details, team invite, first search, etc.). Nice-to-have after core onboarding works.
-- [ ] **Smart conversion triggers** -- Contextual upgrade prompts based on user behavior (e.g., when user hits rate limit on custom search, or bookmarks 5+ leads). Requires usage analytics first.
-- [ ] **Custom search scheduling** -- Let users schedule recurring custom searches. Extension of saved searches. Depends on custom search proving valuable.
-
-## Feature Prioritization Matrix
-
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Fix Stripe customer creation | HIGH (blocker) | LOW | P0 |
-| Application-level free trial | HIGH | MEDIUM | P1 |
-| Trial countdown + expiry gate | HIGH | LOW | P1 |
-| Company details onboarding step | MEDIUM | LOW | P1 |
-| Team invite onboarding step | MEDIUM | MEDIUM | P2 |
-| Vercel Cron daily automation | HIGH | MEDIUM | P1 |
-| First-login lead trigger | HIGH | HIGH | P1 |
-| Empty state with progress | HIGH | MEDIUM | P1 |
-| On-demand refresh button | MEDIUM | LOW | P2 |
-| Pipeline progress indicator | MEDIUM | MEDIUM | P2 |
-| Guided dashboard tour (Driver.js) | MEDIUM | MEDIUM | P2 |
-| Custom search page | MEDIUM | MEDIUM | P2 |
-| Pre-expiry conversion emails | MEDIUM | MEDIUM | P2 |
-| Updated billing page (trial status) | MEDIUM | LOW | P1 |
-| Trial extension (auto 3-day) | LOW | LOW | P3 |
-| Onboarding checklist widget | LOW | MEDIUM | P3 |
-
-**Priority key:**
-- P0: Production blocker, fix immediately
-- P1: Must have for v2.0 launch
-- P2: Should have, add in v2.0 if time permits
-- P3: Nice to have, defer to v2.1+
-
-## Competitor Feature Analysis
-
-| Feature | ConstructConnect | PlanHub | HeavyLeads (v2.0) |
-|---------|------------------|---------|-------------------|
-| Free trial | 14-day trial (CC required) | Limited free tier + paid upgrades | 7-day full-access trial, no CC required |
-| Onboarding | Minimal -- jumps to project search | Basic profile setup | 5-step wizard with company details, team invites, location, equipment, radius |
-| Lead freshness | Updated daily by 400+ researchers (manual data entry) | User-submitted, inconsistent updates | Automated daily scraping from 8 sources + on-demand refresh |
-| Search flexibility | Full project database search (paid) | Keyword + location search | Default radius-based feed + custom search with location/keywords/project type |
-| Team features | Multi-user dashboards, bid tracking | Unlimited team members, project posting | Org-based multi-tenant, team invites during onboarding, shared lead statuses |
-| Guided onboarding | None (complex UI, steep learning curve) | Basic tooltips | Interactive dashboard tour (Driver.js), progress indicators |
-| First-use experience | Shows project results immediately (huge existing database) | Shows available bids immediately | Triggers scraping pipeline on first login, shows progress while loading |
-| Pricing model | Subscription only (higher price point) | Free tier + paid add-ons | Setup fee + monthly subscription after free trial |
-
-### Key Competitive Insight
-
-ConstructConnect and PlanHub have massive existing databases, so they can show results instantly. HeavyLeads scrapes on-demand, so the first-use experience gap is the biggest risk. The first-login lead trigger with progress indicators is NOT optional -- it is the single most important feature for v2.0 trial conversion. Without it, users complete onboarding, land on an empty dashboard, and leave.
+---
 
 ## Detailed Feature Specifications
 
-### 1. Free Trial System
+### 1. Forgot Password Flow
 
-**Standard UX flow (no-CC trial):**
-1. User signs up (email + password) -> better-auth creates user + Stripe customer
-2. User creates organization -> application sets `trialEndsAt = now + 7 days` on company profile
-3. User completes onboarding -> redirected to dashboard (not billing page)
-4. Dashboard shows trial banner: "You have X days left in your free trial"
-5. At 3 days remaining: email nudge with feature highlights
-6. At 1 day remaining: email with urgency + subscribe link
-7. On expiry: middleware redirects ALL dashboard routes to billing page with "Trial ended" messaging
-8. User subscribes through existing Stripe Checkout flow (setup fee + monthly)
+**Pages to create:**
+- `/forgot-password` -- Email input form. Calls `authClient.requestPasswordReset()`. Shows "If an account exists, we sent a reset link" message (same response regardless of email existence to prevent enumeration).
+- `/reset-password` -- New password form. Reads `token` from URL search params. Calls `authClient.resetPassword({ newPassword, token })`. Redirects to `/sign-in` on success.
 
-**Why application-level, not Stripe-level trial:**
-The better-auth Stripe plugin does not support creating trial subscriptions without checkout (confirmed via GitHub issue #4631, closed as "not planned"). Stripe's own API supports `payment_method_collection=if_required` with `trial_period_days`, but better-auth's abstraction layer does not expose this. Building an application-level trial is simpler, more reliable, and fully within our control:
-- Store `trialEndsAt` in `company_profiles`
-- Middleware checks: `hasActiveSubscription(orgId) OR trialIsActive(orgId)`
-- No Stripe API calls needed during trial period
-- Clean conversion: trial expires -> user goes through normal Stripe Checkout
+**Server config change in `src/lib/auth.ts`:**
+```typescript
+emailAndPassword: {
+  enabled: true,
+  sendResetPassword: async ({ user, url, token }, request) => {
+    // Fire-and-forget to prevent timing attacks
+    void sendPasswordResetEmail(user.email, url);
+  },
+},
+```
 
-**Trial expiry handling:**
-- `missing_payment_method` behavior is moot because we never create a Stripe subscription during trial
-- Expiry is enforced purely in middleware
-- Expired users see billing page with clear "Your 7-day trial has ended" message and subscribe button
+**Email sending:** Create a `sendPasswordResetEmail` function in `src/lib/email/` using the existing Resend client pattern from `send-digest.ts`. Simple text/HTML email with reset link. Reuse existing Resend API key and from address.
 
-### 2. Professional Onboarding
+**Complexity:** LOW
+**Estimated effort:** 2-3 hours
 
-**Expanded wizard steps (5 steps total):**
+### 2. Email Verification on Signup
 
-| Step | Fields | Validation | Purpose |
-|------|--------|------------|---------|
-| 1. Company Details | Company name, website (optional), phone (optional), industry segment (dropdown) | Name required, URL format if provided | Establish organizational identity |
-| 2. Team Setup | Email addresses for invites, role selection (member/admin) | Valid email format, max 5 invites during onboarding | Get the whole team on board during trial |
-| 3. Location | HQ address (existing) | Address geocodes successfully | Geographic center for lead matching |
-| 4. Equipment | Equipment types (existing) | At least 1 selected | Equipment matching for lead scoring |
-| 5. Service Radius | Radius slider (existing) | 10-500 miles range | Geographic filter for lead feed |
+**Server config change in `src/lib/auth.ts`:**
+```typescript
+emailVerification: {
+  sendVerificationEmail: async ({ user, url, token }, request) => {
+    void sendVerificationEmail(user.email, user.name, url);
+  },
+  // Do NOT set requireEmailVerification: true
+  // We gate specific features, not dashboard access
+},
+```
 
-**Industry segment options for heavy machinery:** Equipment Rental, Equipment Sales, Equipment Service/Repair, General Contractor, Specialty Contractor, Material Supplier, Other.
+**Dashboard banner:** Non-blocking yellow/amber banner below trial banner: "Please verify your email address to enable daily digest emails. [Resend verification email]". Only shown when `!session.user.emailVerified`.
 
-**What makes onboarding feel polished (B2B patterns):**
-- Progress bar showing "Step 2 of 5: Team Setup"
-- Ability to go back to previous steps without losing data (already implemented)
-- Contextual helper text explaining WHY each piece of information matters
-- "Skip for now" on optional steps (team invite, company website/phone)
-- Completion animation/celebration moment before redirect
-- Logo upload with preview (drag-and-drop or file picker)
+**Digest gate:** In the saved search card's digest toggle handler, check `session.user.emailVerified`. If false, show a prompt instead of toggling.
 
-### 3. Guided Dashboard Tour
+**Complexity:** LOW-MEDIUM
+**Estimated effort:** 3-4 hours
 
-**Table stakes for product tours:**
-- Spotlight/highlight effect on target element
-- Tooltip with step description positioned near the highlighted element
-- Step counter ("2 of 6")
-- Next/Back/Skip navigation
-- Dim/overlay on non-highlighted areas
-- Keyboard navigation (Escape to skip, Enter to advance)
+### 3. Lead Feed Pagination
 
-**Nice-to-have tour features (defer):**
-- Branching tours based on user role
-- Analytics on tour completion rates
-- Re-triggerable from help menu
-- Video embeds in tour steps
+**Query changes to `getFilteredLeads()`:**
+- Add optional `cursor` parameter: `{ scrapedAt: Date; id: string }`
+- When cursor is provided, add WHERE clause: `(scrapedAt < cursor.scrapedAt) OR (scrapedAt = cursor.scrapedAt AND id > cursor.id)`
+- Return `{ leads: EnrichedLead[]; nextCursor: Cursor | null }` instead of just `EnrichedLead[]`
+- `nextCursor` is null when fewer leads than `limit` are returned (end of feed)
 
-**Recommended tour steps (6 steps):**
-1. **Lead Feed** -- "This is your lead feed. We found X leads near [city] matching your equipment."
-2. **Lead Card** -- "Each card shows project details, equipment needs, and a relevance score."
-3. **Filters** -- "Filter by equipment type, radius, keywords, date range, and project size."
-4. **Lead Detail** (navigate to one) -- "Click a lead to see full details, map, timeline, and sources."
-5. **Bookmarks** -- "Bookmark leads to review later. Your team can see shared bookmarks."
-6. **Saved Searches** -- "Save filter combinations and get daily email digests for new matches."
+**Page size:** Reduce from 50 to 25. FETCH_MULTIPLIER stays at 4 (fetch 100 from DB, score/filter to 25).
 
-**Technology choice: Driver.js**
-- 4KB gzipped, zero dependencies, framework-agnostic
-- Works with Next.js App Router via dynamic import in client components
-- Active maintenance, compatible with React 18/19
-- React Joyride has NOT been updated for React 19 and has stale maintenance (9+ months without updates)
+**Client-side implementation:**
+```
+[Dashboard page.tsx - server component]
+  renders initial 25 leads + nextCursor
+  passes to:
+    [LeadFeed client component]
+      manages accumulated leads state
+      renders lead cards
+      renders "Load more" button when nextCursor exists
+      on click: calls loadMoreLeads server action with cursor
+      appends results to leads state
+      shows loading state during fetch
+      hides button when nextCursor is null
+```
 
-### 4. Automatic Lead Generation
+**Complexity:** MEDIUM
+**Estimated effort:** 6-8 hours
 
-**Daily cron pattern:**
-- Vercel Cron sends GET to `/api/cron/scrape` once daily at 06:00 UTC
-- Route validates `Authorization: Bearer ${CRON_SECRET}` header (Vercel auto-injects for legitimate cron calls)
-- Function initializes adapters, runs pipeline, triggers email digest
-- `maxDuration = 300` (5 minutes, Hobby plan max with fluid compute)
-- Idempotent: pipeline upserts leads, so duplicate cron invocations are safe
+### 4. Bookmarks Batch Query
 
-**First-use experience pattern:**
-1. User completes onboarding
-2. Server action fires async POST to `/api/scraper/run` (with auth)
-3. Dashboard shows progress card: "Finding leads near Austin, TX..."
-4. Progress states: "Checking city permits... Scanning government bids... Searching construction news..."
-5. Polling endpoint `/api/scraper/status` returns `{ running: boolean, adaptersComplete: number, totalAdapters: number, leadsFound: number }`
-6. When complete: progress card transitions to lead feed. Tour triggers.
-7. If pipeline finds 0 leads: show helpful empty state with suggestions (expand radius, check equipment types)
+**New function in `queries.ts`:**
+```typescript
+export async function getLeadsByIds(
+  ids: string[],
+  params?: GetLeadByIdParams
+): Promise<EnrichedLead[]> {
+  if (ids.length === 0) return [];
 
-**On-demand refresh:**
-- Button in dashboard header: "Refresh Leads" with refresh icon
-- Rate-limited: 1 per hour per organization
-- Shows inline progress (same as first-use but smaller/less prominent)
-- Disabled state with tooltip when rate-limited: "Next refresh available in X minutes"
+  const rows = await db
+    .select()
+    .from(leads)
+    .where(inArray(leads.id, ids));
 
-**Critical constraint -- Vercel function timeout:**
-- Hobby plan: 300s (5 min) max with fluid compute enabled
-- Pro plan: 800s (13 min) max
-- The existing pipeline runs 8 adapters sequentially with geocoding
-- If pipeline exceeds 5 min, must either: parallelize adapters, or split into multiple invocations via chained API calls
-- Recommendation: measure pipeline duration first. If under 4 min, keep sequential. If over, implement adapter batching (4 adapters per invocation, 2 invocations).
+  return rows.map(row => {
+    // Same enrichment as getLeadById but batched
+    const inferred = inferEquipmentNeeds(row.projectType, row.description);
+    const inferredTypes = inferred.map(i => i.type);
+    let distance: number | null = null;
+    if (params?.hqLat != null && params?.hqLng != null
+        && row.lat != null && row.lng != null) {
+      distance = haversineDistance(params.hqLat, params.hqLng, row.lat, row.lng);
+    }
+    const score = params?.dealerEquipment && params?.serviceRadiusMiles && distance != null
+      ? scoreLead({ inferredEquipment: inferredTypes, dealerEquipment: params.dealerEquipment,
+          distanceMiles: distance, serviceRadiusMiles: params.serviceRadiusMiles,
+          estimatedValue: row.estimatedValue })
+      : 0;
+    return {
+      ...row, distance, inferredEquipment: inferred, score,
+      freshness: getFreshnessBadge(row.scrapedAt),
+      timeline: mapTimeline(row.projectType, row.description),
+    } as EnrichedLead;
+  });
+}
+```
 
-### 5. Custom Search
+**Bookmarks page change:**
+```typescript
+// BEFORE (N+1):
+const leads = await Promise.all(
+  bookmarkedIds.map(id => getLeadById(id, { ... }))
+);
 
-**How B2B platforms handle search beyond defaults:**
-- Separate search interface from the main feed (dedicated page or modal)
-- User specifies: location (city/state/address), keywords, project type
-- System runs a targeted search against those parameters
-- Results appear in a "Custom Search Results" view or merge into main feed
-- Search can be saved for re-running later (extends existing saved searches)
+// AFTER (batch):
+const leads = await getLeadsByIds(bookmarkedIds, { ... });
+```
 
-**Implementation approach:**
-- New page: `/dashboard/search` with form fields
-- Location: city/state text input with geocoding (existing `geocodeAddress` utility)
-- Keywords: free text (maps to existing keyword filter)
-- Project type: dropdown (commercial, residential, infrastructure, industrial, etc.)
-- "Search" button triggers pipeline run with custom params
-- Results displayed inline on the same page
-- "Save this search" button to create a saved search entry for later re-use + digest
+**Complexity:** LOW-MEDIUM
+**Estimated effort:** 2-3 hours
 
-**Differences from default feed:**
-- Default feed: uses org's HQ location + equipment + service radius
-- Custom search: user-specified location + keywords + project type. Does NOT replace default feed.
-- Custom search results get a `source: 'custom_search'` tag so users can distinguish them
-- Results persist in the leads table and appear in default feed IF they fall within org's service radius
+### 5. Digest Email Query Optimization
 
-**Rate limiting:**
-- Trial users: 3 custom searches per day
-- Paid users: 10 custom searches per day
-- Track via `custom_search_runs` table: `orgId, createdAt`
-- Show remaining quota in UI: "3 of 10 searches used today"
+**Current N+1 pattern (two levels):**
+1. Per-user: fetches company profile individually (`db.query.companyProfiles.findFirst`)
+2. Per-saved-search: calls `getFilteredLeads()` with full Haversine computation
+
+**Recommended optimization (pragmatic):**
+Pre-fetch all needed company profiles at the start of the digest run and cache in a Map:
+
+```typescript
+// At start of generateDigests():
+const orgIds = [...new Set(searchesWithUsers.map(r => r.saved_searches.organizationId))];
+const profiles = await db.select().from(companyProfiles).where(inArray(companyProfiles.organizationId, orgIds));
+const profileMap = new Map(profiles.map(p => [p.organizationId, p]));
+
+// In the per-user loop:
+const profile = profileMap.get(group.organizationId);
+// No DB query needed -- already cached
+```
+
+This eliminates N profile lookups. The per-search `getFilteredLeads()` calls remain because each saved search has different filter params, and the Haversine query is already indexed. Consolidating search queries would require merging incompatible filter sets, adding complexity with marginal benefit.
+
+**Complexity:** MEDIUM (refactoring the generator function while preserving behavior)
+**Estimated effort:** 3-4 hours
+
+### 6. Non-Permit Dedup via sourceUrl
+
+**Problem:** The unique index `leads_source_permit_idx` on `(sourceId, permitNumber)` only catches duplicate permits. Non-permit sources insert `permitNumber = null`, and PostgreSQL treats `NULL != NULL` in unique indexes, so duplicates pass through.
+
+**Solution (two-part):**
+
+**Part 1: Database index migration**
+```sql
+CREATE UNIQUE INDEX leads_source_url_idx
+ON leads (source_id, source_url)
+WHERE source_url IS NOT NULL AND source_type != 'permit';
+```
+This catches exact-URL duplicates for non-permit sources without affecting permit dedup.
+
+**Part 2: Application-level check in pipeline**
+Before inserting a non-permit lead, check if a lead with the same `sourceId` + `sourceUrl` already exists. If so, skip insertion (or merge the source reference to the existing lead). This mirrors the existing `ON CONFLICT` pattern used for permits.
+
+**Edge case:** Some adapters may scrape the same article/bid from different sourceIds (e.g., same bid appears on SAM.gov and a state bid board). The current Haversine + text similarity dedup handles cross-source dedup. The sourceUrl index handles same-source dedup. These are complementary.
+
+**Complexity:** LOW-MEDIUM
+**Estimated effort:** 2-3 hours
+
+### 7. Active Nav Highlighting
+
+**Implementation:**
+1. Create `src/components/dashboard/sidebar-nav.tsx` as a `"use client"` component
+2. Import `usePathname` from `next/navigation`
+3. Reuse the `navLinks` array from `MobileNav` (or extract to shared constant)
+4. Apply conditional className: `isActive ? "bg-accent text-accent-foreground" : ""`
+5. Replace the inline `<nav>` in `layout.tsx` with `<SidebarNav />`
+
+**Complexity:** LOW
+**Estimated effort:** 30 minutes
+
+### 8. Regression Tests
+
+**Test categories needed:**
+
+| Bug Fix | Test Type | What to Assert |
+|---------|-----------|---------------|
+| Permit upsert (excluded.* pattern) | Unit | Upsert does not create duplicates for same sourceId + permitNumber |
+| Geocoding null-safe | Unit | Returns null coords (not 0,0) when geocoding fails |
+| Lead scoring fetch multiplier | Unit | High-score older leads are not dropped when FETCH_MULTIPLIER is applied |
+| Error boundaries | Component | Error boundary renders fallback UI, not white screen |
+| Sign-in redirect loop | Integration | Authenticated user on /sign-in redirects to /dashboard once |
+| Onboarding upsert (double-submit) | Integration | Rapid double-submit creates one profile, not two |
+| Mobile nav drawer | Component | Drawer opens/closes, links navigate correctly |
+| Landing page (unauthenticated) | Integration | Unauthenticated request to / renders landing page |
+| Lead status tracking | Unit | Status CRUD operations work, default is 'new' |
+| Bookmark toggle | Unit | Toggle creates/deletes bookmark, ON CONFLICT handles race |
+| Saved search CRUD | Unit | Create, update, delete saved searches with filters |
+| Email digest generation | Unit | Digest generates for enabled searches, skips disabled |
+| Pipeline progress tracking | Unit | Pipeline status updates correctly per adapter |
+| Dedup (permit) | Unit | Same-address leads within proximity merge correctly |
+| Billing trial status | Unit | Trial active/expired computed correctly from dates |
+
+**Testing stack:** Vitest (standard for Next.js projects). For unit tests, mock DB calls. For integration tests touching auth/routing, use Next.js test utilities or lightweight mocks.
+
+**Complexity:** MEDIUM-HIGH (15 tests, mix of unit and integration)
+**Estimated effort:** 8-12 hours
+
+---
+
+## Feature Prioritization Matrix
+
+| Feature | User Value | Implementation Cost | Risk if Skipped | Priority |
+|---------|------------|---------------------|-----------------|----------|
+| Regression tests | HIGH (prevents regressions) | HIGH (15 tests) | HIGH (any change could rebreak) | P0 |
+| Forgot password | HIGH (access recovery) | LOW | HIGH (locked-out users churn) | P1 |
+| Email verification | MEDIUM (data quality) | LOW-MEDIUM | MEDIUM (digest emails bounce) | P1 |
+| Bookmarks batch query | MEDIUM (performance) | LOW-MEDIUM | LOW (N+1 noticeable with many bookmarks) | P1 |
+| Active nav highlighting | LOW (UX polish) | LOW | LOW (visual inconsistency) | P1 |
+| Digest query optimization | MEDIUM (performance) | MEDIUM | LOW (digest slow with many users) | P2 |
+| Non-permit dedup | MEDIUM (data quality) | LOW-MEDIUM | MEDIUM (duplicate leads confuse users) | P2 |
+| Lead feed pagination | HIGH (core UX) | MEDIUM | MEDIUM (50-lead cap limits discovery) | P2 |
+
+**Priority key:**
+- P0: Must complete first (safety net for all other work)
+- P1: Core deliverables, implement after safety net
+- P2: Important but larger scope, implement after P1s
+
+---
 
 ## Sources
 
-### Stripe & Billing
-- [Stripe trial periods documentation](https://docs.stripe.com/billing/subscriptions/trials) -- HIGH confidence
-- [Stripe free trial without payment method](https://docs.stripe.com/payments/checkout/free-trials) -- HIGH confidence
-- [Better-auth Stripe plugin docs](https://better-auth.com/docs/plugins/stripe) -- HIGH confidence
-- [Better-auth issue #4631: trial without checkout](https://github.com/better-auth/better-auth/issues/4631) -- HIGH confidence (closed, not planned)
+### better-auth
+- [Email & Password Authentication](https://better-auth.com/docs/authentication/email-password) -- HIGH confidence (official docs, password reset and email verification config)
+- [Email Concepts](https://better-auth.com/docs/concepts/email) -- HIGH confidence (email delivery overview)
+- [Email OTP Plugin](https://better-auth.com/docs/plugins/email-otp) -- MEDIUM confidence (alternative approach, not recommended for this use case)
 
-### Vercel & Infrastructure
-- [Vercel Cron Jobs docs](https://vercel.com/docs/cron-jobs) -- HIGH confidence
-- [Vercel Cron usage and pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) -- HIGH confidence
-- [Vercel function duration limits](https://vercel.com/docs/functions/configuring-functions/duration) -- HIGH confidence
+### Pagination
+- [Cursor Pagination for PostgreSQL: Complete Developer Guide 2025](https://bun.uptrace.dev/guide/cursor-pagination.html) -- HIGH confidence
+- [Five ways to paginate in Postgres](https://www.citusdata.com/blog/2016/03/30/five-ways-to-paginate/) -- HIGH confidence (canonical reference)
+- [Keyset Cursors, Not Offsets, for Postgres Pagination](https://blog.sequinstream.com/keyset-cursors-not-offsets-for-postgres-pagination/) -- HIGH confidence
+- [Understanding Cursor Pagination and Why It's So Fast](https://www.milanjovanovic.tech/blog/understanding-cursor-pagination-and-why-its-so-fast-deep-dive) -- MEDIUM confidence
 
-### Free Trial UX
-- [Userpilot: SaaS free trial best practices](https://userpilot.com/blog/saas-free-trial-best-practices/) -- MEDIUM confidence
-- [Maxio: SaaS free trial conversions](https://www.maxio.com/blog/saas-free-trials-7-best-practices-for-increased-conversions) -- MEDIUM confidence
-- [The Good: converting free trial users](https://thegood.com/insights/how-to-convert-free-trial-users-to-paying-customers/) -- MEDIUM confidence
-- [Encharge: SaaS free trial best practices 2026](https://encharge.io/saas-free-trial-best-practices/) -- MEDIUM confidence
+### Next.js Patterns
+- [Implementing Infinite Scroll in Next.js with Server Actions](https://blog.logrocket.com/implementing-infinite-scroll-next-js-server-actions/) -- MEDIUM confidence
+- [How to Style Active Links in Next.js App Router](https://spacejelly.dev/posts/how-to-style-active-links-in-next-js-app-router) -- MEDIUM confidence
+- [Next.js Learn: Navigating Between Pages](https://nextjs.org/learn/dashboard-app/navigating-between-pages) -- HIGH confidence (official tutorial)
 
-### Onboarding
-- [Insaim: SaaS onboarding best practices 2025](https://www.insaim.design/blog/saas-onboarding-best-practices-for-2025-examples) -- MEDIUM confidence
-- [ProductLed: SaaS onboarding best practices](https://productled.com/blog/5-best-practices-for-better-saas-user-onboarding) -- MEDIUM confidence
-- [ProductFruits: B2B SaaS onboarding guide](https://productfruits.com/blog/b2b-saas-onboarding) -- MEDIUM confidence
-- [Auth0: user onboarding strategies B2B SaaS](https://auth0.com/blog/user-onboarding-strategies-b2b-saas/) -- MEDIUM confidence
+### Drizzle ORM
+- [Drizzle ORM Filters (inArray)](https://orm.drizzle.team/docs/operators) -- HIGH confidence (official docs)
+- [Drizzle ORM Batch API](https://orm.drizzle.team/docs/batch-api) -- HIGH confidence (official docs)
 
-### Product Tours
-- [OnboardJS: 5 best React onboarding libraries 2026](https://onboardjs.com/blog/5-best-react-onboarding-libraries-in-2025-compared) -- MEDIUM confidence
-- [Sandro Roth: evaluating tour libraries for React](https://sandroroth.com/blog/evaluating-tour-libraries/) -- MEDIUM confidence
-- [Userpilot: product tours guide](https://userpilot.com/blog/product-tours/) -- MEDIUM confidence
-- [DEV Community: building custom React tour component](https://dev.to/codewithjohnson/how-to-build-a-custom-react-tour-component-1b0b) -- MEDIUM confidence
+### Email Verification
+- [Implementing the Right Email Verification Flow](https://supertokens.com/blog/implementing-the-right-email-verification-flow) -- MEDIUM confidence
+- [Why SaaS Signups Need Email Verification](https://unwrap.email/blogs/why-saas-signups-need-email-verification) -- MEDIUM confidence
 
-### Empty States & Progress
-- [Userpilot: empty state in SaaS](https://userpilot.com/blog/empty-state-saas/) -- MEDIUM confidence
-- [Smashing Magazine: role of empty states in onboarding](https://www.smashingmagazine.com/2017/02/user-onboarding-empty-states-mobile-apps/) -- MEDIUM confidence
-- [DEV Community: progress indicators for SaaS](https://dev.to/lollypopdesign/progress-indicators-explained-types-variations-best-practices-for-saas-design-392n) -- MEDIUM confidence
-
-### Competitor Analysis
-- [PlanHub vs ConstructConnect comparison](https://planhub.com/resources/constructconnect-vs-planhub/) -- MEDIUM confidence
-- [SelectHub: PlanHub vs ConstructConnect](https://www.selecthub.com/construction-bidding-software/planhub-vs-constructconnect/) -- MEDIUM confidence
-- [Planyard: top 10 construction lead generation platforms](https://planyard.com/blog/top-10-construction-lead-generation-platforms) -- MEDIUM confidence
-- [Downtobid: PlanHub vs ConstructConnect vs Downtobid](https://downtobid.com/blog/planhub-vs-constructconnect-vs-downtobid) -- MEDIUM confidence
+### Deduplication
+- [PostgreSQL Unique Constraint](https://www.vervecopilot.com/interview-questions/can-postgres-unique-constraint-be-your-secret-weapon-for-robust-database-design) -- MEDIUM confidence
+- [PostgreSQL Data Deduplication Methods](https://www.alibabacloud.com/blog/postgresql-data-deduplication-methods_596032) -- MEDIUM confidence
 
 ---
-*Feature research for: HeavyLeads v2.0 Production Rework*
+*Feature research for: HeavyLeads v2.1 Bug Fixes & Hardening*
 *Researched: 2026-03-15*
