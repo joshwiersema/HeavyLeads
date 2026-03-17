@@ -16,8 +16,7 @@ import "dotenv/config";
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { sql } from "drizzle-orm";
-import { scryptAsync } from "@noble/hashes/scrypt.js";
-import { bytesToHex } from "@noble/hashes/utils.js";
+import { hashPassword } from "better-auth/crypto";
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -41,20 +40,6 @@ function slugify(text: string): string {
     .replace(/[^\w\s-]/g, "")
     .replace(/[\s_]+/g, "-")
     .replace(/-+/g, "-");
-}
-
-/** Hash using the same scrypt config as Better Auth */
-async function hashPassword(password: string): Promise<string> {
-  const saltBytes = crypto.getRandomValues(new Uint8Array(16));
-  const salt = bytesToHex(saltBytes);
-  const key = await scryptAsync(password.normalize("NFKC"), salt, {
-    N: 16384,
-    p: 1,
-    r: 16,
-    dkLen: 64,
-    maxmem: 128 * 16384 * 16 * 2,
-  });
-  return `${salt}:${bytesToHex(key)}`;
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────
