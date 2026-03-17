@@ -37,10 +37,12 @@ export default async function DashboardLayout({
 
   // Email verification gate -- new users must verify before accessing dashboard.
   // Legacy users (created before the cutoff) are treated as pre-verified.
+  // DEV_ACCESS: skip verification when dev access is enabled (no email service needed)
+  const devAccess = process.env.NEXT_PUBLIC_DEV_ACCESS === "true";
   const isLegacyUser = session.user.createdAt
     ? new Date(session.user.createdAt) < new Date(LEGACY_USER_CUTOFF)
     : true; // Treat users without createdAt as legacy (pre-existing)
-  if (!session.user.emailVerified && !isLegacyUser) {
+  if (!session.user.emailVerified && !isLegacyUser && !devAccess) {
     redirect("/verify-email");
   }
 
