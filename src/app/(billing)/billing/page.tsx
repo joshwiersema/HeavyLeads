@@ -77,7 +77,8 @@ export default async function BillingPage() {
             monthlyPrice={process.env.NEXT_PUBLIC_MONTHLY_PRICE}
             setupFee={process.env.NEXT_PUBLIC_SETUP_FEE}
           />
-          {process.env.NODE_ENV === "development" && (
+          {/* DEV_ACCESS: skip billing for demo/testing — remove this block for production */}
+          {process.env.NEXT_PUBLIC_DEV_ACCESS === "true" && (
             <div className="flex justify-center">
               <DevSkipButton />
             </div>

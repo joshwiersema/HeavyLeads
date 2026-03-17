@@ -58,12 +58,22 @@ async function main() {
 
   // Tables to fully wipe (no FK deps to auth tables)
   const wipeTables = [
+    "scraper_runs",
     "pipeline_runs",
+    "lead_enrichments",
+    "lead_statuses",
+    "lead_sources",
+    "bookmarks",
+    "leads",
+    "saved_searches",
+    "notification_preferences",
+    "subscription",
+    "organization_profiles",
+    // Legacy table names (pre-rename)
     "lead_status",
     "lead_source",
     "lead",
     "saved_search",
-    "subscription",
     "company_profile",
   ];
 
@@ -79,6 +89,12 @@ async function main() {
 
   // Clear auth tables, preserving admin
   if (adminUserId) {
+    // Invitations (FK to org + user)
+    if (allTables.includes("invitation")) {
+      const ir = await db.execute(sql`DELETE FROM "invitation"`);
+      console.log(`  Cleared: invitation (${ir.rowCount} rows)`);
+    }
+
     // Sessions
     const sr = await db.execute(
       sql`DELETE FROM "session" WHERE "user_id" != ${adminUserId}`

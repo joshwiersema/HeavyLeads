@@ -79,11 +79,13 @@ export async function ensureStripeCustomer() {
 
 /**
  * Creates a mock active subscription so the user can explore the dashboard
- * without going through Stripe checkout. Only works in development.
+ * without going through Stripe checkout.
+ *
+ * Gated by NEXT_PUBLIC_DEV_ACCESS=true. To disable, remove or unset the env var.
  */
 export async function createDevSubscription() {
-  if (process.env.NODE_ENV !== "development") {
-    throw new Error("Dev subscriptions are only available in development mode");
+  if (process.env.NEXT_PUBLIC_DEV_ACCESS !== "true") {
+    throw new Error("Dev subscriptions are not enabled");
   }
 
   const session = await auth.api.getSession({
