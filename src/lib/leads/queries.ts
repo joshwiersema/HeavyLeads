@@ -32,6 +32,21 @@ import type {
 } from "@/lib/scoring/types";
 import type { Industry } from "@/lib/onboarding/types";
 
+// -- Column helpers --
+
+/**
+ * All lead columns EXCEPT `location` (PostGIS geometry).
+ * The `location` column is write-only (used for spatial indexing); selecting
+ * it is wasteful and breaks environments where PostGIS isn't enabled.
+ */
+function leadColumns() {
+  const allCols = getTableColumns(leads);
+  // Exclude `location` (PostGIS geometry) -- it's write-only for spatial indexing
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { location, ...cols } = allCols ?? {};
+  return cols;
+}
+
 // -- Pure helper (exported for testability) --
 
 const EARTH_RADIUS_MILES = 3959;
@@ -341,7 +356,7 @@ export async function getFilteredLeads(
   // Build select fields -- add status and bookmark info when user context available
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectFields: Record<string, any> = {
-    ...getTableColumns(leads),
+    ...leadColumns(),
     distance: distanceExpr,
   };
 
@@ -512,7 +527,7 @@ export async function getFilteredLeadsWithCount(
   // Build select fields -- add status and bookmark info when user context available
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectFields: Record<string, any> = {
-    ...getTableColumns(leads),
+    ...leadColumns(),
     distance: distanceExpr,
   };
 
@@ -905,7 +920,7 @@ export async function getFilteredLeadsCursor(
   // 4. Build select fields with optional status and bookmark
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const selectFields: Record<string, any> = {
-    ...getTableColumns(leads),
+    ...leadColumns(),
     distance: distanceExpr,
   };
 
