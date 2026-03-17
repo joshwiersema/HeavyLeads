@@ -90,7 +90,7 @@ describe("getActiveStormAlertsForOrg", () => {
 
   it("returns storm alerts within org service area", async () => {
     const futureDate = new Date(Date.now() + 3600_000);
-    mockExecute.mockResolvedValueOnce([
+    mockExecute.mockResolvedValueOnce({ rows: [
       {
         id: "alert-1",
         title: "Severe Thunderstorm Warning",
@@ -103,7 +103,7 @@ describe("getActiveStormAlertsForOrg", () => {
         deadline_date: futureDate,
         source_url: "https://alerts.weather.gov/search?id=alert-1",
       },
-    ]);
+    ] });
 
     const { db } = await import("@/lib/db");
     (db as unknown as { execute: typeof mockExecute }).execute = mockExecute;
@@ -121,7 +121,7 @@ describe("getActiveStormAlertsForOrg", () => {
   });
 
   it("returns empty array when no storms match", async () => {
-    mockExecute.mockResolvedValueOnce([]);
+    mockExecute.mockResolvedValueOnce({ rows: [] });
 
     const { db } = await import("@/lib/db");
     (db as unknown as { execute: typeof mockExecute }).execute = mockExecute;
@@ -135,7 +135,7 @@ describe("getActiveStormAlertsForOrg", () => {
 
   it("maps database rows to StormAlert interface correctly", async () => {
     const futureDate = new Date(Date.now() + 7200_000);
-    mockExecute.mockResolvedValueOnce([
+    mockExecute.mockResolvedValueOnce({ rows: [
       {
         id: "alert-2",
         title: "Tornado Warning",
@@ -148,7 +148,7 @@ describe("getActiveStormAlertsForOrg", () => {
         deadline_date: futureDate,
         source_url: "https://alerts.weather.gov/search?id=alert-2",
       },
-    ]);
+    ] });
 
     const { db } = await import("@/lib/db");
     (db as unknown as { execute: typeof mockExecute }).execute = mockExecute;
@@ -180,7 +180,7 @@ describe("getRoofingSubscribersInStormArea", () => {
   });
 
   it("returns roofing subscribers within range of storm", async () => {
-    mockExecute.mockResolvedValueOnce([
+    mockExecute.mockResolvedValueOnce({ rows: [
       {
         org_id: "org-roof-1",
         org_name: "Roof Masters",
@@ -191,7 +191,7 @@ describe("getRoofingSubscribersInStormArea", () => {
         hq_lng: -96.8,
         service_radius_miles: 75,
       },
-    ]);
+    ] });
 
     const { db } = await import("@/lib/db");
     (db as unknown as { execute: typeof mockExecute }).execute = mockExecute;
@@ -215,7 +215,7 @@ describe("getRoofingSubscribersInStormArea", () => {
   });
 
   it("returns empty array when no roofing orgs in range", async () => {
-    mockExecute.mockResolvedValueOnce([]);
+    mockExecute.mockResolvedValueOnce({ rows: [] });
 
     const { db } = await import("@/lib/db");
     (db as unknown as { execute: typeof mockExecute }).execute = mockExecute;
@@ -228,7 +228,7 @@ describe("getRoofingSubscribersInStormArea", () => {
   });
 
   it("returns multiple subscribers from different orgs", async () => {
-    mockExecute.mockResolvedValueOnce([
+    mockExecute.mockResolvedValueOnce({ rows: [
       {
         org_id: "org-1",
         org_name: "Roof Co",
@@ -249,7 +249,7 @@ describe("getRoofingSubscribersInStormArea", () => {
         hq_lng: -96.5,
         service_radius_miles: 100,
       },
-    ]);
+    ] });
 
     const { db } = await import("@/lib/db");
     (db as unknown as { execute: typeof mockExecute }).execute = mockExecute;

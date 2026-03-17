@@ -71,7 +71,7 @@ export async function getActiveStormAlertsForOrg(
     LIMIT 10
   `);
 
-  return (rows as unknown as Record<string, unknown>[]).map(mapRowToStormAlert);
+  return (rows.rows as Record<string, unknown>[]).map(mapRowToStormAlert);
 }
 
 /**
@@ -116,7 +116,7 @@ export async function getRoofingSubscribersInStormArea(
       ) <= COALESCE(op.service_radius_miles, 50)
   `);
 
-  return (rows as unknown as Record<string, unknown>[]).map(
+  return (rows.rows as Record<string, unknown>[]).map(
     mapRowToSubscriber
   );
 }
