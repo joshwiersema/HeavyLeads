@@ -1,11 +1,88 @@
+import Link from "next/link";
+import { Search, Zap, BarChart3 } from "lucide-react";
+
 export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
-      <main id="main-content" className="w-full max-w-md">{children}</main>
+    <div className="flex min-h-screen">
+      {/* Branded panel — hidden on mobile */}
+      <div className="relative hidden w-[45%] max-w-xl flex-col justify-between overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-10 lg:flex">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(99,102,241,0.2),transparent_60%)]" />
+
+        <div className="relative">
+          <Link href="/" className="text-xl font-bold text-white">
+            HeavyLeads
+          </Link>
+        </div>
+
+        <div className="relative space-y-8">
+          <h2 className="text-2xl font-bold leading-snug text-white">
+            Construction lead intelligence
+            <br />
+            <span className="text-indigo-400">for winning teams.</span>
+          </h2>
+
+          <div className="space-y-5">
+            <div className="flex items-start gap-3">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                <Search className="size-4 text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Daily Lead Feed</p>
+                <p className="text-sm text-slate-400">
+                  Permits, bids, and news filtered to your area
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                <Zap className="size-4 text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Smart Scoring</p>
+                <p className="text-sm text-slate-400">
+                  Leads ranked by equipment match and proximity
+                </p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10">
+                <BarChart3 className="size-4 text-indigo-400" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-white">Multi-Source</p>
+                <p className="text-sm text-slate-400">
+                  Cross-referenced from permits, bids, and industry news
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p className="relative text-xs text-slate-500">
+          &copy; {new Date().getFullYear()} HeavyLeads. All rights reserved.
+        </p>
+      </div>
+
+      {/* Form side */}
+      <div className="flex flex-1 flex-col">
+        {/* Mobile header */}
+        <div className="flex items-center px-6 py-4 lg:hidden">
+          <Link href="/" className="text-xl font-bold">
+            HeavyLeads
+          </Link>
+        </div>
+
+        <main
+          id="main-content"
+          className="flex flex-1 items-center justify-center p-6"
+        >
+          <div className="w-full max-w-md">{children}</div>
+        </main>
+      </div>
     </div>
   );
 }

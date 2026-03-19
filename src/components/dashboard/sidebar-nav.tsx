@@ -15,23 +15,28 @@ export function SidebarNav({ industry }: SidebarNavProps) {
   const pathname = usePathname();
 
   return (
-    <nav className="flex-1 space-y-1 p-4">
-      <div className="px-0 pb-3">
+    <nav className="flex-1 space-y-0.5 p-3">
+      <div className="px-2 pb-3">
         <IndustryBadge industry={industry} />
       </div>
-      {navLinks.map(({ href, label, icon: Icon }) => (
-        <Link
-          key={href}
-          href={href}
-          className={cn(
-            "flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
-            isNavActive(href, pathname) && "bg-accent text-accent-foreground"
-          )}
-        >
-          <Icon className="size-4" />
-          {label}
-        </Link>
-      ))}
+      {navLinks.map(({ href, label, icon: Icon }) => {
+        const active = isNavActive(href, pathname);
+        return (
+          <Link
+            key={href}
+            href={href}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              active
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+            )}
+          >
+            <Icon className={cn("size-4", active && "text-primary")} />
+            {label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

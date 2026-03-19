@@ -81,12 +81,15 @@ export default async function DashboardLayout({
   const orgIndustry = (org?.industry ?? "heavy_equipment") as Industry;
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="hidden w-64 border-r bg-muted/40 md:block">
+      <aside className="hidden w-64 shrink-0 border-r bg-sidebar md:block">
         <div className="flex h-full flex-col">
-          <div className="flex h-14 items-center px-4">
-            <Link href="/dashboard" className="text-lg font-semibold">
+          <div className="flex h-14 items-center gap-2 px-5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+              H
+            </div>
+            <Link href="/dashboard" className="text-base font-semibold tracking-tight">
               HeavyLeads
             </Link>
           </div>
@@ -98,15 +101,18 @@ export default async function DashboardLayout({
       {/* Main content */}
       <div className="flex flex-1 flex-col">
         {/* Top bar */}
-        <header className="flex h-14 items-center justify-between border-b px-6">
+        <header className="flex h-14 items-center justify-between border-b bg-background/80 px-6 backdrop-blur-sm">
           <div className="flex items-center gap-2 md:hidden">
             <MobileNav userName={session.user.name} industry={orgIndustry} />
-            <Link href="/dashboard" className="text-lg font-semibold">
+            <Link href="/dashboard" className="text-base font-semibold">
               HeavyLeads
             </Link>
           </div>
           <div className="flex items-center gap-4 ml-auto">
-            <span className="text-sm text-muted-foreground">
+            <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              {session.user.name?.charAt(0).toUpperCase() ?? "U"}
+            </div>
+            <span className="hidden text-sm font-medium sm:inline">
               {session.user.name}
             </span>
             <SignOutButton />
