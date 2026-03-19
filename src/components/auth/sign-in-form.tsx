@@ -9,6 +9,7 @@ import { signInSchema, type SignInFormData } from "@/lib/validators/auth";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -100,6 +101,7 @@ export function SignInForm() {
               id="email"
               type="email"
               placeholder="john@company.com"
+              autoComplete="email"
               {...register("email")}
             />
             {errors.email && (
@@ -109,10 +111,10 @@ export function SignInForm() {
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="Enter your password"
+              autoComplete="current-password"
               {...register("password")}
             />
             {errors.password && (

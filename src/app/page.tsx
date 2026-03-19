@@ -50,7 +50,7 @@ export default async function Home() {
     <div className="flex min-h-screen flex-col">
       {/* Nav */}
       <header className="flex items-center justify-between border-b px-6 py-4">
-        <span className="text-xl font-bold">HeavyLeads</span>
+        <Link href="/" className="text-xl font-bold">HeavyLeads</Link>
         <div className="flex items-center gap-3">
           <Link href="/sign-in" className={linkBtnGhost}>
             Sign In
@@ -62,7 +62,7 @@ export default async function Home() {
       </header>
 
       {/* Hero */}
-      <section className="flex flex-col items-center gap-6 px-6 py-20 text-center">
+      <section id="main-content" className="flex flex-col items-center gap-6 px-6 py-20 text-center">
         <Badge variant="secondary" className="text-sm">
           Built for Heavy Equipment Dealers
         </Badge>
@@ -149,8 +149,32 @@ export default async function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t px-6 py-6 text-center text-sm text-muted-foreground">
-        &copy; {new Date().getFullYear()} HeavyLeads. All rights reserved.
+      <footer className="border-t px-6 py-8">
+        <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            &copy; {new Date().getFullYear()} HeavyLeads. All rights reserved.
+          </p>
+          <nav className="flex gap-6">
+            <Link
+              href="/privacy"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              href="/terms"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Terms of Service
+            </Link>
+            <Link
+              href="/contact"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Contact
+            </Link>
+          </nav>
+        </div>
       </footer>
     </div>
   );

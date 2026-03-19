@@ -9,7 +9,9 @@ import { signUpSchema, type SignUpFormData } from "@/lib/validators/auth";
 import { atomicSignUp } from "@/actions/signup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Card,
   CardContent,
@@ -27,10 +29,17 @@ export function SignUpForm() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<SignUpFormData>({
     resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      agreeToTerms: false,
+    },
   });
+
+  const agreeToTerms = Boolean(watch("agreeToTerms"));
 
   async function onSubmit(data: SignUpFormData) {
     setError(null);
@@ -78,6 +87,7 @@ export function SignUpForm() {
             <Input
               id="name"
               placeholder="John Smith"
+              autoComplete="name"
               {...register("name")}
             />
             {errors.name && (
@@ -91,6 +101,7 @@ export function SignUpForm() {
               id="email"
               type="email"
               placeholder="john@company.com"
+              autoComplete="email"
               {...register("email")}
             />
             {errors.email && (
@@ -100,10 +111,10 @@ export function SignUpForm() {
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="At least 8 characters"
+              autoComplete="new-password"
               {...register("password")}
             />
             {errors.password && (
@@ -115,10 +126,10 @@ export function SignUpForm() {
 
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <Input
+            <PasswordInput
               id="confirmPassword"
-              type="password"
               placeholder="Confirm your password"
+              autoComplete="new-password"
               {...register("confirmPassword")}
             />
             {errors.confirmPassword && (
@@ -133,6 +144,7 @@ export function SignUpForm() {
             <Input
               id="companyName"
               placeholder="Acme Heavy Equipment"
+              autoComplete="organization"
               {...register("companyName")}
             />
             {errors.companyName && (
@@ -141,6 +153,43 @@ export function SignUpForm() {
               </p>
             )}
           </div>
+
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="agreeToTerms"
+              checked={agreeToTerms}
+              onCheckedChange={(checked: boolean) =>
+                setValue("agreeToTerms", checked, { shouldValidate: true })
+              }
+              className="mt-0.5"
+            />
+            <label
+              htmlFor="agreeToTerms"
+              className="text-sm leading-snug text-muted-foreground"
+            >
+              I agree to the{" "}
+              <Link
+                href="/terms"
+                className="text-primary hover:underline"
+                target="_blank"
+              >
+                Terms of Service
+              </Link>{" "}
+              and{" "}
+              <Link
+                href="/privacy"
+                className="text-primary hover:underline"
+                target="_blank"
+              >
+                Privacy Policy
+              </Link>
+            </label>
+          </div>
+          {errors.agreeToTerms && (
+            <p className="text-sm text-destructive">
+              {errors.agreeToTerms.message}
+            </p>
+          )}
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading ? "Creating account..." : "Create Account"}

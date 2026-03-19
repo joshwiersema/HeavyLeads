@@ -18,12 +18,12 @@ export default function NotFound() {
             moved.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex justify-center gap-3">
           <Link
-            href="/dashboard"
+            href="/"
             className="inline-flex h-8 items-center justify-center rounded-lg bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/80"
           >
-            Back to Dashboard
+            Back to Home
           </Link>
         </CardContent>
       </Card>

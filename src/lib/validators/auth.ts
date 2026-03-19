@@ -7,6 +7,11 @@ export const signUpSchema = z
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirmPassword: z.string().min(1, "Please confirm your password"),
     companyName: z.string().min(2, "Company name must be at least 2 characters"),
+    agreeToTerms: z
+      .boolean()
+      .refine((val) => val === true, {
+        message: "You must agree to the Terms of Service and Privacy Policy",
+      }),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
