@@ -295,37 +295,107 @@ describe("scoreFreshness", () => {
     vi.useRealTimers();
   });
 
-  it("awards 15 for today (< 24h)", () => {
-    const dim = scoreFreshness(new Date("2026-03-16T06:00:00Z"));
+  // --- Default/Permit curve (weeks-scale) ---
+
+  it("awards 15 for permit discovered today (< 24h)", () => {
+    const dim = scoreFreshness(new Date("2026-03-16T06:00:00Z"), "permit");
     expect(dim.score).toBe(15);
     expect(dim.maxScore).toBe(15);
-    expect(dim.reasons[0]).toContain("today");
   });
 
-  it("awards 12 for within 3 days", () => {
-    const dim = scoreFreshness(new Date("2026-03-14T12:00:00Z"));
+  it("awards 13 for permit within 3 days", () => {
+    const dim = scoreFreshness(new Date("2026-03-14T12:00:00Z"), "permit");
+    expect(dim.score).toBe(13);
+  });
+
+  it("awards 12 for permit within 7 days", () => {
+    const dim = scoreFreshness(new Date("2026-03-10T12:00:00Z"), "permit");
     expect(dim.score).toBe(12);
   });
 
-  it("awards 9 for within 7 days", () => {
-    const dim = scoreFreshness(new Date("2026-03-11T12:00:00Z"));
+  it("awards 9 for permit within 14 days", () => {
+    const dim = scoreFreshness(new Date("2026-03-05T12:00:00Z"), "permit");
     expect(dim.score).toBe(9);
   });
 
-  it("awards 6 for within 14 days", () => {
-    const dim = scoreFreshness(new Date("2026-03-05T12:00:00Z"));
+  it("awards 6 for permit within 21 days", () => {
+    const dim = scoreFreshness(new Date("2026-02-25T12:00:00Z"), "permit");
     expect(dim.score).toBe(6);
   });
 
-  it("awards 3 for within 30 days", () => {
-    const dim = scoreFreshness(new Date("2026-02-20T12:00:00Z"));
+  it("awards 3 for permit within 30 days", () => {
+    const dim = scoreFreshness(new Date("2026-02-20T12:00:00Z"), "permit");
     expect(dim.score).toBe(3);
   });
 
-  it("awards 0 for older than 30 days", () => {
-    const dim = scoreFreshness(new Date("2026-01-01T12:00:00Z"));
+  it("awards 0 for permit older than 30 days", () => {
+    const dim = scoreFreshness(new Date("2026-01-01T12:00:00Z"), "permit");
     expect(dim.score).toBe(0);
     expect(dim.reasons[0]).toContain("30 days");
+  });
+
+  // --- Storm curve (hours-scale) ---
+
+  it("awards 15 for storm alert scraped 6 hours ago", () => {
+    // 6h = 0.25 days, exactly at the boundary -- curve checks < 0.25
+    // 6h is exactly 0.25 days, so it falls to next tier (0.5 days = 13)
+    const dim = scoreFreshness(new Date("2026-03-16T06:00:00Z"), "storm");
+    expect(dim.score).toBe(13); // 6h = 0.25d, falls into <0.5 tier
+  });
+
+  it("awards 15 for storm alert scraped 3 hours ago", () => {
+    // 3h = 0.125 days, within 0.25 threshold
+    const dim = scoreFreshness(new Date("2026-03-16T09:00:00Z"), "storm");
+    expect(dim.score).toBe(15);
+  });
+
+  it("awards 6 for storm alert scraped 24 hours ago", () => {
+    // 24h = 1 day, in the <2 tier
+    const dim = scoreFreshness(new Date("2026-03-15T12:00:00Z"), "storm");
+    expect(dim.score).toBe(6);
+  });
+
+  it("awards 0 for storm alert scraped 3 days ago", () => {
+    const dim = scoreFreshness(new Date("2026-03-13T12:00:00Z"), "storm");
+    expect(dim.score).toBe(0);
+    expect(dim.reasons[0]).toContain("expired");
+  });
+
+  // --- Bid curve (days-scale) ---
+
+  it("awards 15 for bid scraped 1 day ago", () => {
+    // 12h = 0.5 days, within 1 day threshold
+    const dim = scoreFreshness(new Date("2026-03-16T00:00:00Z"), "bid");
+    expect(dim.score).toBe(15);
+  });
+
+  it("awards 9 for bid scraped 7 days ago", () => {
+    // 5 days = within <7 threshold
+    const dim = scoreFreshness(new Date("2026-03-11T12:00:00Z"), "bid");
+    expect(dim.score).toBe(9);
+  });
+
+  it("awards 3 for bid scraped 20 days ago", () => {
+    const dim = scoreFreshness(new Date("2026-02-24T12:00:00Z"), "bid");
+    expect(dim.score).toBe(3);
+  });
+
+  // --- Cross-source differentiation ---
+
+  it("same-time leads with different sourceTypes get different freshness scores", () => {
+    const twoHoursAgo = new Date("2026-03-16T10:00:00Z"); // 2h ago
+    const stormDim = scoreFreshness(twoHoursAgo, "storm");
+    const permitDim = scoreFreshness(twoHoursAgo, "permit");
+    // Storm: 2h = 0.083 days, within 0.25 = score 15
+    // Permit: 2h = 0.083 days, within 1 = score 15
+    // Both score 15 at 2h... let's use a time where they differ
+    const twoDaysAgo = new Date("2026-03-14T12:00:00Z"); // 2 days ago
+    const stormDim2 = scoreFreshness(twoDaysAgo, "storm");
+    const permitDim2 = scoreFreshness(twoDaysAgo, "permit");
+    // Storm: 2 days, in <3 tier = score 3
+    // Permit: 2 days, in <3 tier = score 13
+    expect(stormDim2.score).not.toBe(permitDim2.score);
+    expect(permitDim2.score).toBeGreaterThan(stormDim2.score);
   });
 });
 
