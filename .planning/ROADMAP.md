@@ -226,7 +226,12 @@ Plans:
   3. When Google Maps free tier (10K/month) is exhausted, new geocoding requests automatically route to Nominatim and still return valid coordinates
   4. Leads older than 45 days that the user has not bookmarked or interacted with are automatically removed, keeping database storage under control
   5. The data_portals table exists and can store Socrata/ArcGIS portal configs as database rows with JSONB field mappings -- no new TypeScript files needed per city
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 19-01-PLAN.md -- Geocoding cache table with 90-day expiry and Nominatim fallback when Google Maps quota exhausted
+- [ ] 19-02-PLAN.md -- Fan-out cron batching with batch orchestrator, batch execution endpoint, and parallel Promise.allSettled invocation
+- [ ] 19-03-PLAN.md -- 45-day lead hard-deletion with bookmark/interaction preservation and data_portals DB table for portal configs
 
 ### Phase 20: Scoring Engine Fix
 **Goal**: Leads produce meaningfully different scores that vary by industry, and the single scoring engine is the only one in the codebase
@@ -312,7 +317,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 16. Cron & Scraper Architecture | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 17. Storm Alerts & Weather | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
-| 19. Infrastructure Hardening | v4.0 | 0/TBD | Not started | - |
+| 19. Infrastructure Hardening | v4.0 | 0/3 | Not started | - |
 | 20. Scoring Engine Fix | v4.0 | 0/TBD | Not started | - |
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/TBD | Not started | - |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
