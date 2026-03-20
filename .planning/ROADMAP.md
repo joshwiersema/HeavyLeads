@@ -208,7 +208,7 @@ Plans:
 **Milestone Goal:** Expand from 3-city Texas coverage to all 50 states, fix the broken scoring engine so leads actually differentiate, add every viable public lead source, rebrand to GroundPulse, and redesign the landing page.
 
 - [x] **Phase 19: Infrastructure Hardening** - Fan-out cron batching, geocoding cache with Nominatim fallback, lead expiration, and data_portals table (completed 2026-03-20)
-- [ ] **Phase 20: Scoring Engine Fix** - Score differentiation, value estimation heuristics, keyword relevance, freshness curves, legacy system removal
+- [x] **Phase 20: Scoring Engine Fix** - Score differentiation, value estimation heuristics, keyword relevance, freshness curves, legacy system removal (completed 2026-03-20)
 - [ ] **Phase 21: Dynamic Portal Discovery & Nationwide Coverage** - Socrata/ArcGIS auto-discovery, generic adapters, heuristic field mapping, 50-state permit coverage
 - [ ] **Phase 22: Federal & Specialty Data Sources** - USAspending, OSHA, EPA Brownfields, Grants.gov, FERC, FCC adapters
 - [ ] **Phase 23: Feed Performance Optimization** - SQL LIMIT, PostGIS spatial index, sub-3s dashboard loads, cross-source dedup
@@ -246,9 +246,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 20-01-PLAN.md -- Value estimation heuristic, source-type freshness curves, keyword-to-projectType relevance scoring
-- [ ] 20-02-PLAN.md -- Legacy scoring system removal and queries.ts migration to scoreLeadForOrg
-- [ ] 20-03-PLAN.md -- Industry routing verification tests and score standard deviation validation
+- [x] 20-01-PLAN.md -- Value estimation heuristic, source-type freshness curves, keyword-to-projectType relevance scoring
+- [x] 20-02-PLAN.md -- Legacy scoring system removal and queries.ts migration to scoreLeadForOrg
+- [x] 20-03-PLAN.md -- Industry routing verification tests and score standard deviation validation
 
 ### Phase 21: Dynamic Portal Discovery & Nationwide Coverage
 **Goal**: The platform automatically discovers and scrapes permit and violation datasets from hundreds of cities across all 50 states without per-city code deployments
@@ -323,7 +323,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 17. Storm Alerts & Weather | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 19. Infrastructure Hardening | 3/3 | Complete    | 2026-03-20 | - |
-| 20. Scoring Engine Fix | 2/3 | In Progress|  | - |
+| 20. Scoring Engine Fix | v4.0 | 3/3 | Complete | 2026-03-20 |
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/TBD | Not started | - |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
 | 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
