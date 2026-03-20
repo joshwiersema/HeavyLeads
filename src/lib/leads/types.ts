@@ -11,15 +11,6 @@ export interface InferredEquipment {
   reason: string;
 }
 
-/** Input to the lead scoring algorithm */
-export interface ScoringInput {
-  inferredEquipment: EquipmentType[];
-  dealerEquipment: string[];
-  distanceMiles: number;
-  serviceRadiusMiles: number;
-  estimatedValue: number | null;
-}
-
 /** A detected project phase mapped to equipment needs and urgency */
 export interface TimelineWindow {
   phase: string;
