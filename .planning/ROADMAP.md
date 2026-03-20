@@ -278,7 +278,12 @@ Plans:
   3. EPA Brownfields/ACRES contaminated site cleanup opportunities appear as leads with source type "brownfield" and include site coordinates and cleanup status
   4. Grants.gov federal construction grant opportunities appear as leads with source type "grant" and include funding amount and application deadline
   5. FERC energy infrastructure filings and FCC antenna structure registrations appear as leads with source types "energy" and "telecom" respectively
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 22-01-PLAN.md -- Source types, rate limiters, USAspending contracts adapter, OSHA inspections adapter
+- [ ] 22-02-PLAN.md -- EPA Brownfields adapter, Grants.gov adapter
+- [ ] 22-03-PLAN.md -- FERC energy adapter, FCC antenna adapter, register all 6 adapters in index.ts
 
 ### Phase 23: Feed Performance Optimization
 **Goal**: The dashboard loads fast with 50K+ leads in the database, distance filtering uses spatial indexes instead of per-row computation, and duplicate leads from overlapping sources are caught
@@ -331,6 +336,6 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 19. Infrastructure Hardening | 3/3 | Complete    | 2026-03-20 | - |
 | 20. Scoring Engine Fix | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
-| 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
+| 22. Federal & Specialty Data Sources | v4.0 | 0/3 | Not started | - |
 | 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
 | 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |
