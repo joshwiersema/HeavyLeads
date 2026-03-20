@@ -14,6 +14,10 @@ import { AustinViolationsAdapter } from "./austin-violations";
 import { DallasViolationsAdapter } from "./dallas-violations";
 import { HoustonViolationsAdapter } from "./houston-violations";
 import { EiaUtilityRateAdapter } from "./eia-utility-rates";
+import { UsaSpendingContractsAdapter } from "./usaspending-contracts";
+import { OshaInspectionsAdapter } from "./osha-inspections";
+import { FercEnergyAdapter } from "./ferc-energy";
+import { FccAntennaAdapter } from "./fcc-antenna";
 import { getPortalAdaptersForIndustry } from "./portal-adapter-factory";
 
 /**
@@ -76,6 +80,10 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new PrNewswireNewsAdapter(),
         new GoogleDorkingAdapter(),
         new FemaDisasterAdapter(),
+        new UsaSpendingContractsAdapter(),
+        new OshaInspectionsAdapter(),
+        new FercEnergyAdapter(),
+        new FccAntennaAdapter(),
       ];
 
     case "hvac":
@@ -87,6 +95,8 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new AustinViolationsAdapter(),
         new DallasViolationsAdapter(),
         new HoustonViolationsAdapter(),
+        new UsaSpendingContractsAdapter(),
+        new OshaInspectionsAdapter(),
       ];
 
     case "roofing":
@@ -100,6 +110,8 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new AustinViolationsAdapter(),
         new DallasViolationsAdapter(),
         new HoustonViolationsAdapter(),
+        new UsaSpendingContractsAdapter(),
+        new OshaInspectionsAdapter(),
       ];
 
     case "solar":
@@ -107,6 +119,8 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new SamGovBidsAdapter({ naicsCodes: ["221114", "238220"] }),
         new EnrNewsAdapter(),
         new EiaUtilityRateAdapter(),
+        new UsaSpendingContractsAdapter(),
+        new FercEnergyAdapter(),
       ];
 
     case "electrical":
@@ -118,6 +132,10 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new AustinViolationsAdapter(),
         new DallasViolationsAdapter(),
         new HoustonViolationsAdapter(),
+        new UsaSpendingContractsAdapter(),
+        new OshaInspectionsAdapter(),
+        new FercEnergyAdapter(),
+        new FccAntennaAdapter(),
       ];
 
     default: {
