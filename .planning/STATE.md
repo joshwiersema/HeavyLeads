@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: in-progress
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-03-20T05:46:48Z"
-last_activity: 2026-03-20 -- Completed 22-01 Federal Source Types & First Adapters
+status: executing
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-03-20T05:52:11.887Z"
+last_activity: 2026-03-20 -- Completed 22-02 EPA Brownfields & Grants.gov Adapters
 progress:
   total_phases: 6
   completed_phases: 3
   total_plans: 13
-  completed_plans: 11
-  percent: 85
+  completed_plans: 12
+  percent: 92
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 22 of 24 (Federal & Specialty Data Sources)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: In progress -- executing Phase 22
-Last activity: 2026-03-20 -- Completed 22-01 Federal Source Types & First Adapters
+Last activity: 2026-03-20 -- Completed 22-02 EPA Brownfields & Grants.gov Adapters
 
-Progress: [████████░░] 85%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [████████░░] 85%
 | Phase 21 P03 | 5min | 2 tasks | 3 files |
 | Phase 21 P04 | 4min | 2 tasks | 10 files |
 | Phase 22 P01 | 2min | 2 tasks | 4 files |
+| Phase 22 P02 | 2min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [Phase 22]: POST-based API pattern for USAspending complex filtering (NAICS codes, date ranges, award types) (22-01)
 - [Phase 22]: Manual redirect detection for OSHA adapter to handle DOL API restructuring gracefully (22-01)
 - [Phase 22]: Conservative rate limits for OSHA (5 req/min) due to API stability concerns (22-01)
+- [Phase 22]: EPA Envirofacts table name fallback: try 3 table name variants in order since EPA can rename tables without notice
+- [Phase 22]: Grants.gov multi-keyword search with Set-based deduplication by opportunity ID across 5 keyword searches
 
 ### Pending Todos
 
@@ -112,6 +115,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:46:48Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-03-20T05:52:11.883Z
+Stopped at: Completed 22-02-PLAN.md
 Resume file: None

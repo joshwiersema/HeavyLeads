@@ -39,8 +39,8 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 
 - [x] **FED-01**: USAspending.gov adapter scrapes awarded federal construction contracts
 - [x] **FED-02**: OSHA inspection data adapter scrapes construction site inspections
-- [ ] **FED-03**: EPA Brownfields/ACRES adapter scrapes contaminated site cleanup opportunities
-- [ ] **FED-04**: Grants.gov adapter scrapes federal construction grant opportunities
+- [x] **FED-03**: EPA Brownfields/ACRES adapter scrapes contaminated site cleanup opportunities
+- [x] **FED-04**: Grants.gov adapter scrapes federal construction grant opportunities
 - [ ] **FED-05**: FERC energy infrastructure adapter scrapes pipeline/power plant filings
 - [ ] **FED-06**: FCC antenna structure adapter scrapes telecom tower registrations
 - [x] **FED-07**: New source types added to base-adapter (contract-award, inspection, brownfield, grant, energy, telecom)
@@ -116,8 +116,8 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | NATL-08 | Phase 21 | Complete |
 | FED-01 | Phase 22 | Complete |
 | FED-02 | Phase 22 | Complete |
-| FED-03 | Phase 22 | Pending |
-| FED-04 | Phase 22 | Pending |
+| FED-03 | Phase 22 | Complete |
+| FED-04 | Phase 22 | Complete |
 | FED-05 | Phase 22 | Pending |
 | FED-06 | Phase 22 | Pending |
 | FED-07 | Phase 22 | Complete |
