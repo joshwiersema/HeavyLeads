@@ -247,6 +247,38 @@ describe("scoreValue", () => {
     const dim = scoreValue(lead, org);
     expect(dim.score).toBe(10);
   });
+
+  it("awards 18 for valueTier 'high' when estimatedValue is null", () => {
+    const lead = makeLead({ estimatedValue: null, valueTier: "high" });
+    const org = makeOrg();
+    const dim = scoreValue(lead, org);
+    expect(dim.score).toBe(18);
+    expect(dim.reasons[0]).toContain("High-value");
+  });
+
+  it("awards 12 for valueTier 'medium' when estimatedValue is null", () => {
+    const lead = makeLead({ estimatedValue: null, valueTier: "medium" });
+    const org = makeOrg();
+    const dim = scoreValue(lead, org);
+    expect(dim.score).toBe(12);
+    expect(dim.reasons[0]).toContain("Medium-value");
+  });
+
+  it("awards 5 for valueTier 'low' when estimatedValue is null", () => {
+    const lead = makeLead({ estimatedValue: null, valueTier: "low" });
+    const org = makeOrg();
+    const dim = scoreValue(lead, org);
+    expect(dim.score).toBe(5);
+    expect(dim.reasons[0]).toContain("Lower-value");
+  });
+
+  it("awards 10 for valueTier null and estimatedValue null (unchanged)", () => {
+    const lead = makeLead({ estimatedValue: null, valueTier: null });
+    const org = makeOrg();
+    const dim = scoreValue(lead, org);
+    expect(dim.score).toBe(10);
+    expect(dim.reasons[0]).toContain("unknown");
+  });
 });
 
 // ---------------------------------------------------------------------------
