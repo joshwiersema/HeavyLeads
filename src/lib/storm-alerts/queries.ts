@@ -54,19 +54,14 @@ export async function getActiveStormAlertsForOrg(
       ON op.organization_id = ${orgId}
     WHERE l.source_type = 'storm'
       AND l.deadline_date > NOW()
-      AND l.lat IS NOT NULL
-      AND l.lng IS NOT NULL
+      AND l.location IS NOT NULL
       AND op.hq_lat IS NOT NULL
       AND op.hq_lng IS NOT NULL
-      AND (
-        3959 * acos(
-          LEAST(1.0, GREATEST(-1.0,
-            cos(radians(op.hq_lat)) * cos(radians(l.lat))
-            * cos(radians(l.lng) - radians(op.hq_lng))
-            + sin(radians(op.hq_lat)) * sin(radians(l.lat))
-          ))
-        )
-      ) <= COALESCE(op.service_radius_miles, 50)
+      AND ST_DWithin(
+        l.location::geography,
+        ST_SetSRID(ST_MakePoint(op.hq_lng, op.hq_lat), 4326)::geography,
+        COALESCE(op.service_radius_miles, 50) * 1609.344
+      )
     ORDER BY l.deadline_date ASC
     LIMIT 10
   `);

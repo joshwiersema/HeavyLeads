@@ -333,17 +333,12 @@ export async function getFilteredLeads(
   // Build org scoring context if organizationId is available
   const orgContext = organizationId ? await buildOrgScoringContext(organizationId) : null;
 
-  // Haversine distance SQL expression with LEAST/GREATEST clamp for float safety
+  // PostGIS distance expression (meters -> miles) using the GiST-indexed location column
   const distanceExpr = sql<number>`
-    3959 * acos(
-      LEAST(1.0, GREATEST(-1.0,
-        cos(radians(${hqLat}))
-        * cos(radians(${leads.lat}))
-        * cos(radians(${leads.lng}) - radians(${hqLng}))
-        + sin(radians(${hqLat}))
-        * sin(radians(${leads.lat}))
-      ))
-    )
+    ST_Distance(
+      ${leads.location}::geography,
+      ST_SetSRID(ST_MakePoint(${hqLng}, ${hqLat}), 4326)::geography
+    ) / 1609.344
   `.mapWith(Number);
 
   // Build filter conditions from optional params
@@ -393,7 +388,7 @@ export async function getFilteredLeads(
       );
   }
 
-  // Repeat the full Haversine expression in WHERE (cannot reference SELECT alias in PostgreSQL)
+  // Use ST_DWithin for spatial index-backed distance filtering
   // Fetch more rows than the caller requested so scoring and equipment
   // filtering can select the best results, not just the most recent.
   const fetchLimit = limit * FETCH_MULTIPLIER;
@@ -401,17 +396,12 @@ export async function getFilteredLeads(
   const rows = await query
     .where(
       and(
-        isNotNull(leads.lat),
-        isNotNull(leads.lng),
-        sql`3959 * acos(
-          LEAST(1.0, GREATEST(-1.0,
-            cos(radians(${hqLat}))
-            * cos(radians(${leads.lat}))
-            * cos(radians(${leads.lng}) - radians(${hqLng}))
-            + sin(radians(${hqLat}))
-            * sin(radians(${leads.lat}))
-          ))
-        ) <= ${radiusMiles}`,
+        isNotNull(leads.location),
+        sql`ST_DWithin(
+          ${leads.location}::geography,
+          ST_SetSRID(ST_MakePoint(${hqLng}, ${hqLat}), 4326)::geography,
+          ${radiusMiles * 1609.344}
+        )`,
         ...filterConditions
       )
     )
@@ -506,18 +496,12 @@ export async function getFilteredLeadsWithCount(
   // Build org scoring context if organizationId is available
   const orgContext = organizationId ? await buildOrgScoringContext(organizationId) : null;
 
-  // Haversine distance SQL expression with LEAST/GREATEST clamp for float safety
-  const distanceExpr = sql<number>`
-    3959 * acos(
-      LEAST(1.0, GREATEST(-1.0,
-        cos(radians(${hqLat}))
-        * cos(radians(${leads.lat}))
-        * cos(radians(${leads.lng}) - radians(${hqLng}))
-        + sin(radians(${hqLat}))
-        * sin(radians(${leads.lat}))
-      ))
-    )
-  `.mapWith(Number);
+  // Spatial WHERE condition using ST_DWithin (leverages GiST index)
+  const spatialCondition = sql`ST_DWithin(
+    ${leads.location}::geography,
+    ST_SetSRID(ST_MakePoint(${hqLng}, ${hqLat}), 4326)::geography,
+    ${radiusMiles * 1609.344}
+  )`;
 
   // Build filter conditions from optional params
   const filterConditions = buildFilterConditions({
@@ -527,6 +511,27 @@ export async function getFilteredLeadsWithCount(
     minProjectSize,
     maxProjectSize,
   });
+
+  // All WHERE conditions for both COUNT and data queries
+  const allConditions = [
+    isNotNull(leads.location),
+    spatialCondition,
+    ...filterConditions,
+  ];
+
+  // 1. Run a separate COUNT query first for accurate pagination
+  const [{ count: totalCount }] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(leads)
+    .where(and(...allConditions));
+
+  // PostGIS distance expression (meters -> miles) using the GiST-indexed location column
+  const distanceExpr = sql<number>`
+    ST_Distance(
+      ${leads.location}::geography,
+      ST_SetSRID(ST_MakePoint(${hqLng}, ${hqLat}), 4326)::geography
+    ) / 1609.344
+  `.mapWith(Number);
 
   // Build select fields -- add status and bookmark info when user context available
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -566,27 +571,14 @@ export async function getFilteredLeadsWithCount(
       );
   }
 
-  // Fetch ALL within-radius leads (no SQL LIMIT -- Haversine WHERE already bounds the set)
+  // 2. Fetch only the requested page using SQL LIMIT/OFFSET
   const rows = await query
-    .where(
-      and(
-        isNotNull(leads.lat),
-        isNotNull(leads.lng),
-        sql`3959 * acos(
-          LEAST(1.0, GREATEST(-1.0,
-            cos(radians(${hqLat}))
-            * cos(radians(${leads.lat}))
-            * cos(radians(${leads.lng}) - radians(${hqLng}))
-            + sin(radians(${hqLat}))
-            * sin(radians(${leads.lat}))
-          ))
-        ) <= ${radiusMiles}`,
-        ...filterConditions
-      )
-    )
-    .orderBy(desc(leads.scrapedAt));
+    .where(and(...allConditions))
+    .orderBy(desc(leads.scrapedAt))
+    .limit(pageSize)
+    .offset((page - 1) * pageSize);
 
-  // Enrich each lead with intelligence
+  // Enrich each lead with intelligence (only pageSize rows now, not all)
   let enriched: EnrichedLead[] = (rows as Record<string, unknown>[]).map(
     (row) => {
       const inferred = inferEquipmentNeeds(
@@ -611,25 +603,13 @@ export async function getFilteredLeadsWithCount(
     }
   );
 
-  // Post-query equipment filter
+  // Post-query equipment filter (applied to the page)
   enriched = filterByEquipment(enriched, equipmentFilter);
 
-  // Sort by score DESC with deterministic tiebreakers
-  enriched.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
-    const valueDiff = (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
-    if (valueDiff !== 0) return valueDiff;
-    const dateDiff = b.scrapedAt.getTime() - a.scrapedAt.getTime();
-    if (dateDiff !== 0) return dateDiff;
-    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
-  });
-
-  // Compute pagination
-  const totalCount = enriched.length;
+  // Compute pagination from COUNT result
   const totalPages = Math.ceil(totalCount / pageSize);
-  const pageLeads = enriched.slice((page - 1) * pageSize, page * pageSize);
 
-  return { leads: pageLeads, totalCount, page, totalPages };
+  return { leads: enriched, totalCount, page, totalPages };
 }
 
 // -- Single lead query --
@@ -842,32 +822,22 @@ export async function getFilteredLeadsCursor(
 
   const effectiveRadius = maxDistanceMiles ?? orgContext.serviceRadiusMiles * 1.5;
 
-  // 2. Build Haversine distance expression
+  // 2. Build PostGIS distance expression (meters -> miles)
   const distanceExpr = sql<number>`
-    3959 * acos(
-      LEAST(1.0, GREATEST(-1.0,
-        cos(radians(${orgContext.hqLat}))
-        * cos(radians(${leads.lat}))
-        * cos(radians(${leads.lng}) - radians(${orgContext.hqLng}))
-        + sin(radians(${orgContext.hqLat}))
-        * sin(radians(${leads.lat}))
-      ))
-    )
+    ST_Distance(
+      ${leads.location}::geography,
+      ST_SetSRID(ST_MakePoint(${orgContext.hqLng}, ${orgContext.hqLat}), 4326)::geography
+    ) / 1609.344
   `.mapWith(Number);
 
-  // 3. Build WHERE conditions
+  // 3. Build WHERE conditions using ST_DWithin for spatial index utilization
   const conditions: SQL[] = [
-    isNotNull(leads.lat),
-    isNotNull(leads.lng),
-    sql`3959 * acos(
-      LEAST(1.0, GREATEST(-1.0,
-        cos(radians(${orgContext.hqLat}))
-        * cos(radians(${leads.lat}))
-        * cos(radians(${leads.lng}) - radians(${orgContext.hqLng}))
-        + sin(radians(${orgContext.hqLat}))
-        * sin(radians(${leads.lat}))
-      ))
-    ) <= ${effectiveRadius}`,
+    isNotNull(leads.location),
+    sql`ST_DWithin(
+      ${leads.location}::geography,
+      ST_SetSRID(ST_MakePoint(${orgContext.hqLng}, ${orgContext.hqLat}), 4326)::geography,
+      ${effectiveRadius * 1609.344}
+    )`,
   ];
 
   // Cursor: fetch leads with ID > cursor for stable ordering
