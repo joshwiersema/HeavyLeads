@@ -1,1445 +1,1144 @@
-# Architecture Research: v3.0 LeadForge Multi-Industry Platform
+# Architecture Patterns: GroundPulse v4.0 Nationwide Scaling
 
-**Domain:** Multi-tenant SaaS lead generation -- multi-industry expansion
-**Researched:** 2026-03-16
-**Confidence:** HIGH (code analysis of 40+ source files, Vercel docs, Drizzle docs)
-
-This document maps how 11 new features integrate with the existing Next.js App Router + Drizzle ORM + Neon PostgreSQL + Better Auth architecture. For each feature, it identifies integration points with existing code, new vs. modified components, data flow changes, and a build order that minimizes breaking changes while preserving existing data.
+**Domain:** B2B SaaS lead intelligence platform scaling from 3 cities to 50 states
+**Researched:** 2026-03-19
+**Confidence:** HIGH (based on existing codebase analysis + official API documentation)
 
 ---
 
-## System Overview: Current Architecture (v2.1)
+## Executive Summary
 
-```
-+------------------------------------------------------------------------+
-|                         CLIENT (Browser)                                |
-|  +----------------+  +----------------+  +----------------+            |
-|  | Auth Forms     |  | Dashboard      |  | Settings       |            |
-|  | (sign-in,      |  | (leads feed,   |  | (account,      |            |
-|  |  sign-up,      |  |  bookmarks,    |  |  company,      |            |
-|  |  forgot-pw,    |  |  saved search, |  |  billing)      |            |
-|  |  reset-pw)     |  |  lead detail)  |  |                |            |
-|  +-------+--------+  +-------+--------+  +-------+--------+            |
-|          |                    |                    |                     |
-+----------+--------------------+--------------------+--------------------+
-|                    NEXT.JS APP ROUTER (Server)                          |
-|  +----------------+  +----------------+  +----------------+            |
-|  | (auth)/        |  | (dashboard)/   |  | api/           |            |
-|  | layout.tsx     |  | layout.tsx     |  | auth/[...all]  |            |
-|  |                |  | (guards:       |  | cron/scrape    |            |
-|  |                |  |  session,      |  |                |            |
-|  |                |  |  onboarding,   |  |                |            |
-|  |                |  |  subscription) |  |                |            |
-|  +-------+--------+  +-------+--------+  +-------+--------+            |
-|          |                    |                    |                     |
-+----------+--------------------+--------------------+--------------------+
-|                        LIB / ACTIONS LAYER                              |
-|  +----------+  +----------+  +----------+  +----------+               |
-|  | auth.ts  |  | leads/   |  | scraper/ |  | email/   |               |
-|  | auth-    |  | queries  |  | pipeline |  | digest   |               |
-|  | client   |  | scoring  |  | dedup    |  | send     |               |
-|  |          |  | equip-   |  | registry |  |          |               |
-|  |          |  | infer    |  | adapters |  |          |               |
-|  +----+-----+  +----+-----+  +----+-----+  +----+-----+               |
-|       |             |             |             |                       |
-+-------+-------------+-------------+-------------+----------------------+
-|                        DATA LAYER                                       |
-|  +---------------------------------------------------------------+    |
-|  |  Drizzle ORM (neon-http driver)                                |    |
-|  |  10 tables: user, session, account, verification, organization,|    |
-|  |    member, invitation, leads, lead_sources, bookmarks,         |    |
-|  |    lead_statuses, saved_searches, company_profiles,            |    |
-|  |    subscription, pipeline_runs                                 |    |
-|  +-------------------------------+-------------------------------+    |
-|                                  |                                     |
-+----------------------------------+-------------------------------------+
-|                    EXTERNAL SERVICES                                    |
-|  +----------+  +----------+  +----------+  +----------+               |
-|  | Neon PG  |  | Stripe   |  | Resend   |  | Google   |               |
-|  |          |  |          |  |          |  | Maps API |               |
-|  +----------+  +----------+  +----------+  +----------+               |
-+------------------------------------------------------------------------+
-```
+The current architecture has solid foundations (adapter pattern, pipeline orchestration, query-time scoring, dedup) but three structural problems prevent scaling: (1) hardcoded city adapters requiring a new file per Socrata/ArcGIS portal, (2) a scoring engine that produces identical scores because most leads lack the data fields that create variance, and (3) a pipeline that runs all adapters sequentially in a single 300-second Vercel function.
+
+This document specifies the exact architectural changes needed, identifies every integration point with existing code, and provides a dependency-ordered build sequence.
 
 ---
 
-## Target Architecture (v3.0)
+## Current Architecture Analysis
 
-```
-+------------------------------------------------------------------------+
-|                         CLIENT (Browser)                                |
-|  +----------------+  +------------------+  +----------------+          |
-|  | Auth Forms     |  | Dashboard        |  | Settings       |          |
-|  | (unchanged)    |  | (new: filter     |  | (new: industry |          |
-|  |                |  |  panel, score    |  |  profile,      |          |
-|  |                |  |  badges, match   |  |  notification  |          |
-|  |                |  |  reasons, storm  |  |  prefs)        |          |
-|  |                |  |  alerts, cursor  |  |                |          |
-|  |                |  |  pagination)     |  |                |          |
-|  +-------+--------+  +-------+----------+  +-------+--------+          |
-|          |                    |                      |                  |
-|  +----------------+                                                    |
-|  | Onboarding     |                                                    |
-|  | (new: 6-step   |                                                    |
-|  |  wizard with   |                                                    |
-|  |  useReducer)   |                                                    |
-|  +-------+--------+                                                    |
-|          |                                                             |
-+----------+--------------------+--------------------+-------------------+
-|                    NEXT.JS APP ROUTER (Server)                          |
-|  +----------------+  +----------------+  +-----------------------+     |
-|  | (auth)/        |  | (dashboard)/   |  | api/                  |     |
-|  | (onboarding)/  |  | layout.tsx     |  | auth/[...all]         |     |
-|  |                |  |                |  | cron/scrape            |     |
-|  |                |  |                |  | cron/enrichment        |     |
-|  |                |  |                |  | cron/digest            |     |
-|  |                |  |                |  | cron/weather           |     |
-|  |                |  |                |  | cron/dedup-maintenance  |     |
-|  |                |  |                |  | unsubscribe/[token]    |     |
-|  +-------+--------+  +-------+--------+  +----------+-----------+     |
-|          |                    |                       |                 |
-+----------+--------------------+-----------------------+----------------+
-|                        LIB / ACTIONS LAYER                              |
-|  +----------+  +----------+  +------------+  +----------+             |
-|  | auth.ts  |  | leads/   |  | scraper/   |  | email/   |             |
-|  |          |  | queries  |  | pipeline   |  | digest   |             |
-|  |          |  | scoring  |  | dedup      |  | storm    |             |
-|  |          |  | enrich   |  | registry   |  | unsub    |             |
-|  |          |  | cursor   |  | industry-  |  | react-   |             |
-|  |          |  |          |  |   config   |  |   email  |             |
-|  |          |  |          |  | adapters/  |  |          |             |
-|  |          |  |          |  |   permits/ |  |          |             |
-|  |          |  |          |  |   weather/ |  |          |             |
-|  |          |  |          |  |   utility/ |  |          |             |
-|  +----+-----+  +----+-----+  +-----+------+  +----+-----+             |
-|       |             |              |               |                   |
-+-------+-------------+--------------+---------------+-------------------+
-|                        DATA LAYER                                       |
-|  +---------------------------------------------------------------+    |
-|  |  Drizzle ORM (neon-http driver)                                |    |
-|  |  ~16 tables: (existing 10 modified) +                          |    |
-|  |    organization_profiles (renamed from company_profiles),      |    |
-|  |    lead_enrichments, scraper_runs,                             |    |
-|  |    lead_industries (junction), unsubscribe_tokens              |    |
-|  +-------------------------------+-------------------------------+    |
-|                                  |                                     |
-+----------------------------------+-------------------------------------+
-|                    EXTERNAL SERVICES                                    |
-|  +--------+ +--------+ +--------+ +--------+ +--------+ +--------+   |
-|  |Neon PG | |Stripe  | |Resend  | |Google  | | NOAA   | | FEMA   |   |
-|  |        | |        | |        | |Maps API| | API    | | API    |   |
-|  +--------+ +--------+ +--------+ +--------+ +--------+ +--------+   |
-+------------------------------------------------------------------------+
-```
+### What Works Well (Keep)
+
+| Component | Location | Assessment |
+|-----------|----------|------------|
+| `ScraperAdapter` interface | `src/lib/scraper/adapters/base-adapter.ts` | Clean contract, keep as-is |
+| `rawLeadSchema` (Zod validation) | `src/lib/scraper/adapters/base-adapter.ts` | Source-agnostic, extensible |
+| `runPipeline()` orchestrator | `src/lib/scraper/pipeline.ts` | Error isolation per adapter, dedup post-step |
+| `SocrataPermitAdapter` base class | `src/lib/scraper/adapters/socrata-permit-adapter.ts` | SODA3/SODA2 fallback pattern |
+| Per-org scoring context | `src/lib/scoring/engine.ts` | 5-dimension design is correct |
+| Rate limiter queues | `src/lib/scraper/api-rate-limiter.ts` | p-queue pattern is sound |
+| Content hash dedup | `src/lib/scraper/content-hash.ts` | Prevents exact duplicates |
+| Health monitoring | `src/lib/scraper/health.ts` | Consecutive failure tracking |
+
+### What Must Change
+
+| Problem | Root Cause | Impact |
+|---------|-----------|--------|
+| 3 hardcoded city adapters | Each city needs a new `.ts` file with `mapRecords()` | Cannot scale to hundreds of portals |
+| Identical scores (30/100 for all) | Most leads have null `estimatedValue`, empty `applicableIndustries`, no `severity`/`deadline`, and the enrichment step tags ALL industries when keywords do not match | Every lead scores identically on 4/5 dimensions |
+| Pipeline timeout at scale | Sequential adapter execution in single 300s function | 50+ adapters will exceed Vercel function timeout |
+| No geographic discovery | `getAdaptersForIndustry()` returns hardcoded list | Cannot add portals without code changes |
+| Feed query pulls ALL leads in radius | `getFilteredLeadsWithCount` fetches unbounded rows, enriches in JS | 100K+ leads in radius = OOM on Vercel |
 
 ---
 
-## Feature-by-Feature Integration Analysis
+## Recommended Architecture
 
-### 1. Database Schema Evolution
+### Component Diagram
 
-**Status: MODIFIED (5 existing tables) + NEW (3-4 new tables) + RENAMED (1 table)**
-
-#### Current State
-
-10 tables in `src/lib/db/schema/`:
-- `auth.ts`: user, session, account, verification, organization, member, invitation
-- `company-profiles.ts`: companyProfiles (organizationId, hqAddress, hqLat/Lng, serviceRadiusMiles, equipmentTypes[], onboardingCompleted)
-- `leads.ts`: leads (permit/bid/news/deep-web fields, sourceType, sourceId, lat/lng)
-- `lead-sources.ts`: leadSources (junction: lead <-> source)
-- `lead-statuses.ts`: leadStatuses (userId, leadId, organizationId, status)
-- `bookmarks.ts`: bookmarks (userId, leadId, organizationId)
-- `saved-searches.ts`: savedSearches (userId, organizationId, filter params)
-- `subscriptions.ts`: subscription (Better Auth Stripe plugin managed)
-- `pipeline-runs.ts`: pipelineRuns (run tracking)
-
-#### Migration Strategy
-
-**Critical constraint:** The app is live. All migrations must be additive or use safe rename patterns. Never drop columns with data.
-
-**Step 1: Add `industry` to `organization` table (additive)**
-
-The `organization` table is managed by Better Auth's organization plugin. It has a `metadata` text column that could store industry, but Better Auth controls this table. The safer approach: add an `industry` column directly to the organization table via a custom Drizzle migration.
-
-```sql
--- Migration: Add industry to organization
-ALTER TABLE "organization" ADD COLUMN "industry" text;
--- Backfill existing orgs as "heavy_equipment" (the only industry v2.1 supports)
-UPDATE "organization" SET "industry" = 'heavy_equipment' WHERE "industry" IS NULL;
--- Then make NOT NULL
-ALTER TABLE "organization" ALTER COLUMN "industry" SET NOT NULL;
-ALTER TABLE "organization" ALTER COLUMN "industry" SET DEFAULT 'heavy_equipment';
+```
+                         Vercel Cron (daily)
+                               |
+                    +----------+----------+
+                    |                     |
+              /api/cron/discover    /api/cron/scrape/:batch
+                    |                     |
+            Portal Registry         Batch Pipeline Runner
+            (discover portals)      (adapters in batches of N)
+                    |                     |
+             data_portals table     Generic Socrata Adapter
+                    |               (config-driven, no subclass)
+                    |                     |
+                    +----------+----------+
+                               |
+                         leads table
+                               |
+                    +----------+----------+
+                    |                     |
+              Enrichment Cron       Lead Feed Query
+              (industry, value,     (PostGIS spatial,
+               severity tagging)     DB-side scoring)
+                    |                     |
+                    +------> scored leads to UI
 ```
 
-**Why modify `organization` instead of using metadata:** The industry field drives query-time scoring, scraper selection, and onboarding flow. It needs to be a first-class indexed column, not a JSON blob. Better Auth's `organization` table accepts custom columns via Drizzle -- the schema file just needs the column added and `drizzle-kit generate` handles the migration.
+### Component Boundaries
 
-Update schema file:
-
-| File | Change |
-|------|--------|
-| `src/lib/db/schema/auth.ts` | Add `industry` column to `organization` table |
-
-**Step 2: Rename `company_profiles` to `organization_profiles` (safe rename)**
-
-Drizzle Kit's `generate` command detects renames and asks whether the column/table was renamed or created fresh. Select "renamed" to get a safe `ALTER TABLE RENAME` migration.
-
-```sql
-ALTER TABLE "company_profiles" RENAME TO "organization_profiles";
-```
-
-Then add new columns to the renamed table:
-
-```sql
--- New columns for multi-industry support
-ALTER TABLE "organization_profiles" ADD COLUMN "specializations" text[] DEFAULT '{}';
-ALTER TABLE "organization_profiles" ADD COLUMN "service_types" text[] DEFAULT '{}';
-ALTER TABLE "organization_profiles" ADD COLUMN "certifications" text[] DEFAULT '{}';
-ALTER TABLE "organization_profiles" ADD COLUMN "company_size" text;
-ALTER TABLE "organization_profiles" ADD COLUMN "website" text;
-ALTER TABLE "organization_profiles" ADD COLUMN "phone" text;
-```
-
-| File | Change |
-|------|--------|
-| `src/lib/db/schema/company-profiles.ts` | Rename to `organization-profiles.ts`, rename table, add columns |
-| `src/lib/db/schema/index.ts` | Update export |
-| `src/actions/onboarding.ts` | Update import from `companyProfiles` to `organizationProfiles` |
-| `src/actions/settings.ts` | Update import |
-| `src/lib/email/digest-generator.ts` | Update import |
-| `src/lib/leads/pipeline-status.ts` | No change (doesn't reference company_profiles) |
-| `src/types/index.ts` | Update `CompanyProfile` type alias |
-
-**Step 3: Expand `leads` table (additive)**
-
-```sql
-ALTER TABLE "leads" ADD COLUMN "content_hash" text;
-ALTER TABLE "leads" ADD COLUMN "raw_data" jsonb;
-ALTER TABLE "leads" ADD COLUMN "property_type" text;
-ALTER TABLE "leads" ADD COLUMN "building_sqft" integer;
-ALTER TABLE "leads" ADD COLUMN "year_built" integer;
-ALTER TABLE "leads" ADD COLUMN "owner_name" text;
-ALTER TABLE "leads" ADD COLUMN "owner_contact" text;
--- Index for hash-based dedup
-CREATE UNIQUE INDEX "leads_content_hash_idx" ON "leads" ("content_hash") WHERE "content_hash" IS NOT NULL;
-```
-
-| File | Change |
-|------|--------|
-| `src/lib/db/schema/leads.ts` | Add new columns, add content_hash unique index |
-
-**Step 4: New tables**
-
-| New Table | File | Purpose |
-|-----------|------|---------|
-| `lead_enrichments` | `src/lib/db/schema/lead-enrichments.ts` | Enrichment data (geocode, property, weather, incentives) stored per-lead |
-| `lead_industries` | `src/lib/db/schema/lead-industries.ts` | Junction table: which industries a lead is relevant to |
-| `scraper_runs` | `src/lib/db/schema/scraper-runs.ts` | Per-adapter run tracking (replaces aggregate pipeline_runs approach) |
-| `unsubscribe_tokens` | `src/lib/db/schema/unsubscribe-tokens.ts` | CAN-SPAM compliant unsubscribe tokens |
-
-**Step 5: Modify `bookmarks` table (additive)**
-
-```sql
-ALTER TABLE "bookmarks" ADD COLUMN "notes" text;
-ALTER TABLE "bookmarks" ADD COLUMN "pipeline_status" text DEFAULT 'saved';
-ALTER TABLE "bookmarks" ADD COLUMN "updated_at" timestamp DEFAULT now();
-```
-
-| File | Change |
-|------|--------|
-| `src/lib/db/schema/bookmarks.ts` | Add notes, pipeline_status, updated_at columns |
-
-#### Migration Execution Order
-
-1. Add `industry` to `organization` + backfill (safe, additive)
-2. Rename `company_profiles` to `organization_profiles` + add columns (rename + additive)
-3. Add columns to `leads` (additive)
-4. Add columns to `bookmarks` (additive)
-5. Create new tables (additive, no FK dependencies on steps 1-4 other than leads.id)
-6. Update all import paths in application code
-7. Deploy -- all changes are backward compatible
-
-**Drizzle migration workflow:**
-```bash
-# 1. Update schema files
-# 2. Generate migration
-npx drizzle-kit generate
-# 3. Review generated SQL (critical for renames -- verify ALTER TABLE RENAME, not DROP+CREATE)
-# 4. Apply
-npx drizzle-kit migrate
-```
-
-**Files touched:**
-
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/db/schema/auth.ts` | MODIFIED | Add industry to organization |
-| `src/lib/db/schema/company-profiles.ts` | RENAMED + MODIFIED | -> organization-profiles.ts, add columns |
-| `src/lib/db/schema/leads.ts` | MODIFIED | Add content_hash, raw_data, property columns |
-| `src/lib/db/schema/bookmarks.ts` | MODIFIED | Add notes, pipeline_status, updated_at |
-| `src/lib/db/schema/lead-enrichments.ts` | NEW | Enrichment data table |
-| `src/lib/db/schema/lead-industries.ts` | NEW | Lead-industry junction |
-| `src/lib/db/schema/scraper-runs.ts` | NEW | Per-adapter run tracking |
-| `src/lib/db/schema/unsubscribe-tokens.ts` | NEW | Unsubscribe tokens |
-| `src/lib/db/schema/index.ts` | MODIFIED | Add new exports |
-| `src/types/index.ts` | MODIFIED | Update type aliases |
-| `src/actions/onboarding.ts` | MODIFIED | Update table reference |
-| `src/actions/settings.ts` | MODIFIED | Update table reference |
-| `src/lib/email/digest-generator.ts` | MODIFIED | Update table reference |
+| Component | Responsibility | Communicates With | Status |
+|-----------|---------------|-------------------|--------|
+| Portal Registry | Discover and store Socrata/ArcGIS portal configs | `data_portals` table, Socrata Discovery API, ArcGIS Hub API | NEW |
+| Generic Socrata Adapter | Config-driven scraping, no subclass per city | Portal Registry, Pipeline | NEW (replaces city-specific adapters) |
+| Generic ArcGIS Adapter | Config-driven Feature Service scraping | Portal Registry, Pipeline | NEW |
+| Batch Pipeline Runner | Splits adapters into batches, runs in separate function calls | Pipeline, Vercel Cron | NEW (wraps existing `runPipeline`) |
+| Enrichment Engine (enhanced) | Tags industries, value tier, severity, project phase | `leads` table, `enrichment.ts` | MODIFIED |
+| Scoring Engine (fixed) | Produces differentiated 0-100 scores per org | `src/lib/scoring/` | MODIFIED |
+| Lead Feed Query (optimized) | PostGIS spatial query + DB-side pre-scoring | `src/lib/leads/queries.ts` | MODIFIED |
 
 ---
 
-### 2. Multi-Step Onboarding Wizard (6 Steps, Industry-Conditional)
+## Architecture Change 1: Dynamic Portal Discovery
 
-**Status: MODIFIED (wizard-shell.tsx, onboarding action, validator) + NEW (3 step components, useReducer state machine)**
+### Problem
 
-#### Current State
-
-The existing wizard in `src/components/onboarding/wizard-shell.tsx` uses:
-- `react-hook-form` with `zodResolver` for validation
-- `useState(0)` for step tracking
-- 3 steps: Location, Equipment, Radius
-- Single `onboardingSchema` Zod schema validates all fields at once
-- `completeOnboarding` server action writes to `companyProfiles`
-
-The current pattern is sound for 3 steps but does not scale to 6 steps with industry-conditional rendering because:
-1. `useState(0)` cannot express conditional step flows (e.g., skip equipment step for industries that don't use equipment)
-2. The single Zod schema includes all fields -- industry-conditional fields require discriminated unions
-3. No way to track which steps are complete vs. skipped
-
-#### Integration: useReducer State Machine
-
-Replace `useState(0)` with a `useReducer`-based state machine that manages step navigation, conditional step visibility, and form data accumulation.
-
-**Why useReducer, not XState:** XState is powerful but adds a dependency and learning curve for what is ultimately a linear wizard with conditional skips. `useReducer` with TypeScript discriminated unions provides the same correctness guarantees without the dependency.
-
-**State machine design:**
+The current `adapters/index.ts` hardcodes adapter instantiation:
 
 ```typescript
-// src/components/onboarding/wizard-state.ts
-
-type Industry = "heavy_equipment" | "hvac" | "roofing" | "solar" | "electrical";
-
-interface WizardState {
-  currentStep: number;
-  industry: Industry | null;
-  completedSteps: Set<number>;
-  formData: Partial<OnboardingFormData>;
-  visibleSteps: StepConfig[];
-}
-
-type WizardAction =
-  | { type: "SELECT_INDUSTRY"; industry: Industry }
-  | { type: "NEXT" }
-  | { type: "BACK" }
-  | { type: "SET_FIELD"; field: string; value: unknown }
-  | { type: "SUBMIT" };
-
-function wizardReducer(state: WizardState, action: WizardAction): WizardState {
-  switch (action.type) {
-    case "SELECT_INDUSTRY":
-      return {
-        ...state,
-        industry: action.industry,
-        visibleSteps: getStepsForIndustry(action.industry),
-        formData: { ...state.formData, industry: action.industry },
-      };
-    case "NEXT":
-      return {
-        ...state,
-        completedSteps: new Set([...state.completedSteps, state.currentStep]),
-        currentStep: state.currentStep + 1,
-      };
-    // ...
-  }
-}
-```
-
-**Step configuration by industry:**
-
-| Step | All Industries | Heavy Equipment | HVAC | Roofing | Solar | Electrical |
-|------|---------------|-----------------|------|---------|-------|------------|
-| 1. Industry Selection | YES | - | - | - | - | - |
-| 2. Company Info | YES | - | - | - | - | - |
-| 3. Location + Radius | YES | - | - | - | - | - |
-| 4. Specializations | YES | Equipment types | HVAC systems | Roof types | Panel types | License types |
-| 5. Service Types | YES | Rental/Sales/Both | Install/Repair/Both | Repair/Replace/New | Residential/Commercial | Residential/Commercial |
-| 6. Confirmation | YES | - | - | - | - | - |
-
-**Integration with react-hook-form:** Keep `react-hook-form` for field-level validation and error display. The `useReducer` manages step transitions and conditional visibility, while RHF manages field values and validation. They coexist cleanly because RHF manages form data while the reducer manages wizard navigation.
-
-**Integration pattern:**
-
-```typescript
-// wizard-shell.tsx (modified)
-const [state, dispatch] = useReducer(wizardReducer, initialState);
-const methods = useForm<OnboardingFormData>({
-  resolver: zodResolver(getSchemaForStep(state.currentStep, state.industry)),
-  // ...
-});
-
-// Step navigation uses dispatch, field validation uses methods.trigger()
-async function handleNext() {
-  const valid = await methods.trigger(state.visibleSteps[state.currentStep].fields);
-  if (valid) dispatch({ type: "NEXT" });
-}
-```
-
-**Server action change:** The `completeOnboarding` action currently writes to `companyProfiles`. After rename, it writes to `organizationProfiles` with the expanded fields. The industry field writes to `organization.industry`.
-
-| File | Status | Description |
-|------|--------|-------------|
-| `src/components/onboarding/wizard-shell.tsx` | MODIFIED | Replace useState with useReducer, add industry-conditional step logic |
-| `src/components/onboarding/wizard-state.ts` | NEW | Reducer, action types, step configuration |
-| `src/components/onboarding/step-industry.tsx` | NEW | Industry selection cards |
-| `src/components/onboarding/step-company.tsx` | NEW | Company name, website, phone |
-| `src/components/onboarding/step-specializations.tsx` | NEW | Industry-conditional specialization picker |
-| `src/components/onboarding/step-service-types.tsx` | NEW | Industry-conditional service type picker |
-| `src/components/onboarding/step-confirmation.tsx` | NEW | Review and confirm |
-| `src/components/onboarding/step-location.tsx` | MODIFIED | Minor: may add radius inline |
-| `src/components/onboarding/step-equipment.tsx` | MODIFIED | Becomes heavy_equipment specialization variant |
-| `src/components/onboarding/step-radius.tsx` | MODIFIED | May merge into location step |
-| `src/lib/validators/onboarding.ts` | MODIFIED | Add industry-conditional schemas using Zod discriminated unions |
-| `src/actions/onboarding.ts` | MODIFIED | Write to organization.industry + organizationProfiles with expanded fields |
-| `src/app/(onboarding)/onboarding/page.tsx` | MODIFIED | Minor layout adjustments |
-
-**Data flow change:**
-
-```
-BEFORE (3 steps, single industry):
-  Step 1 (Location) -> Step 2 (Equipment) -> Step 3 (Radius)
-      |
-      v
-  completeOnboarding() -> INSERT companyProfiles
-
-AFTER (6 steps, industry-conditional):
-  Step 1 (Industry) -> determines visible steps
-      |
-      v
-  Step 2 (Company Info) -> Step 3 (Location + Radius) ->
-  Step 4 (Specializations, industry-specific) ->
-  Step 5 (Service Types, industry-specific) ->
-  Step 6 (Confirmation)
-      |
-      v
-  completeOnboarding() -> UPDATE organization.industry + INSERT organizationProfiles
-```
-
----
-
-### 3. Scraper Registry Expansion (Industry-Mapped)
-
-**Status: MODIFIED (registry.ts, adapters/index.ts, pipeline.ts) + NEW (industry config, adapter factory, 12+ adapters)**
-
-#### Current State
-
-The registry is a flat `Map<string, ScraperAdapter>`:
-- `initializeAdapters()` registers all 8 adapters unconditionally
-- `getRegisteredAdapters()` returns all adapters
-- The cron job runs ALL adapters every time
-- No concept of industry -- all adapters are "construction" focused
-
-#### Target: Industry-Keyed Registry
-
-```typescript
-// src/lib/scraper/industry-config.ts (NEW)
-
-export type Industry = "heavy_equipment" | "hvac" | "roofing" | "solar" | "electrical";
-
-export interface IndustryScraperConfig {
-  industry: Industry;
-  adapters: ScraperAdapter[];
-  /** Cron schedule for this industry's scrapers (e.g., "0 6 * * *") */
-  schedule: string;
-}
-
-// Maps industry to its adapter set
-export const INDUSTRY_SCRAPER_MAP: Record<Industry, () => ScraperAdapter[]> = {
-  heavy_equipment: () => [
+// Current: hardcoded in getAdaptersForIndustry()
+case "heavy_equipment":
+  return [
     new AustinPermitsAdapter(),
     new DallasPermitsAdapter(),
     new AtlantaPermitsAdapter(),
-    new SamGovBidsAdapter(),
-    new EnrNewsAdapter(),
-    new ConstructionDiveNewsAdapter(),
-    new PrNewswireNewsAdapter(),
-    new GoogleDorkingAdapter(),
-  ],
-  hvac: () => [
-    // Permit adapters (shared with construction, filtered by permit type)
-    new PermitAdapterFactory("hvac").create(),
-    new CodeViolationsAdapter("hvac"),
-    new EnergyBenchmarkAdapter(),
-  ],
-  roofing: () => [
-    new PermitAdapterFactory("roofing").create(),
-    new NoaaStormAdapter(),
-    new FemaDisasterAdapter(),
-    new CodeViolationsAdapter("roofing"),
-  ],
-  solar: () => [
-    new PermitAdapterFactory("solar").create(),
-    new DsireIncentivesAdapter(),
-    new NeviChargingAdapter(),
-    new UtilityRateAdapter(),
-  ],
-  electrical: () => [
-    new PermitAdapterFactory("electrical").create(),
-    new CodeViolationsAdapter("electrical"),
-  ],
-};
+    // ... manually add each new city
+  ];
 ```
 
-#### Permit Scraper Factory
+Scaling to hundreds of portals would require hundreds of adapter files, each with a `mapRecords()` method doing the same field-mapping work.
 
-The existing permit adapters (Austin, Dallas, Atlanta) scrape ALL permits. For multi-industry, permits need to be filtered by type at the adapter level.
+### Solution: Portal Registry + Generic Adapter
 
-**Strategy: Filter, don't duplicate.** Keep the existing Socrata API adapters but add a `permitTypeFilter` parameter. Each adapter instance filters results by permit type keywords.
+**New DB table: `data_portals`**
 
 ```typescript
-// src/lib/scraper/adapters/permit-factory.ts (NEW)
-
-export class PermitAdapterFactory {
-  constructor(private industry: Industry) {}
-
-  create(): ScraperAdapter[] {
-    const filters = PERMIT_TYPE_FILTERS[this.industry];
-    return PERMIT_CITIES.map(city =>
-      new FilteredPermitAdapter(city, filters)
-    );
-  }
-}
-
-const PERMIT_TYPE_FILTERS: Record<Industry, string[]> = {
-  heavy_equipment: ["commercial", "industrial", "demolition", "new construction"],
-  hvac: ["mechanical", "hvac", "heating", "cooling", "furnace"],
-  roofing: ["roofing", "roof", "re-roof", "shingle"],
-  solar: ["solar", "photovoltaic", "pv", "electrical solar"],
-  electrical: ["electrical", "wiring", "panel upgrade", "service upgrade"],
-};
+// src/lib/db/schema/data-portals.ts (NEW FILE)
+export const dataPortals = pgTable("data_portals", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  platform: text("platform").notNull(),          // "socrata" | "arcgis" | "ckan"
+  domain: text("domain").notNull(),              // "data.austintexas.gov"
+  datasetId: text("dataset_id").notNull(),       // "3syk-w9eu"
+  sourceType: text("source_type").notNull(),     // "permit" | "violation" | ...
+  jurisdiction: text("jurisdiction").notNull(),  // "Austin, TX"
+  state: text("state").notNull(),                // "TX"
+  fieldMap: text("field_map").notNull(),          // JSON string of column mappings
+  discoveredAt: timestamp("discovered_at").defaultNow().notNull(),
+  lastScrapedAt: timestamp("last_scraped_at"),
+  lastRecordCount: integer("last_record_count"),
+  enabled: boolean("enabled").default(true).notNull(),
+  confidence: text("confidence").default("auto"),  // "verified" | "auto" | "low"
+  // Dedup: one portal config per domain+datasetId
+}, (table) => [
+  uniqueIndex("data_portals_domain_dataset_idx").on(table.domain, table.datasetId),
+  index("data_portals_state_idx").on(table.state),
+  index("data_portals_platform_idx").on(table.platform),
+]);
 ```
 
-The `FilteredPermitAdapter` extends the base Socrata pattern but applies a `sourceType` filter in the `scrape()` method, either via Socrata `$where` clause (if the dataset supports it) or via post-fetch filtering.
-
-#### Registry Modification
+**Field map schema (stored as JSON in `fieldMap` column):**
 
 ```typescript
-// src/lib/scraper/registry.ts (MODIFIED)
+// src/lib/scraper/portal-field-map.ts (NEW FILE)
+import { z } from "zod";
 
-// Add industry dimension
-const adaptersByIndustry = new Map<Industry, Map<string, ScraperAdapter>>();
+export const portalFieldMapSchema = z.object({
+  // Identity fields
+  permitNumber: z.string().optional(),    // Column name for permit number
+  title: z.string().optional(),           // Column name for title/description
+  externalId: z.string().optional(),      // Column name for external ID
 
-export function registerAdaptersForIndustry(
-  industry: Industry,
-  adapters: ScraperAdapter[]
-): void {
-  const industryMap = new Map<string, ScraperAdapter>();
-  for (const adapter of adapters) {
-    industryMap.set(adapter.sourceId, adapter);
-  }
-  adaptersByIndustry.set(industry, industryMap);
-}
+  // Core fields
+  description: z.string().optional(),
+  address: z.string().optional(),
+  projectType: z.string().optional(),
+  estimatedValue: z.string().optional(),
 
-export function getAdaptersForIndustry(industry: Industry): ScraperAdapter[] {
-  return Array.from(adaptersByIndustry.get(industry)?.values() ?? []);
-}
+  // Contact fields
+  applicantName: z.string().optional(),
+  contractorName: z.string().optional(),
 
-// Backward compat: get ALL adapters (for global cron)
-export function getAllAdapters(): ScraperAdapter[] {
-  const all: ScraperAdapter[] = [];
-  for (const industryMap of adaptersByIndustry.values()) {
-    all.push(...industryMap.values());
-  }
-  return all;
-}
+  // Date fields
+  dateField: z.string(),                  // Primary date column (required)
+
+  // Geo fields
+  latitude: z.string().optional(),
+  longitude: z.string().optional(),
+});
+
+export type PortalFieldMap = z.infer<typeof portalFieldMapSchema>;
 ```
 
-#### ScraperAdapter Interface Extension
-
-The existing `ScraperAdapter` interface needs an industry tag:
+**Generic Socrata Adapter (replaces per-city subclasses):**
 
 ```typescript
-export interface ScraperAdapter {
+// src/lib/scraper/adapters/generic-socrata-adapter.ts (NEW FILE)
+// Implements ScraperAdapter using a PortalFieldMap config row
+// NO abstract mapRecords() -- field mapping is data-driven
+
+export class GenericSocrataAdapter implements ScraperAdapter {
   readonly sourceId: string;
   readonly sourceName: string;
   readonly sourceType: SourceType;
-  readonly jurisdiction?: string;
-  readonly industries: Industry[];  // NEW: which industries this adapter serves
-  scrape(): Promise<RawLeadData[]>;
+  readonly jurisdiction: string;
+
+  private readonly domain: string;
+  private readonly datasetId: string;
+  private readonly fieldMap: PortalFieldMap;
+
+  constructor(portal: DataPortalRow) {
+    this.sourceId = `${portal.domain}-${portal.datasetId}`;
+    this.sourceName = `${portal.jurisdiction} ${portal.sourceType}`;
+    this.sourceType = portal.sourceType as SourceType;
+    this.jurisdiction = portal.jurisdiction;
+    this.domain = portal.domain;
+    this.datasetId = portal.datasetId;
+    this.fieldMap = JSON.parse(portal.fieldMap);
+  }
+
+  async scrape(): Promise<RawLeadData[]> {
+    // Reuse existing SODA3/SODA2 fetch logic from SocrataPermitAdapter
+    // But use generic field mapping instead of abstract mapRecords()
+    const data = await fetchSocrataData(this.domain, this.datasetId, this.fieldMap);
+    return data.map(record => mapGenericRecord(record, this.fieldMap, this.sourceType));
+  }
+}
+
+function mapGenericRecord(
+  record: Record<string, unknown>,
+  fieldMap: PortalFieldMap,
+  sourceType: SourceType
+): RawLeadData {
+  return {
+    permitNumber: fieldMap.permitNumber ? String(record[fieldMap.permitNumber] ?? "") || undefined : undefined,
+    title: fieldMap.title ? String(record[fieldMap.title] ?? "") || undefined : undefined,
+    description: fieldMap.description ? String(record[fieldMap.description] ?? "") || undefined : undefined,
+    address: fieldMap.address ? String(record[fieldMap.address] ?? "") || undefined : undefined,
+    projectType: fieldMap.projectType ? String(record[fieldMap.projectType] ?? "") || undefined : undefined,
+    estimatedValue: fieldMap.estimatedValue ? parseFloat(String(record[fieldMap.estimatedValue])) || undefined : undefined,
+    applicantName: fieldMap.applicantName ? String(record[fieldMap.applicantName] ?? "") || undefined : undefined,
+    permitDate: fieldMap.dateField ? new Date(String(record[fieldMap.dateField])) : undefined,
+    lat: fieldMap.latitude ? parseFloat(String(record[fieldMap.latitude])) || undefined : undefined,
+    lng: fieldMap.longitude ? parseFloat(String(record[fieldMap.longitude])) || undefined : undefined,
+    sourceType,
+    sourceUrl: `https://${fieldMap.domain}/resource/${fieldMap.datasetId}.json`,
+  };
 }
 ```
 
-Existing adapters get `industries: ["heavy_equipment"]` added. Cross-industry adapters (like permit scrapers that serve multiple industries) list all applicable industries.
+### Discovery Service (New Cron)
 
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/scraper/registry.ts` | MODIFIED | Add industry dimension |
-| `src/lib/scraper/adapters/base-adapter.ts` | MODIFIED | Add `industries` to ScraperAdapter interface |
-| `src/lib/scraper/industry-config.ts` | NEW | Industry-to-adapter mapping |
-| `src/lib/scraper/adapters/permit-factory.ts` | NEW | Parameterized permit adapter factory |
-| `src/lib/scraper/adapters/index.ts` | MODIFIED | Use industry config for initialization |
-| `src/lib/scraper/adapters/austin-permits.ts` | MODIFIED | Add `industries` field, accept optional type filter |
-| `src/lib/scraper/adapters/dallas-permits.ts` | MODIFIED | Same |
-| `src/lib/scraper/adapters/atlanta-permits.ts` | MODIFIED | Same |
-| `src/lib/scraper/adapters/sam-gov-bids.ts` | MODIFIED | Add `industries` field |
-| `src/lib/scraper/adapters/noaa-storms.ts` | NEW | NOAA weather alerts adapter |
-| `src/lib/scraper/adapters/fema-disaster.ts` | NEW | FEMA disaster declarations |
-| `src/lib/scraper/adapters/code-violations.ts` | NEW | Parameterized code violation adapter |
-| `src/lib/scraper/adapters/energy-benchmark.ts` | NEW | Energy benchmarking data |
-| `src/lib/scraper/adapters/dsire-incentives.ts` | NEW | DSIRE solar incentives |
-| `src/lib/scraper/adapters/nevi-charging.ts` | NEW | NEVI EV charging stations |
-| `src/lib/scraper/adapters/utility-rates.ts` | NEW | Utility rate data |
-| `src/lib/scraper/pipeline.ts` | MODIFIED | Accept industry parameter, pass to registry |
+```
+/api/cron/discover  (weekly, runs on Sunday at 2 AM)
+```
 
----
+Two discovery strategies:
 
-### 4. Query-Time Scoring Engine (5 Dimensions)
+**Strategy A: Socrata Discovery API**
 
-**Status: MODIFIED (scoring.ts, queries.ts, types.ts) + NEW (score engine, match reasons)**
+```
+GET http://api.us.socrata.com/api/catalog/v1?q=building+permits&limit=100&offset=0
+GET http://api.us.socrata.com/api/catalog/v1?q=construction+permits&limit=100&offset=0
+GET http://api.us.socrata.com/api/catalog/v1?q=code+violations&limit=100&offset=0
+```
 
-#### Current State
+The Socrata Discovery API returns datasets with metadata including domain, dataset ID, column names, and descriptions. The discovery cron parses these results, infers field mappings from common column name patterns, and upserts into `data_portals`.
 
-`scoreLead()` in `src/lib/leads/scoring.ts` computes a 0-100 score with 3 factors:
-- Equipment match: 50 points max (ratio of inferred vs. dealer equipment)
-- Geographic proximity: 30 points max (linear decay)
-- Project value: 20 points max (logarithmic scale)
+**Strategy B: ArcGIS Hub Search API**
 
-Called at query time in `getFilteredLeads()` and `getFilteredLeadsWithCount()` -- already computed per subscriber. This is the correct architecture for multi-industry scoring.
+```
+GET https://hub.arcgis.com/api/v3/datasets?q=building+permits&filter[type]=any(Feature Service)&page[size]=100
+```
 
-#### Target: 5-Dimension Score
+Returns Feature Service URLs that can be scraped via ArcGIS REST API query endpoints.
 
-| Dimension | Weight | Description | Computation |
-|-----------|--------|-------------|-------------|
-| Distance | 25 pts | Geographic proximity to HQ | Same Haversine as now, linear decay |
-| Relevance | 30 pts | Industry-specific keyword/type match | Replaces equipment match for non-heavy-equipment |
-| Value | 15 pts | Estimated project value | Same logarithmic scale |
-| Freshness | 15 pts | How recently the lead was discovered | Exponential decay from scrapedAt |
-| Urgency | 15 pts | Time-sensitive signals (deadlines, storms, expiring incentives) | Deadline proximity, weather event recency |
-
-**Integration with existing code:**
+**Field mapping inference (for Socrata portals):**
 
 ```typescript
-// src/lib/leads/scoring.ts (MODIFIED)
+// src/lib/scraper/discovery/field-mapper.ts (NEW FILE)
 
-export interface ScoringInput {
-  // Existing
-  distanceMiles: number;
-  serviceRadiusMiles: number;
-  estimatedValue: number | null;
-  // Modified
-  relevanceFactors: RelevanceInput;  // replaces inferredEquipment + dealerEquipment
-  // New
-  scrapedAt: Date;
-  deadlineDate: Date | null;
-  urgencySignals: UrgencySignal[];
-}
+const PERMIT_NUMBER_PATTERNS = [
+  "permit_number", "permit_no", "permitnumber", "permit_num",
+  "permit_id", "permitid", "application_number", "case_number",
+  "record_id", "folder_number",
+];
 
-export interface RelevanceInput {
-  industry: Industry;
-  /** For heavy_equipment: equipment match ratio */
-  equipmentMatch?: { inferred: string[]; dealer: string[] };
-  /** For all industries: specialization overlap */
-  specializationMatch?: { leadSpecs: string[]; profileSpecs: string[] };
-  /** Keyword relevance score from text analysis */
-  keywordRelevance?: number;
-}
+const ADDRESS_PATTERNS = [
+  "address", "location", "permit_location", "site_address",
+  "street_address", "property_address", "work_location",
+  "original_address", "full_address",
+];
 
-export interface UrgencySignal {
-  type: "deadline" | "storm" | "incentive_expiry" | "permit_expiry";
-  date: Date;
-  weight: number;  // 0-1 multiplier
+const DATE_PATTERNS = [
+  "issue_date", "issued_date", "permit_date", "application_date",
+  "filed_date", "date_issued", "issueddate", "date_filed",
+  "status_date", "final_date",
+];
+
+const VALUE_PATTERNS = [
+  "estimated_value", "project_valuation", "valuation",
+  "total_valuation", "job_value", "estimated_cost",
+  "construction_cost", "permit_value",
+];
+
+export function inferFieldMap(columns: string[]): PortalFieldMap | null {
+  const normalized = columns.map(c => c.toLowerCase().replace(/[^a-z0-9_]/g, ""));
+
+  const dateField = findMatch(normalized, columns, DATE_PATTERNS);
+  if (!dateField) return null; // Cannot scrape without a date field
+
+  return {
+    permitNumber: findMatch(normalized, columns, PERMIT_NUMBER_PATTERNS),
+    address: findMatch(normalized, columns, ADDRESS_PATTERNS),
+    dateField,
+    estimatedValue: findMatch(normalized, columns, VALUE_PATTERNS),
+    // ... other field patterns
+  };
 }
 ```
 
-The `scoreLead()` function signature changes but the call sites remain the same -- `getFilteredLeads()` and `getFilteredLeadsWithCount()` already call `scoreLead()` inline during enrichment. The change is in what data is passed and how the score is computed.
+### Integration Points with Existing Code
 
-**Match reasons:** Add a `matchReasons` field to `EnrichedLead` so the UI can show WHY a lead scored highly:
+| Existing File | Change Type | What Changes |
+|--------------|-------------|-------------|
+| `src/lib/scraper/adapters/index.ts` | MODIFIED | `getAllAdapters()` queries `data_portals` table, instantiates `GenericSocrataAdapter` for each enabled portal, plus existing non-Socrata adapters |
+| `src/lib/scraper/adapters/socrata-permit-adapter.ts` | DEPRECATED (keep for fallback) | Existing city adapters still work but are superseded by generic adapter |
+| `src/lib/scraper/adapters/austin-permits.ts` | DEPRECATED | Replaced by `data_portals` row for Austin |
+| `src/lib/scraper/adapters/dallas-permits.ts` | DEPRECATED | Replaced by `data_portals` row for Dallas |
+| `src/lib/scraper/adapters/atlanta-permits.ts` | DEPRECATED | Replaced by `data_portals` row for Atlanta |
+| `src/lib/scraper/api-rate-limiter.ts` | MODIFIED | Add dynamic rate limiter that creates queues per-domain to avoid hitting individual portal rate limits |
+| `src/lib/db/schema/index.ts` | MODIFIED | Export new `dataPortals` table |
+| `vercel.json` | MODIFIED | Add `/api/cron/discover` schedule |
+
+### Seed Data: Migrate Existing Adapters
+
+The three existing city adapter configurations should be migrated to `data_portals` rows as seed data:
 
 ```typescript
-export interface MatchReason {
-  dimension: "distance" | "relevance" | "value" | "freshness" | "urgency";
-  points: number;
-  label: string;  // e.g., "12 miles from HQ", "Matches 3 of 4 specializations"
-}
-```
-
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/leads/scoring.ts` | MODIFIED | 5-dimension scoring, match reasons |
-| `src/lib/leads/types.ts` | MODIFIED | Add ScoringInput changes, MatchReason, UrgencySignal |
-| `src/lib/leads/queries.ts` | MODIFIED | Pass new scoring inputs (industry, urgency signals) |
-| `src/lib/leads/equipment-inference.ts` | MODIFIED | Generalize to industry-specific relevance inference |
-| `src/lib/leads/relevance-inference.ts` | NEW | Industry-specific relevance rules (extends equipment-inference pattern) |
-
-**Data flow change:**
-
-```
-BEFORE:
-  getFilteredLeads() -> inferEquipmentNeeds() -> scoreLead({ inferredEquipment, dealerEquipment, distance, ... })
-
-AFTER:
-  getFilteredLeads() -> inferRelevance(industry, lead) -> scoreLead({ relevanceFactors, distance, freshness, urgency, ... })
-      |
-      v
-  Returns EnrichedLead with score + matchReasons[]
-```
-
-**Backward compatibility:** Heavy equipment industry retains the equipment match as the primary relevance factor. The `inferEquipmentNeeds()` function is not removed -- it becomes the heavy_equipment implementation of relevance inference. The new `inferRelevance()` function dispatches to industry-specific inference based on the organization's industry.
-
----
-
-### 5. Cursor-Based Pagination
-
-**Status: MODIFIED (queries.ts, dashboard page) + MODIFIED (pagination component)**
-
-#### Current State
-
-`getFilteredLeadsWithCount()` fetches ALL within-radius leads, enriches them all in memory, sorts by score, then slices a page. This is the pagination approach from Phase 10.
-
-#### Why Cursor Over Offset for v3.0
-
-The v2.1 REQUIREMENTS.md explicitly lists "Cursor-based pagination" as out of scope with rationale "Offset pagination sufficient for current data volumes." The v3.0 PROJECT.md reverses this decision because:
-
-1. Multi-industry = significantly more leads (5x industries = potentially 5x lead volume)
-2. Score-based sorting + offset = inconsistent pages (lead scores change per subscriber, offset-based pages shift)
-3. Cursor-based is more natural for infinite scroll UX patterns
-
-#### Cursor Design
-
-Use a **composite cursor** of `(score, scrapedAt, id)` to ensure stable sort order:
-
-```typescript
-export interface LeadCursor {
-  score: number;
-  scrapedAt: string;  // ISO 8601
-  id: string;         // UUID for tiebreaking
-}
-
-// Encode/decode for URL transport
-export function encodeCursor(cursor: LeadCursor): string {
-  return btoa(JSON.stringify(cursor));
-}
-
-export function decodeCursor(encoded: string): LeadCursor {
-  return JSON.parse(atob(encoded));
-}
-```
-
-**The problem with cursor + in-memory scoring:** The current architecture computes scores in memory after the SQL query. Cursor pagination requires the sort column to exist at the SQL level. This creates a fundamental tension.
-
-**Solution: Two-pass approach.**
-
-1. SQL query fetches leads within radius (same Haversine WHERE), ordered by `scrapedAt DESC, id DESC` (stable, indexable)
-2. In-memory enrichment adds scores
-3. Re-sort by `(score DESC, scrapedAt DESC, id DESC)`
-4. Return page + cursor pointing to last item
-
-For "next page" requests:
-1. Decode cursor to get `(lastScore, lastScrapedAt, lastId)`
-2. SQL WHERE adds: `scrapedAt <= cursor.scrapedAt` (coarse filter to avoid scanning full table)
-3. In-memory: skip all leads until past the cursor position in the `(score, scrapedAt, id)` sort order
-4. Return next pageSize leads
-
-**This is a "keyset-ish" approach** -- the SQL uses a time-based cursor for efficiency (leveraging the `leads_scraped_at_idx` index), and the in-memory enrichment step handles the score-based ordering. It is NOT a pure keyset cursor (which would require the sort column in SQL), but it avoids the offset problem of shifting pages.
-
-**Trade-off acknowledged:** This approach still loads more leads than the page size from SQL (similar to FETCH_MULTIPLIER). For v3.0 volumes (estimated <50k leads per industry per radius), this is acceptable. If volumes grow beyond 100k, the scoring must move to SQL (materialized scores or a scoring column updated on profile change).
-
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/leads/queries.ts` | MODIFIED | Replace offset param with cursor, add cursor encoding/decoding |
-| `src/lib/leads/cursor.ts` | NEW | Cursor types, encode/decode utilities |
-| `src/app/(dashboard)/dashboard/page.tsx` | MODIFIED | Parse cursor from searchParams instead of page number |
-| `src/components/dashboard/pagination.tsx` | MODIFIED | Change from page numbers to "Load More" / prev/next with cursor |
-
----
-
-### 6. Vercel Cron Architecture (10 Jobs)
-
-**Status: MODIFIED (vercel.json, existing cron route) + NEW (5+ cron route handlers)**
-
-#### Current State
-
-Single cron job:
-```json
+// Seed: existing Austin config -> data_portals row
 {
-  "crons": [{ "path": "/api/cron/scrape", "schedule": "0 6 * * *" }]
+  platform: "socrata",
+  domain: "data.austintexas.gov",
+  datasetId: "3syk-w9eu",
+  sourceType: "permit",
+  jurisdiction: "Austin, TX",
+  state: "TX",
+  fieldMap: JSON.stringify({
+    permitNumber: "permit_number",
+    description: "description",
+    address: "permit_location",
+    projectType: "permit_type_desc",
+    dateField: "issue_date",
+    latitude: "latitude",
+    longitude: "longitude",
+  }),
+  confidence: "verified",
 }
 ```
 
-`maxDuration = 300` (5 minutes). Runs all 8 adapters sequentially, then digest, all in one function.
+---
 
-#### Vercel Cron Limits
+## Architecture Change 2: Scoring Engine Fix
 
-- **Pro plan:** 100 crons per project, minimum interval 1 minute, per-minute scheduling precision
-- **Hobby plan:** 100 crons per project, limited to once-per-day execution
-- **Function duration:** Up to 300s without Fluid Compute, up to 800s with Fluid Compute (Pro)
-- **Each cron invokes a Vercel Function** -- subject to standard function limits
+### Root Cause Analysis: Why All Leads Score 30/100
 
-#### Target: 10 Cron Jobs
-
-| # | Path | Schedule | Duration Budget | Purpose |
-|---|------|----------|----------------|---------|
-| 1 | `/api/cron/scrape/heavy-equipment` | `0 6 * * *` | 300s | Heavy equipment scrapers |
-| 2 | `/api/cron/scrape/hvac` | `0 6 * * *` | 300s | HVAC scrapers |
-| 3 | `/api/cron/scrape/roofing` | `0 6 * * *` | 300s | Roofing scrapers (non-weather) |
-| 4 | `/api/cron/scrape/solar` | `0 6 * * *` | 300s | Solar scrapers |
-| 5 | `/api/cron/scrape/electrical` | `0 6 * * *` | 300s | Electrical scrapers |
-| 6 | `/api/cron/weather` | `0 */2 * * *` | 60s | NOAA storm alerts (every 2 hours) |
-| 7 | `/api/cron/enrichment` | `30 6 * * *` | 300s | Lead enrichment pipeline (after scrape) |
-| 8 | `/api/cron/digest` | `0 7 * * *` | 120s | Email digests (after enrichment) |
-| 9 | `/api/cron/dedup-maintenance` | `0 3 * * 0` | 300s | Weekly dedup maintenance |
-| 10 | `/api/cron/storm-alerts` | `*/30 * * * *` | 60s | Storm alert emails (every 30 min) |
-
-**Parallel execution:** Vercel crons that fire at the same time (e.g., all 5 industry scrapers at 6 AM) execute as independent function invocations. They share no state and cannot conflict. The only concern is database contention -- 5 concurrent scraper functions all inserting leads simultaneously. Neon handles this fine with row-level locking on the unique indexes.
-
-**Architecture: Shared handler with industry parameter.**
-
-Rather than 5 duplicate route files, use a single parameterized route:
+Walking through the scoring engine with a typical permit lead:
 
 ```
-src/app/api/cron/scrape/[industry]/route.ts
+Typical lead state in DB:
+  - lat/lng: present (geocoded) -> distance calculated
+  - applicableIndustries: ["heavy_equipment", "hvac", "roofing", "solar", "electrical"]
+    (ALL 5 industries -- enrichment found no keyword match, defaulted to all)
+  - estimatedValue: null (most Socrata portals don't expose valuation)
+  - valueTier: null (depends on estimatedValue)
+  - severity: null (only set for violations)
+  - deadline: null (only set for bids/storms)
+  - projectType: "Residential - New" (generic)
+
+Score breakdown for a typical org (50mi radius, near lead):
+  Distance:   15/25 (within 50mi)         -- WORKS, varies by location
+  Relevance:   5/30 (low-confidence match) -- BROKEN: isLowConfidence=true
+  Value:      10/20 (value unknown)        -- BROKEN: always null
+  Freshness:  varies/15                    -- WORKS, varies by age
+  Urgency:     5/10 (permit base score)    -- SEMI-BROKEN: all permits get 5
+
+Result: ~35/100 for almost every lead, +/- 3-6 points from freshness/distance
 ```
+
+The problem is NOT the scoring algorithm itself -- the dimension design is sound. The problem is that **most leads have insufficient enrichment data** to produce variance in 3 of 5 dimensions.
+
+### Solution: Enhanced Enrichment + Scoring Adjustments
+
+**Phase 1: Fix enrichment to populate more fields**
+
+The enrichment step (`src/lib/scraper/enrichment.ts`) currently only tags `applicableIndustries` and `valueTier`. It needs to also populate:
+
+1. **Value estimation from project type** (when `estimatedValue` is null)
+2. **Severity from source type and description**
+3. **Better industry classification** using project type + description together
 
 ```typescript
-// src/app/api/cron/scrape/[industry]/route.ts
+// src/lib/scraper/enrichment.ts -- MODIFIED
+
+// NEW: Estimate value from project type when actual value is missing
+const VALUE_ESTIMATES: Record<string, number> = {
+  // Residential
+  "residential - new": 350000,
+  "residential - remodel": 75000,
+  "residential - addition": 100000,
+  "residential - repair": 25000,
+  // Commercial
+  "commercial - new": 2000000,
+  "commercial - remodel": 500000,
+  "commercial - tenant improvement": 150000,
+  // Industrial
+  "demolition": 50000,
+  "electrical": 30000,
+  "mechanical": 40000,
+  "plumbing": 20000,
+  "roofing": 35000,
+  "sign": 10000,
+  "fire alarm": 15000,
+  "solar": 45000,
+  "swimming pool": 60000,
+};
+
+export function estimateValueFromProjectType(
+  projectType: string | null,
+  description: string | null
+): number | null {
+  if (!projectType) return null;
+  const normalized = projectType.toLowerCase().trim();
+
+  // Direct match
+  if (VALUE_ESTIMATES[normalized]) return VALUE_ESTIMATES[normalized];
+
+  // Partial match: find the longest key that appears in projectType
+  let bestMatch: string | null = null;
+  let bestLength = 0;
+  for (const [key, _value] of Object.entries(VALUE_ESTIMATES)) {
+    if (normalized.includes(key) && key.length > bestLength) {
+      bestMatch = key;
+      bestLength = key.length;
+    }
+  }
+  if (bestMatch) return VALUE_ESTIMATES[bestMatch];
+
+  // Fallback: check description for "commercial" vs "residential" keyword
+  const text = `${projectType} ${description ?? ""}`.toLowerCase();
+  if (text.includes("commercial") || text.includes("industrial")) return 500000;
+  if (text.includes("residential") || text.includes("single family")) return 200000;
+
+  return null;
+}
+```
+
+**Phase 2: Scoring algorithm adjustments for variance**
+
+```typescript
+// src/lib/scoring/relevance.ts -- MODIFIED
+// Key change: When applicableIndustries is low-confidence (all 5 tagged),
+// use projectType matching as the PRIMARY signal instead of industry match.
+
+// Current behavior (produces identical scores):
+//   isLowConfidence=true -> +5 always
+//
+// Fixed behavior (produces variance):
+//   isLowConfidence=true -> use projectType/description keywords to score 0-20
+//   Even with uncertain industry, a "Roofing Permit" should score higher
+//   for a roofing company than a "Plumbing Permit"
+
+export function scoreRelevance(
+  lead: LeadScoringInput,
+  org: OrgScoringContext
+): ScoreDimension {
+  // ... existing logic ...
+
+  // CHANGE: When low confidence, do keyword matching against projectType
+  // instead of giving flat +5
+  if (industryMatch && isLowConfidence) {
+    // Instead of flat +5, check if projectType keywords match the org's industry
+    const industryKeywordScore = scoreProjectTypeForIndustry(
+      lead.projectType,
+      org.industry,
+      org.specializations
+    );
+    raw += industryKeywordScore; // 0-15 instead of always 5
+    if (industryKeywordScore > 10) {
+      dim.reasons.push(`Project type likely relevant to ${org.industry}`);
+    } else if (industryKeywordScore > 5) {
+      dim.reasons.push("Possible match for your industry");
+    } else {
+      dim.reasons.push("Industry match uncertain");
+    }
+  }
+}
+
+// NEW function
+function scoreProjectTypeForIndustry(
+  projectType: string | null,
+  industry: string,
+  specializations: string[]
+): number {
+  if (!projectType) return 3; // Unknown project type -> small baseline
+
+  const pt = projectType.toLowerCase();
+
+  // Industry-specific keyword matching
+  const INDUSTRY_KEYWORDS: Record<string, { strong: string[]; weak: string[] }> = {
+    heavy_equipment: {
+      strong: ["demolition", "grading", "excavation", "foundation", "structural",
+               "site work", "new construction"],
+      weak: ["commercial", "industrial", "multi-family", "renovation"],
+    },
+    hvac: {
+      strong: ["mechanical", "hvac", "heating", "cooling", "air conditioning"],
+      weak: ["commercial", "tenant improvement", "remodel", "new construction"],
+    },
+    roofing: {
+      strong: ["roofing", "roof", "re-roof", "shingle", "membrane"],
+      weak: ["residential", "repair", "storm damage", "insurance"],
+    },
+    solar: {
+      strong: ["solar", "photovoltaic", "pv", "renewable", "ev charging"],
+      weak: ["electrical", "residential", "commercial"],
+    },
+    electrical: {
+      strong: ["electrical", "wiring", "panel", "service upgrade", "transformer"],
+      weak: ["commercial", "residential", "tenant improvement"],
+    },
+  };
+
+  const keywords = INDUSTRY_KEYWORDS[industry];
+  if (!keywords) return 3;
+
+  // Strong match = 15, weak match = 8, no match = 3
+  if (keywords.strong.some(kw => pt.includes(kw))) return 15;
+  if (keywords.weak.some(kw => pt.includes(kw))) return 8;
+
+  // Check specializations too
+  for (const spec of specializations) {
+    if (pt.includes(spec.toLowerCase())) return 12;
+  }
+
+  return 3;
+}
+```
+
+**Phase 3: Value dimension fix**
+
+```typescript
+// src/lib/scoring/value.ts -- MODIFIED
+// Key change: Use estimated value from enrichment when actual value is null
+
+// Current behavior: estimatedValue null -> score 10 ("Value unknown")
+// This means EVERY permit without a dollar value scores 10/20 on this dimension.
+//
+// Fixed behavior: Use the enrichment-estimated value OR valueTier as proxy.
+// A "Commercial - New" permit should score differently than a "Residential - Repair"
+
+export function scoreValue(
+  lead: LeadScoringInput,
+  org: OrgScoringContext
+): ScoreDimension {
+  // ... existing setup ...
+
+  // CHANGE: When estimatedValue is null, use valueTier as a proxy signal
+  if (value == null && lead.valueTier != null) {
+    const tierScores: Record<string, number> = {
+      high: 18,    // High-value projects score near max
+      medium: 12,  // Medium-value projects score moderately
+      low: 5,      // Low-value projects score low
+    };
+    dim.score = tierScores[lead.valueTier] ?? 10;
+    dim.reasons.push(`Estimated ${lead.valueTier} value project`);
+    return dim;
+  }
+
+  // ... rest of existing logic for when estimatedValue is present ...
+}
+```
+
+**Phase 4: Urgency dimension -- add more signals**
+
+```typescript
+// src/lib/scoring/urgency.ts -- MODIFIED
+// Key change: Differentiate permit urgency by project type and recency
+
+// Current behavior: ALL permits get flat 5 points
+// This is 50% of all leads getting an identical urgency score.
+//
+// Fixed behavior: Recent permits with high-value project types get more urgency.
+// A commercial new construction permit filed yesterday is more urgent than
+// a residential repair permit from 3 weeks ago.
+
+// Add these new signals:
+// permit + commercial/industrial + <7 days old    = 8pts "Recent commercial permit"
+// permit + residential new       + <7 days old    = 7pts "Recent residential construction"
+// permit + any                   + <3 days old    = 7pts "Very recent permit"
+// permit + any                   + <14 days old   = 5pts "Active building permit"
+// permit + any                   + >= 14 days old = 3pts "Older permit -- may be claimed"
+```
+
+### Score Variance Analysis (Before vs After)
+
+**Before fix:** Typical score range: 28-38 out of 100
+
+| Dimension | Typical Range | Variance Source |
+|-----------|--------------|-----------------|
+| Distance | 0-25 | Only dimension with real variance |
+| Relevance | 5-5 | Low-confidence flat +5 for all |
+| Value | 10-10 | Always null -> always 10 |
+| Freshness | 3-15 | Some variance from scrape date |
+| Urgency | 5-5 | All permits -> flat 5 |
+
+**After fix:** Expected score range: 15-85 out of 100
+
+| Dimension | Expected Range | Variance Source |
+|-----------|---------------|-----------------|
+| Distance | 0-25 | Same (already works) |
+| Relevance | 0-30 | projectType keyword matching per industry |
+| Value | 0-20 | valueTier from enrichment-estimated values |
+| Freshness | 0-15 | Same (already works) |
+| Urgency | 0-10 | Recency + project type differentiation |
+
+### Integration Points
+
+| Existing File | Change Type | What Changes |
+|--------------|-------------|-------------|
+| `src/lib/scraper/enrichment.ts` | MODIFIED | Add `estimateValueFromProjectType()`, update `enrichLeads()` to set `valueTier` when `estimatedValue` is null |
+| `src/lib/scoring/relevance.ts` | MODIFIED | Replace flat +5 low-confidence score with `scoreProjectTypeForIndustry()` |
+| `src/lib/scoring/value.ts` | MODIFIED | Use `valueTier` as proxy when `estimatedValue` is null |
+| `src/lib/scoring/urgency.ts` | MODIFIED | Differentiate permit urgency by project type + recency |
+| `src/lib/scoring/types.ts` | NO CHANGE | Existing types already support all needed fields |
+| `src/lib/leads/queries.ts` | NO CHANGE | Already calls `scoreLeadForOrg()` correctly |
+| `src/app/api/cron/enrich/route.ts` | NO CHANGE | Already calls `enrichLeads()` |
+
+---
+
+## Architecture Change 3: Batch Pipeline Execution
+
+### Problem
+
+Current cron (`/api/cron/scrape`) runs ALL adapters sequentially in one function invocation. With `maxDuration = 300` seconds, this works for ~15 adapters but fails at 50+. The Socrata rate limiter allows 8 req/min -- 50 portals at 1 request each = 6+ minutes of waiting.
+
+### Solution: Fan-Out Batch Pattern
+
+```
+/api/cron/scrape (orchestrator)
+  |
+  +-> POST /api/cron/scrape/batch?offset=0&limit=10
+  +-> POST /api/cron/scrape/batch?offset=10&limit=10
+  +-> POST /api/cron/scrape/batch?offset=20&limit=10
+  +-> POST /api/cron/scrape/batch?offset=30&limit=10
+  +-> POST /api/cron/scrape/batch?offset=40&limit=10
+  ... (one request per batch of 10 adapters)
+```
+
+**Orchestrator cron (modified):**
+
+```typescript
+// src/app/api/cron/scrape/route.ts -- MODIFIED
+
+export async function GET(request: NextRequest) {
+  // ... auth check ...
+
+  // Record pipeline run
+  const [run] = await db.insert(pipelineRuns).values({ ... }).returning();
+
+  // Get all enabled adapters from portal registry + static adapters
+  const adapters = await getAllAdaptersFromRegistry();
+  const BATCH_SIZE = 10;
+  const batches = Math.ceil(adapters.length / BATCH_SIZE);
+
+  // Fan out: fire batch requests in parallel
+  const baseUrl = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : "http://localhost:3000";
+
+  const batchPromises = [];
+  for (let i = 0; i < batches; i++) {
+    batchPromises.push(
+      fetch(`${baseUrl}/api/cron/scrape/batch`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.CRON_SECRET}`,
+        },
+        body: JSON.stringify({
+          pipelineRunId: run.id,
+          offset: i * BATCH_SIZE,
+          limit: BATCH_SIZE,
+        }),
+      })
+    );
+  }
+
+  // Wait for all batches to complete (within 300s timeout)
+  await Promise.allSettled(batchPromises);
+
+  // ... update pipeline run, trigger digest ...
+}
+```
+
+**Batch endpoint (new):**
+
+```typescript
+// src/app/api/cron/scrape/batch/route.ts (NEW FILE)
 
 export const maxDuration = 300;
 
-const VALID_INDUSTRIES: Industry[] = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+export async function POST(request: NextRequest) {
+  // ... auth check ...
+  const { pipelineRunId, offset, limit } = await request.json();
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ industry: string }> }
-) {
-  const { industry } = await params;
-  if (!VALID_INDUSTRIES.includes(industry as Industry)) {
-    return new Response("Invalid industry", { status: 400 });
-  }
-  // Auth check (same CRON_SECRET pattern)
-  // Initialize adapters for this industry only
-  // Run pipeline
-  // Record results in scraper_runs
+  const allAdapters = await getAllAdaptersFromRegistry();
+  const batch = allAdapters.slice(offset, offset + limit);
+
+  const result = await runPipeline(batch, { pipelineRunId });
+
+  return Response.json({
+    batchOffset: offset,
+    batchSize: batch.length,
+    totalScraped: result.results.reduce((s, r) => s + r.recordsScraped, 0),
+    totalStored: result.results.reduce((s, r) => s + r.recordsStored, 0),
+  });
 }
 ```
 
-**vercel.json:**
-```json
-{
-  "crons": [
-    { "path": "/api/cron/scrape/heavy_equipment", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/scrape/hvac", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/scrape/roofing", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/scrape/solar", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/scrape/electrical", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/weather", "schedule": "0 */2 * * *" },
-    { "path": "/api/cron/enrichment", "schedule": "30 6 * * *" },
-    { "path": "/api/cron/digest", "schedule": "0 7 * * *" },
-    { "path": "/api/cron/dedup-maintenance", "schedule": "0 3 * * 0" },
-    { "path": "/api/cron/storm-alerts", "schedule": "*/30 * * * *" }
-  ]
-}
-```
+### Why Not Vercel Background Functions?
 
-**Decoupling scrape from digest:** Currently the cron/scrape route fires `generateDigests()` after scraping completes. This coupling must be broken -- the digest cron runs independently at 7 AM (after all scrapers have completed at ~6:05 AM).
+The `waitUntil()` / `after()` pattern would let the orchestrator return immediately and continue processing, but it shares the same 300-second timeout. True background job processing would require an external queue (e.g., Inngest, QStash, or Upstash). For v4.0, the fan-out batch pattern stays within existing infrastructure and is simple to implement. If the pipeline grows beyond 100 adapters, consider QStash for fire-and-forget execution.
 
-| File | Status | Description |
-|------|--------|-------------|
-| `vercel.json` | MODIFIED | 10 cron entries |
-| `src/app/api/cron/scrape/route.ts` | REMOVED | Replaced by industry-specific route |
-| `src/app/api/cron/scrape/[industry]/route.ts` | NEW | Parameterized industry scraper |
-| `src/app/api/cron/weather/route.ts` | NEW | NOAA weather polling |
-| `src/app/api/cron/enrichment/route.ts` | NEW | Lead enrichment pipeline |
-| `src/app/api/cron/digest/route.ts` | NEW | Email digest generation |
-| `src/app/api/cron/dedup-maintenance/route.ts` | NEW | Weekly dedup cleanup |
-| `src/app/api/cron/storm-alerts/route.ts` | NEW | Storm alert email dispatch |
+### Rate Limiting at Scale
+
+The current rate limiter uses singleton p-queue instances per API provider. With batched execution, each batch runs in a separate function invocation, so the p-queue instances are NOT shared between batches. This is actually safer -- each batch has its own rate limiter, and the batch size (10 adapters per batch) keeps individual function execution well within the Socrata rate limit.
+
+However, with 50+ Socrata portals across multiple batches, the global Socrata rate limit (1000 requests/hour with app token) could be hit. Mitigation: each adapter makes 1 request per scrape, so 50 portals = 50 requests per daily run -- well within the 1000/hour limit.
+
+### Integration Points
+
+| Existing File | Change Type | What Changes |
+|--------------|-------------|-------------|
+| `src/app/api/cron/scrape/route.ts` | MODIFIED | Orchestrator fans out to batch endpoint |
+| `src/app/api/cron/scrape/batch/route.ts` | NEW | Batch execution endpoint |
+| `src/lib/scraper/adapters/index.ts` | MODIFIED | `getAllAdapters()` queries `data_portals` + returns static adapters |
+| `src/lib/scraper/pipeline.ts` | NO CHANGE | Already handles adapter arrays, error isolation |
+| `vercel.json` | NO CHANGE | Only orchestrator cron needs scheduling |
 
 ---
 
-### 7. Hash-Based Deduplication
+## Architecture Change 4: Lead Feed Query Optimization
 
-**Status: MODIFIED (dedup.ts, pipeline.ts, base-adapter.ts)**
+### Problem
 
-#### Current State
+`getFilteredLeadsWithCount()` fetches ALL leads within the Haversine radius (no SQL LIMIT), enriches them in JavaScript, sorts in memory, then paginates. At 3 cities this might be 2,000 leads. Nationwide could be 50,000-200,000 leads within a 100-mile radius of a major metro. This will OOM on Vercel (1GB default memory).
 
-Two dedup mechanisms:
-1. **Insert-time:** Permit records use `onConflictDoUpdate` on `(sourceId, permitNumber)`. Non-permit records use `onConflictDoNothing` on `(sourceId, sourceUrl)`.
-2. **Post-pipeline:** `deduplicateNewLeads()` uses geographic proximity (Haversine <0.1 miles) AND text similarity (Dice coefficient >0.7) to find cross-source duplicates.
+### Solution: DB-Side Filtering + PostGIS
 
-The geographic+text approach is fragile: different text descriptions of the same project at the same address may not match; different geocoding precision creates false negatives.
+The `leads` table already has a PostGIS `location` geometry column with a GiST index. Use it for spatial queries instead of computing Haversine in SQL on every row.
 
-#### Target: Content Hash
-
-Generate a deterministic hash from normalized lead identity fields. Two leads with the same hash are the same real-world project.
-
-**Hash computation:**
+**Step 1: Populate `location` column on insert (pipeline change)**
 
 ```typescript
-// src/lib/scraper/content-hash.ts (NEW)
+// src/lib/scraper/pipeline.ts -- MODIFIED
+// In processRecords(), when upserting a lead with lat/lng:
 
-import { createHash } from "crypto";
-
-export function computeContentHash(lead: {
-  address?: string | null;
-  lat?: number | null;
-  lng?: number | null;
-  title?: string | null;
-  permitNumber?: string | null;
-  sourceType: string;
-}): string {
-  const normalized = [
-    // Geographic identity: round to ~0.01 mile precision
-    lead.lat != null ? lead.lat.toFixed(3) : "",
-    lead.lng != null ? lead.lng.toFixed(3) : "",
-    // Textual identity: normalized address or title
-    normalizeForHash(lead.address || lead.title || ""),
-    // Permit identity: exact permit number when available
-    lead.permitNumber || "",
-  ].join("|");
-
-  return createHash("sha256").update(normalized).digest("hex").slice(0, 32);
-}
-
-function normalizeForHash(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "")
-    .trim();
-}
+const values = {
+  // ... existing fields ...
+  // ADD: populate PostGIS location column
+  location: record.lat != null && record.lng != null
+    ? sql`ST_SetSRID(ST_MakePoint(${record.lng}, ${record.lat}), 4326)`
+    : null,
+};
 ```
 
-**Integration with pipeline:**
+**Step 2: Use ST_DWithin for spatial queries**
 
 ```typescript
-// In pipeline.ts processRecords():
-const contentHash = computeContentHash(record);
-const values = { ...existingValues, contentHash };
+// src/lib/leads/queries.ts -- MODIFIED
+// Replace Haversine WHERE clause with PostGIS ST_DWithin
 
-// Single upsert path for ALL source types:
-const result = await db
-  .insert(leads)
-  .values(values)
-  .onConflictDoUpdate({
-    target: [leads.contentHash],  // Uses the new unique index
-    set: { /* update fields */ },
-  })
-  .returning({ id: leads.id });
+// Convert miles to meters for ST_DWithin (geography cast)
+const radiusMeters = radiusMiles * 1609.344;
+
+// PostGIS spatial filter (uses GiST index)
+const spatialCondition = sql`
+  ST_DWithin(
+    ${leads.location}::geography,
+    ST_SetSRID(ST_MakePoint(${orgContext.hqLng}, ${orgContext.hqLat}), 4326)::geography,
+    ${radiusMeters}
+  )
+`;
+
+// Distance expression (still needed for scoring, but only computed on filtered set)
+const distanceExpr = sql<number>`
+  ST_DistanceSphere(
+    ${leads.location},
+    ST_SetSRID(ST_MakePoint(${orgContext.hqLng}, ${orgContext.hqLat}), 4326)
+  ) / 1609.344
+`.mapWith(Number);
 ```
 
-**This simplifies the pipeline dramatically.** The current `processRecords()` function has 3 branches (permit with permitNumber, non-permit with sourceUrl, non-permit without sourceUrl). Hash-based dedup collapses these to 1 branch.
+**Step 3: Push coarse filtering into SQL**
 
-**Migration path:** The content hash must be computed for all existing leads. A one-time migration script:
+For the primary sort, push the distance dimension into SQL so the DB can ORDER BY it. The full 5-dimension score still needs JS computation, but we can filter out clearly-irrelevant leads at the DB level:
 
 ```sql
--- Run after adding content_hash column but before enabling unique constraint
--- This must run as application code (not SQL) because the hash function is in TypeScript
+-- SQL WHERE clause additions (not exact Drizzle syntax):
+WHERE
+  ST_DWithin(location::geography, hq_point::geography, radius_meters)
+  AND (applicable_industries && ARRAY['heavy_equipment']::text[] OR applicable_industries = '{}')
+  AND scraped_at > NOW() - INTERVAL '30 days'
+ORDER BY
+  ST_DistanceSphere(location, hq_point) ASC
+LIMIT 200
 ```
 
-The migration script reads all existing leads, computes their content hash, and updates them. If two existing leads hash to the same value, they need manual dedup resolution (merge the older into the newer, transfer lead_sources).
+This reduces the JS scoring workload from 200K leads to 200 leads.
 
-**The geographic+text dedup (`deduplicateNewLeads()`) becomes a FALLBACK** for leads that fail to produce a good content hash (e.g., no address, no coordinates, no title). It is not removed but demoted to a backup.
+**Step 4: Paginated scoring with cursor**
 
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/scraper/content-hash.ts` | NEW | Hash computation |
-| `src/lib/scraper/pipeline.ts` | MODIFIED | Compute hash, use hash-based upsert |
-| `src/lib/scraper/dedup.ts` | MODIFIED | Demoted to fallback, only runs on hashless leads |
-| `src/lib/db/schema/leads.ts` | MODIFIED | content_hash column + unique index (done in step 1) |
+The existing `getFilteredLeadsCursor()` function already uses cursor-based pagination. Modify it to:
+1. Use PostGIS `ST_DWithin` instead of Haversine WHERE
+2. Add `applicableIndustries` filter at SQL level
+3. Add `scrapedAt > 30 days ago` filter at SQL level
+4. Limit to 200 rows per cursor batch (already uses `CURSOR_BATCH_SIZE = 50`)
+
+### Integration Points
+
+| Existing File | Change Type | What Changes |
+|--------------|-------------|-------------|
+| `src/lib/scraper/pipeline.ts` | MODIFIED | Set `location` column on insert/upsert |
+| `src/lib/leads/queries.ts` | MODIFIED | Replace Haversine with PostGIS ST_DWithin, add SQL-level industry/date filters |
+| `src/lib/db/schema/leads.ts` | NO CHANGE | `location` column and GiST index already exist |
+
+### Note on Neon + PostGIS
+
+Neon PostgreSQL supports PostGIS -- the `location` column and GiST index are already defined in the schema. ST_DWithin on a GiST-indexed geometry column is dramatically faster than computing Haversine on every row. Neon's pricing is based on compute units (CU-hours), not query count, so spatial queries don't cost more than Haversine queries -- they just use less compute time.
 
 ---
 
-### 8. Lead Enrichment Pipeline
+## Architecture Change 5: New Data Source Integration
 
-**Status: NEW (enrichment module, cron handler, schema)**
+### Data Source Inventory
 
-#### Current State
+Each source maps to an adapter type. Sources marked "Generic" use the dynamic portal discovery system. Sources marked "Custom" need dedicated adapter files.
 
-Geocoding is the only "enrichment" and it happens inline during the scrape pipeline (`geocodeBatch()` in `pipeline.ts`). This creates two problems:
-1. Geocoding failures block lead storage (the lead is stored without coordinates)
-2. Adding more enrichment steps (property data, weather, incentives) would make the scrape pipeline too slow
+| Source | Type | Adapter Pattern | Priority | Confidence |
+|--------|------|----------------|----------|------------|
+| Socrata permit portals (hundreds) | permit | Generic Socrata | P0 | HIGH |
+| ArcGIS Hub permit portals (hundreds) | permit | Generic ArcGIS (NEW) | P1 | MEDIUM |
+| SAM.gov federal bids | bid | Custom (exists) | P0 | HIGH |
+| USAspending.gov | bid | Custom (NEW) | P2 | MEDIUM |
+| NWS storm alerts | storm | Custom (exists) | P0 | HIGH |
+| FEMA disasters | disaster | Custom (exists) | P0 | HIGH |
+| Socrata violation portals | violation | Generic Socrata | P1 | HIGH |
+| Census Building Permits Survey | permit | Custom (NEW) | P3 | MEDIUM |
+| HUD residential permits by county | permit | Custom (NEW) | P3 | MEDIUM |
+| State DOT bid boards | bid | Custom per state (deferred) | P4 | LOW |
+| ENR / ConstructionDive news | news | Custom (exists) | P0 | HIGH |
+| RSS news feeds | news | Custom (exists) | P0 | HIGH |
+| EIA utility rates | utility | Custom (exists) | P0 | HIGH |
+| DSIRE incentive database | incentive | Custom (NEW) | P2 | MEDIUM |
+| Google dorking | deep-web | Custom (exists) | P1 | HIGH |
 
-#### Target: Separate Enrichment Pipeline
-
-Enrichment runs AFTER scraping, on a separate cron schedule (`30 6 * * *`). It processes leads that lack enrichment data.
-
-**Architecture:**
-
-```
-Scrape Pipeline (6:00 AM)           Enrichment Pipeline (6:30 AM)
-        |                                    |
-        v                                    v
-  Insert raw leads                   SELECT leads WHERE
-  (with content_hash,                  enrichment_status = 'pending'
-   minimal geocoding)                    |
-        |                                v
-        v                           For each lead:
-  leads table                         1. Geocode (if lat/lng missing)
-  (enrichment_status                  2. Property lookup
-   = 'pending')                       3. Weather overlay
-                                      4. Incentive matching
-                                         |
-                                         v
-                                    INSERT lead_enrichments
-                                    UPDATE leads SET
-                                      enrichment_status = 'complete'
-```
-
-**Enrichment data model:**
+### New Source Types to Add to Schema
 
 ```typescript
-// src/lib/db/schema/lead-enrichments.ts (NEW)
-
-export const leadEnrichments = pgTable("lead_enrichments", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }).unique(),
-  // Geocoding
-  geocodeSource: text("geocode_source"),  // "google", "census", "fallback"
-  geocodeConfidence: real("geocode_confidence"),
-  // Property data
-  propertyType: text("property_type"),
-  buildingSqft: integer("building_sqft"),
-  yearBuilt: integer("year_built"),
-  ownerName: text("owner_name"),
-  ownerContact: text("owner_contact"),
-  // Weather
-  activeStormAlerts: text("active_storm_alerts").array(),
-  lastStormDate: timestamp("last_storm_date"),
-  // Incentives
-  applicableIncentives: text("applicable_incentives").array(),
-  incentiveTotalValue: integer("incentive_total_value"),
-  // Metadata
-  enrichedAt: timestamp("enriched_at").defaultNow().notNull(),
-  enrichmentVersion: integer("enrichment_version").default(1),
-});
+// src/lib/scraper/adapters/base-adapter.ts -- MODIFIED
+export const sourceTypes = [
+  "permit", "bid", "news", "deep-web", "storm",
+  "disaster", "violation",
+  // NEW:
+  "incentive",   // Tax credits, rebate programs (solar, EV, energy efficiency)
+  "utility",     // Utility rate changes (already exists in data but not in sourceTypes)
+] as const;
 ```
 
-**Integration with lead queries:** The enrichment data is LEFT JOINed at query time, not merged into the leads table. This keeps the leads table clean and allows re-enrichment without data loss.
+### Generic ArcGIS Adapter (New)
 
 ```typescript
-// In queries.ts:
-const rows = await db
-  .select({
-    ...getTableColumns(leads),
-    enrichment: getTableColumns(leadEnrichments),
-    distance: distanceExpr,
-  })
-  .from(leads)
-  .leftJoin(leadEnrichments, eq(leadEnrichments.leadId, leads.id))
-  // ... existing WHERE, JOINs, etc.
-```
+// src/lib/scraper/adapters/generic-arcgis-adapter.ts (NEW FILE)
 
-**Geocoding migration:** Move geocoding from `pipeline.ts` into the enrichment pipeline. During migration, the pipeline continues to geocode inline (for backward compatibility) until the enrichment pipeline is stable.
+export class GenericArcGISAdapter implements ScraperAdapter {
+  constructor(portal: DataPortalRow) { /* ... */ }
 
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/db/schema/lead-enrichments.ts` | NEW | Enrichment data table |
-| `src/lib/enrichment/pipeline.ts` | NEW | Enrichment orchestrator |
-| `src/lib/enrichment/geocode.ts` | NEW | Enhanced geocoding (move from scraper) |
-| `src/lib/enrichment/property.ts` | NEW | Property data lookup |
-| `src/lib/enrichment/weather.ts` | NEW | Weather overlay |
-| `src/lib/enrichment/incentives.ts` | NEW | Incentive matching |
-| `src/app/api/cron/enrichment/route.ts` | NEW | Cron handler |
-| `src/lib/leads/queries.ts` | MODIFIED | LEFT JOIN enrichment data |
-| `src/lib/scraper/pipeline.ts` | MODIFIED | Remove geocoding (after enrichment pipeline is stable) |
-
----
-
-### 9. CRM-Lite Bookmarks
-
-**Status: MODIFIED (bookmarks schema, bookmark action, bookmarks page)**
-
-#### Current State
-
-Bookmarks are a simple toggle: insert or delete a row. No notes, no pipeline status.
-
-- `bookmarks` table: id, leadId, userId, organizationId, createdAt
-- `toggleBookmark()` action: check exists -> delete (if yes) -> insert (if no)
-- Bookmarks page: lists bookmarked leads with same enriched data as feed
-
-#### Target: Bookmarks with Notes + Pipeline Status
-
-**Schema change (from step 1):** `notes` (text), `pipeline_status` (text, default 'saved'), `updated_at` (timestamp)
-
-**Pipeline statuses:** `saved` -> `qualifying` -> `contacted` -> `proposal` -> `won` -> `lost`
-
-This replaces the per-lead `leadStatuses` table for bookmarked leads. The key difference: `leadStatuses` tracks viewing/contact state for ALL leads (including non-bookmarked), while `bookmarks.pipeline_status` tracks deal progress for SAVED leads. They coexist.
-
-**Action changes:**
-
-```typescript
-// src/actions/bookmarks.ts (MODIFIED)
-
-// Existing: toggleBookmark(leadId) -- unchanged for basic toggle
-
-// NEW: update bookmark metadata
-export async function updateBookmarkNotes(
-  leadId: string,
-  notes: string
-): Promise<void> { ... }
-
-export async function updateBookmarkPipelineStatus(
-  leadId: string,
-  status: PipelineStatus
-): Promise<void> { ... }
-
-// MODIFIED: getBookmarkedLeads() returns full bookmark data
-export async function getBookmarkedLeadsWithMetadata(): Promise<BookmarkWithLead[]> {
-  // JOIN bookmarks with leads, include notes and pipeline_status
+  async scrape(): Promise<RawLeadData[]> {
+    // ArcGIS Feature Services expose a query endpoint:
+    // GET https://{domain}/arcgis/rest/services/{service}/FeatureServer/0/query
+    //   ?where=issue_date > DATE '2026-02-17'
+    //   &outFields=*
+    //   &f=json
+    //   &resultRecordCount=1000
+    const url = `https://${this.domain}${this.servicePath}/query`;
+    const params = new URLSearchParams({
+      where: `${this.fieldMap.dateField} > DATE '${thirtyDaysAgo}'`,
+      outFields: "*",
+      f: "json",
+      resultRecordCount: "1000",
+    });
+    // ... fetch, map records using fieldMap ...
+  }
 }
 ```
 
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/db/schema/bookmarks.ts` | MODIFIED | Add notes, pipeline_status, updated_at (done in step 1) |
-| `src/actions/bookmarks.ts` | MODIFIED | Add updateBookmarkNotes, updateBookmarkPipelineStatus, getBookmarkedLeadsWithMetadata |
-| `src/app/(dashboard)/dashboard/bookmarks/page.tsx` | MODIFIED | Show notes, pipeline status, edit UI |
-| `src/components/dashboard/bookmark-card.tsx` | NEW or MODIFIED | Notes editor, pipeline status dropdown |
+### USAspending API Adapter (New)
+
+```typescript
+// src/lib/scraper/adapters/usaspending-adapter.ts (NEW FILE)
+// Endpoint: https://api.usaspending.gov/api/v2/search/spending_by_award/
+// Filters: NAICS codes for construction, date range
+// Free, no API key required, rate limit is generous
+```
+
+### Integration Points for New Sources
+
+| Existing File | Change Type | What Changes |
+|--------------|-------------|-------------|
+| `src/lib/scraper/adapters/base-adapter.ts` | MODIFIED | Add `"incentive"` and `"utility"` to `sourceTypes` |
+| `src/lib/scraper/adapters/index.ts` | MODIFIED | Import and instantiate new adapters |
+| `src/lib/scoring/relevance.ts` | MODIFIED | Add `SOURCE_TYPE_TO_LEAD_TYPE` entries for new types |
+| `src/lib/scoring/urgency.ts` | NO CHANGE | Already handles incentive/storm/bid urgency |
+| `src/lib/scraper/api-rate-limiter.ts` | MODIFIED | Add rate limiter for ArcGIS, USAspending |
 
 ---
 
-### 10. Email System Expansion
+## Data Flow (Before vs After)
 
-**Status: MODIFIED (email senders, digest generator) + NEW (React Email templates, storm alert, unsubscribe)**
-
-#### Current State
-
-- 2 email templates: `daily-digest.tsx`, `password-reset.tsx` (React components rendered by Resend)
-- `send-digest.ts` sends via Resend SDK
-- `digest-generator.ts` generates per-user digests
-- No unsubscribe mechanism (CAN-SPAM violation risk)
-
-#### Target: React Email Templates + Storm Alerts + Unsubscribe
-
-**React Email integration:** Already in use. The existing templates use React components rendered by Resend's `react` option. Expand this pattern to all email types.
-
-**New templates:**
-
-| Template | File | Trigger |
-|----------|------|---------|
-| Daily Digest (enhanced) | `src/components/emails/daily-digest.tsx` | MODIFIED |
-| Storm Alert | `src/components/emails/storm-alert.tsx` | NEW |
-| Welcome Email | `src/components/emails/welcome.tsx` | NEW |
-| Trial Expiring (3-day) | `src/components/emails/trial-expiring.tsx` | NEW |
-| Trial Expired | `src/components/emails/trial-expired.tsx` | NEW |
-| Password Reset | `src/components/emails/password-reset.tsx` | EXISTING |
-
-**All templates must include:**
-1. Unsubscribe link (CAN-SPAM)
-2. Physical mailing address (CAN-SPAM)
-3. Company branding
-
-**Unsubscribe mechanism:**
-
-```typescript
-// src/lib/db/schema/unsubscribe-tokens.ts (NEW)
-export const unsubscribeTokens = pgTable("unsubscribe_tokens", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  userId: text("user_id").notNull(),
-  organizationId: text("organization_id").notNull(),
-  token: text("token").notNull().unique(),
-  emailType: text("email_type").notNull(),  // "digest", "storm", "all"
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-```
-
-**Unsubscribe flow:**
+### Before (Current)
 
 ```
-Email footer contains: "Unsubscribe: https://app.leadforge.com/unsubscribe/{token}"
-    |
-    v
-GET /unsubscribe/[token] -- server component page
-    |
-    v
-Look up token -> show "Unsubscribed from [type] emails" page
-    |
-    v
-Mark user's preference in DB (or delete saved search digest flag)
+Vercel Cron -> getAllAdapters() [hardcoded 15 adapters]
+  -> runPipeline() [sequential, single invocation]
+    -> adapter.scrape() [fetch from source]
+    -> validate (Zod)
+    -> geocode (if no lat/lng)
+    -> upsert to leads table
+    -> dedup
+  -> enrichLeads() [separate cron, sets applicableIndustries]
+  -> User opens dashboard
+    -> getFilteredLeadsCursor() [Haversine on all rows, score in JS]
+    -> Return scored leads
 ```
 
-**Storm alert architecture:**
+### After (v4.0)
 
 ```
-NOAA cron (every 2h) polls weather API
-    |
-    v
-New severe weather event detected in a region
-    |
-    v
-Query: which organizations have service areas overlapping the storm region?
-    |
-    v
-For each affected org:
-  - Query leads in storm-affected area
-  - Generate storm alert email with affected leads
-  - Send via Resend
-    |
-    v
-Storm alert cron (every 30 min) checks for pending alerts to send
-```
+Weekly: /api/cron/discover
+  -> Query Socrata Discovery API for permit/violation datasets
+  -> Query ArcGIS Hub Search API for Feature Services
+  -> Infer field mappings from column names
+  -> Upsert into data_portals table
 
-| File | Status | Description |
-|------|--------|-------------|
-| `src/components/emails/daily-digest.tsx` | MODIFIED | Add unsubscribe link, branding |
-| `src/components/emails/storm-alert.tsx` | NEW | Storm alert template |
-| `src/components/emails/welcome.tsx` | NEW | Welcome email |
-| `src/components/emails/trial-expiring.tsx` | NEW | Trial expiry warning |
-| `src/lib/email/send-digest.ts` | MODIFIED | Include unsubscribe token |
-| `src/lib/email/send-storm-alert.ts` | NEW | Storm alert sender |
-| `src/lib/email/unsubscribe.ts` | NEW | Token generation and validation |
-| `src/lib/db/schema/unsubscribe-tokens.ts` | NEW | Unsubscribe tokens table |
-| `src/app/unsubscribe/[token]/page.tsx` | NEW | Unsubscribe landing page |
-| `src/app/api/cron/storm-alerts/route.ts` | NEW | Storm alert dispatch cron |
-| `src/lib/email/digest-generator.ts` | MODIFIED | Check unsubscribe status before sending |
+Daily: /api/cron/scrape (orchestrator)
+  -> Query data_portals for enabled portals
+  -> Instantiate GenericSocrataAdapter / GenericArcGISAdapter per portal
+  -> Add static adapters (SAM.gov, NWS, FEMA, news, etc.)
+  -> Fan out to /api/cron/scrape/batch (batches of 10)
+    -> runPipeline(batch) [existing pipeline, error-isolated]
+      -> adapter.scrape()
+      -> validate (Zod)
+      -> geocode (if no lat/lng)
+      -> upsert to leads table + populate location column
+      -> dedup
+
+Daily: /api/cron/enrich (enhanced)
+  -> enrichLeads()
+    -> inferApplicableIndustries() [existing]
+    -> estimateValueFromProjectType() [NEW -- sets valueTier]
+    -> inferSeverity() [NEW -- sets severity for violations]
+
+User opens dashboard:
+  -> getFilteredLeadsCursor()
+    -> ST_DWithin spatial filter [PostGIS GiST index]
+    -> SQL-level industry/date/sourceType filters
+    -> Fetch 200 candidates (not all)
+    -> Score in JS with fixed scoring engine [produces 15-85 range]
+    -> Sort, paginate, return
+```
 
 ---
 
-### 11. Cross-Industry Lead Relevance
+## Patterns to Follow
 
-**Status: NEW (junction table, query modifications)**
+### Pattern 1: Config-Driven Adapters
 
-#### Current State
+**What:** Store adapter configuration as data (DB rows) instead of code (TypeScript files). The adapter class reads config at runtime.
 
-Leads have no industry association. All leads are implicitly "construction/heavy equipment." The `sourceType` field (permit/bid/news/deep-web) is source-specific, not industry-specific.
+**When:** Any data source where the only difference between instances is field names and endpoint URLs. Socrata portals and ArcGIS Feature Services are ideal candidates.
 
-#### Target: Lead-Industry Junction Table
+**Example:** See Generic Socrata Adapter in Change 1 above.
 
-A lead can be relevant to multiple industries. A permit for "commercial HVAC installation" is relevant to both HVAC and electrical contractors.
+**Why:** Adding a new city goes from "write a TypeScript file, import it, deploy" to "insert a DB row." The discovery cron can add cities automatically.
 
-```typescript
-// src/lib/db/schema/lead-industries.ts (NEW)
+### Pattern 2: Fan-Out Batch Execution
 
-export const leadIndustries = pgTable(
-  "lead_industries",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    leadId: uuid("lead_id").notNull().references(() => leads.id, { onDelete: "cascade" }),
-    industry: text("industry").notNull(),
-    confidence: real("confidence").default(1.0),  // 0-1 how confident the assignment is
-    assignedAt: timestamp("assigned_at").defaultNow().notNull(),
-    assignedBy: text("assigned_by").notNull(),  // "scraper", "enrichment", "manual"
-  },
-  (table) => [
-    uniqueIndex("lead_industries_lead_industry_idx").on(table.leadId, table.industry),
-    index("lead_industries_industry_idx").on(table.industry),
-  ]
-);
-```
+**What:** An orchestrator cron splits work into batches and fires parallel HTTP requests to a batch endpoint. Each batch runs in its own serverless function invocation.
 
-**Industry assignment happens at two points:**
+**When:** Total work exceeds a single function's timeout but each batch fits comfortably.
 
-1. **Scrape time:** The adapter knows its industry (from the registry). When a lead is inserted, the pipeline also inserts a `lead_industries` row.
-2. **Enrichment time:** The enrichment pipeline analyzes lead content (permit type, description keywords) and may add additional industry assignments.
+**Example:** See Batch Pipeline Runner in Change 3 above.
 
-**Query integration:** The lead feed query adds an industry filter:
+**Why:** Stays within Vercel's infrastructure. No external queue needed. Each batch gets its own 300-second timeout.
 
-```typescript
-// In getFilteredLeads():
-query = query
-  .innerJoin(
-    leadIndustries,
-    and(
-      eq(leadIndustries.leadId, leads.id),
-      eq(leadIndustries.industry, organizationIndustry)
-    )
-  );
-```
+### Pattern 3: Enrichment as Inference Layer
 
-This ensures a heavy equipment user only sees leads tagged as relevant to heavy equipment, even if the same physical lead is also relevant to HVAC.
+**What:** Treat enrichment as a data inference step that fills in missing fields, not just tagging. Estimate values, infer severity, classify industries using heuristics.
 
-**Backfill migration:** All existing leads are tagged as `heavy_equipment` with confidence 1.0 and assignedBy `migration`.
+**When:** Source data is sparse (most Socrata portals omit valuation, many lack project type details).
 
-| File | Status | Description |
-|------|--------|-------------|
-| `src/lib/db/schema/lead-industries.ts` | NEW | Junction table |
-| `src/lib/scraper/pipeline.ts` | MODIFIED | Insert lead_industries rows during scraping |
-| `src/lib/leads/queries.ts` | MODIFIED | INNER JOIN on lead_industries for industry filtering |
-| `src/lib/enrichment/industry-classifier.ts` | NEW | Classify lead into industries by content analysis |
-
----
-
-## Build Order (Minimizes Breaking Changes)
-
-The following order ensures each phase is independently deployable and does not break existing functionality.
-
-```
-Phase A: Schema Foundation
-  |  - Add industry to organization + backfill
-  |  - Rename company_profiles -> organization_profiles + add columns
-  |  - Add columns to leads (content_hash, etc.)
-  |  - Add columns to bookmarks (notes, pipeline_status)
-  |  - Create new tables (lead_enrichments, lead_industries, scraper_runs, unsubscribe_tokens)
-  |  - Update ALL import paths across codebase
-  |  - Backfill: existing leads get lead_industries rows (heavy_equipment)
-  |
-  |  DEPLOYABLE: App works exactly as before (new columns are nullable/defaulted)
-  v
-Phase B: Onboarding Wizard
-  |  - useReducer state machine
-  |  - 6-step wizard with industry selection
-  |  - New onboarding action writing to organization.industry + organization_profiles
-  |  - Industry-conditional validation schemas
-  |
-  |  DEPLOYABLE: New users see expanded onboarding; existing users unaffected
-  v
-Phase C: Scraper Registry + New Adapters
-  |  - Industry-keyed registry
-  |  - Permit adapter factory
-  |  - 4+ new adapters (NOAA, FEMA, code violations, incentives)
-  |  - Parameterized cron route (/api/cron/scrape/[industry])
-  |  - ScraperAdapter interface extension (industries field)
-  |  - Pipeline writes lead_industries rows
-  |
-  |  DEPLOYABLE: New cron jobs fire, new lead types appear
-  v
-Phase D: Hash-Based Dedup
-  |  - Content hash computation
-  |  - Pipeline uses hash-based upsert
-  |  - Backfill existing leads with content hashes
-  |  - Geographic+text dedup demoted to fallback
-  |
-  |  DEPLOYABLE: Dedup is more reliable, no visible UX change
-  v
-Phase E: Scoring Engine + Cursor Pagination
-  |  - 5-dimension scoring
-  |  - Industry-specific relevance inference
-  |  - Match reasons
-  |  - Cursor-based pagination
-  |  - Dashboard query integration
-  |
-  |  DEPLOYABLE: Better scores, stable pagination, match reasons in UI
-  v
-Phase F: Enrichment Pipeline
-  |  - Enrichment module (geocode, property, weather, incentives)
-  |  - lead_enrichments table population
-  |  - Enrichment cron job
-  |  - Query LEFT JOINs enrichment data
-  |  - Migrate geocoding from scrape pipeline to enrichment
-  |
-  |  DEPLOYABLE: Leads gain richer data over time
-  v
-Phase G: CRM-Lite Bookmarks
-  |  - Bookmark notes + pipeline status actions
-  |  - Bookmarks page UI update
-  |  - Pipeline status tracking
-  |
-  |  DEPLOYABLE: Bookmarks gain CRM features
-  v
-Phase H: Email System
-  |  - React Email templates (storm, welcome, trial)
-  |  - Unsubscribe mechanism
-  |  - Storm alert cron
-  |  - Digest enhancement with unsubscribe
-  |
-  |  DEPLOYABLE: New email types, CAN-SPAM compliance
-  v
-Phase I: Dashboard + UI
-  |  - Filter panel redesign
-  |  - Score badges + match reasons
-  |  - Storm alert UI
-  |  - Industry-specific theming
-  |
-  |  DEPLOYABLE: Visual refresh
-```
-
-**Why this order:**
-
-1. **Schema first** because every other feature depends on the new/modified tables. Additive-only changes ensure zero breakage.
-2. **Onboarding second** because new users need to select an industry before industry-specific features work. Existing users default to `heavy_equipment`.
-3. **Scraper registry third** because new adapters need the industry dimension in the registry and the `lead_industries` junction table.
-4. **Hash dedup fourth** because it simplifies the pipeline before adding more adapters and enrichment.
-5. **Scoring + pagination fifth** because they depend on the industry field existing in organization profiles and lead_industries being populated.
-6. **Enrichment sixth** because it depends on the leads table having content_hash and the enrichments table existing.
-7. **CRM bookmarks seventh** because it is a self-contained UI feature that depends only on the schema change from Phase A.
-8. **Email eighth** because storm alerts depend on weather adapters (Phase C) and enrichment data (Phase F).
-9. **Dashboard UI last** because it consumes all the data produced by Phases C-H and should be built once the data flows are stable.
+**Why:** The scoring engine can only produce variance from data that exists. If 80% of leads have null values on a scoring dimension, that dimension contributes no differentiation. Enrichment fills the gaps.
 
 ---
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Adding `industry` to Better Auth's metadata JSON
+### Anti-Pattern 1: One File Per City
 
-**What people do:** Store industry in `organization.metadata` (a text column) to avoid "modifying Better Auth tables."
-**Why it's wrong:** `metadata` is untyped, unindexed, and parsed as JSON at every read. Industry is queried constantly (scraper selection, scoring, feed filtering). It must be a first-class column.
-**Do this instead:** Add an `industry` column directly to the `organization` table in the Drizzle schema. Better Auth's Drizzle adapter respects custom columns.
+**What:** Creating `phoenix-permits.ts`, `chicago-permits.ts`, `nyc-permits.ts`, etc.
+**Why bad:** Maintenance nightmare at 100+ cities. Each file does the same thing with different column names. Deployment required for each new city.
+**Instead:** Generic adapter + portal registry (DB-driven configuration).
 
-### Anti-Pattern 2: Global Scraper Run for Multi-Industry
+### Anti-Pattern 2: Scoring in SQL
 
-**What people do:** Keep one cron job that runs ALL adapters for ALL industries.
-**Why it's wrong:** A single function running 30+ adapters will exceed the 300s timeout. One failing adapter blocks all industries.
-**Do this instead:** One cron per industry. Each runs independently, fails independently, and stays within timeout.
+**What:** Trying to compute the full 5-dimension score as a SQL expression.
+**Why bad:** The scoring function uses org-specific context (specializations, preferred lead types, industry keywords) that requires procedural logic. SQL expressions would be unmaintainable.
+**Instead:** Use SQL for spatial filtering and coarse filtering. Score the filtered result set (200 rows, not 200K) in JavaScript.
 
-### Anti-Pattern 3: Storing Scores in the Database
+### Anti-Pattern 3: Fetching All Leads for Pagination
 
-**What people do:** Compute scores at insert time and store in a `score` column.
-**Why it's wrong:** The same lead scores differently for each subscriber (different HQ location, specializations, service radius). Stored scores are subscriber-agnostic.
-**Do this instead:** Compute at query time. The current architecture already does this correctly. Keep it.
+**What:** `SELECT * FROM leads WHERE distance < radius` with no LIMIT, then paginating in JS.
+**Why bad:** OOM at scale. 200K rows * 500 bytes = 100MB per request.
+**Instead:** Use PostGIS ST_DWithin for spatial filtering (GiST indexed), apply SQL-level filters for industry/date/sourceType, LIMIT to 200 rows, score in JS, cursor-paginate.
 
-### Anti-Pattern 4: Dropping `company_profiles` and Recreating as `organization_profiles`
+### Anti-Pattern 4: Global Rate Limiter Across Batches
 
-**What people do:** Delete the old table and create a new one.
-**Why it's wrong:** Loses all existing profile data. Drizzle Kit generates DROP TABLE + CREATE TABLE instead of ALTER TABLE RENAME.
-**Do this instead:** Use Drizzle Kit's rename detection. When prompted "Was 'organization_profiles' table created or renamed from another table?", answer "renamed from company_profiles."
-
-### Anti-Pattern 5: Coupling Storm Alerts to the Scrape Pipeline
-
-**What people do:** Check for storms inside the scraping cron.
-**Why it's wrong:** Storms need faster response (every 2 hours or even 30 minutes). The scrape pipeline runs once daily. Coupling means storm alerts are always stale.
-**Do this instead:** Separate weather cron with its own schedule and function.
-
-### Anti-Pattern 6: Making the Content Hash Too Specific
-
-**What people do:** Include ALL lead fields in the hash (description, estimatedValue, dates, etc.).
-**Why it's wrong:** A lead's description may change across sources or over time. An overly-specific hash treats minor text differences as separate leads.
-**Do this instead:** Hash IDENTITY fields only: rounded lat/lng (geographic identity), normalized address/title (textual identity), and permit number (when available). The hash answers "is this the same real-world project?" not "is this the exact same record?"
-
-### Anti-Pattern 7: Inline Enrichment During Scraping
-
-**What people do:** Call property APIs, weather APIs, and incentive APIs during the scrape pipeline.
-**Why it's wrong:** Adds latency and failure points to the critical path. If the property API is down, scraping fails. Enrichment data can arrive later.
-**Do this instead:** Scrape produces raw leads with minimal processing. Enrichment runs separately, tolerates partial failures, and can be re-run.
-
----
-
-## Component Boundary Summary
-
-| Boundary | Direction | Protocol | v3.0 Changes |
-|----------|-----------|----------|--------------|
-| Browser <-> Next.js | HTTP | App Router (RSC, server actions) | Modified onboarding, new cron routes, unsubscribe route |
-| Server Components <-> Auth | Direct import | `auth.api.getSession()` | Read industry from organization |
-| Server Components <-> DB | Direct import | Drizzle query builder | New JOINs (lead_industries, lead_enrichments), new tables |
-| Scraper <-> Registry | Direct import | Industry-keyed Map | Industry dimension added |
-| Pipeline <-> DB | Direct import | Drizzle insert/upsert | Content hash upsert, lead_industries insert |
-| Enrichment <-> DB | Direct import | Drizzle insert/update | New module, writes to lead_enrichments |
-| Enrichment <-> External APIs | HTTP | Various (NOAA, property APIs) | New external service integrations |
-| Email <-> Resend | HTTP | Resend SDK | New email types, unsubscribe tokens |
-| Cron <-> Functions | HTTP | Vercel Cron -> GET handler | 10 cron jobs (from 1) |
+**What:** Trying to share a p-queue instance across serverless function invocations.
+**Why bad:** Serverless functions are stateless. A singleton in one invocation is invisible to another.
+**Instead:** Design batch sizes so each batch respects rate limits independently. 10 Socrata adapters per batch, each making 1 request = 10 requests per batch invocation, well within the 8 req/min limit.
 
 ---
 
 ## Scalability Considerations
 
-| Concern | At 100 orgs (current) | At 1K orgs | At 10K orgs |
-|---------|----------------------|------------|-------------|
-| Lead volume | ~10K leads | ~100K leads | ~1M leads |
-| Scraping time | 5 min (1 cron) | 5 min (5 crons, parallel) | May need adapter-level parallelism |
-| Query performance | Haversine adequate | Add composite indexes | Consider PostGIS upgrade |
-| Scoring compute | ~50ms per page | ~200ms per page | Consider materialized scores |
-| Enrichment queue | Process all daily | Batch by priority | Worker queue (BullMQ/Inngest) |
-| Email volume | ~100 emails/day | ~1K emails/day | Resend rate limits, batch sends |
-| Cron duration | Well within 300s | Monitor per-industry | Split large industries by region |
+| Concern | At 3 Cities (Now) | At 100 Portals | At 500 Portals |
+|---------|-------------------|----------------|----------------|
+| Pipeline execution time | ~30s single invocation | ~5 batches x 60s each | ~50 batches, fan-out with QStash |
+| Leads in DB | ~5,000 | ~100,000 | ~500,000+ |
+| Feed query (50mi radius, metro) | ~500 leads, JS scoring OK | ~5,000 leads, PostGIS + LIMIT needed | ~20,000 leads, PostGIS essential |
+| Neon compute (daily scrape) | ~0.01 CU-hours | ~0.1 CU-hours | ~0.5 CU-hours |
+| Geocoding API calls | ~200/day | ~2,000/day | ~10,000/day -- need free geocoder |
+| Vercel function invocations | 11 crons/day | ~20 crons/day | ~60 crons/day |
+| Neon storage | ~50 MB | ~500 MB | ~2 GB |
+
+### Geocoding at Scale
+
+At 500+ portals generating 10K+ new leads/day, the Google Maps Geocoding API ($5/1000 requests) becomes expensive. Solutions:
+
+1. **Prefer portals that include lat/lng** -- many Socrata portals do. The discovery service should flag portals with geographic columns.
+2. **Use Nominatim (OpenStreetMap)** for batch geocoding -- free, self-hosted or API with 1 req/sec limit.
+3. **Geocode asynchronously** -- new leads without coordinates get geocoded by a separate cron, not blocking the pipeline.
+
+### Neon Connection Pooling
+
+The neon-http driver used by this project is connectionless (HTTP-based), so traditional connection pooling is not a concern. Each query is an independent HTTP request. At 500 portals with batch fan-out, the peak concurrent requests to Neon would be ~10 (one per batch), well within the 10K pooled connection limit.
+
+---
+
+## Suggested Build Order
+
+Based on dependency analysis and the principle of "fix what is broken before adding more":
+
+### Phase 1: Fix Scoring Engine (No Dependencies)
+
+**Files to modify:**
+- `src/lib/scraper/enrichment.ts` -- Add `estimateValueFromProjectType()`, update `enrichLeads()` to set `valueTier`
+- `src/lib/scoring/relevance.ts` -- Replace flat low-confidence score with `scoreProjectTypeForIndustry()`
+- `src/lib/scoring/value.ts` -- Use `valueTier` as proxy when `estimatedValue` is null
+- `src/lib/scoring/urgency.ts` -- Differentiate permit urgency by project type + recency
+
+**Validation:** Run enrichment on existing leads, then verify score distribution. Should see range of 15-85 instead of 28-38.
+
+**Why first:** Scoring fix is independent of all other changes. Produces immediate visible improvement for existing leads. No schema changes needed. No risk of breaking the pipeline.
+
+### Phase 2: Portal Registry + Generic Adapter
+
+**Files to create:**
+- `src/lib/db/schema/data-portals.ts` -- New table schema
+- `src/lib/scraper/portal-field-map.ts` -- Field map Zod schema
+- `src/lib/scraper/adapters/generic-socrata-adapter.ts` -- Config-driven adapter
+- `src/lib/scraper/discovery/field-mapper.ts` -- Column name inference
+
+**Files to modify:**
+- `src/lib/db/schema/index.ts` -- Export `dataPortals`
+- `src/lib/scraper/adapters/index.ts` -- `getAllAdapters()` reads from `data_portals` + static adapters
+
+**Seed data:** Migrate Austin, Dallas, Atlanta configs to `data_portals` rows.
+
+**Validation:** Run pipeline with generic adapter for Austin, verify same results as hardcoded `AustinPermitsAdapter`.
+
+**Why second:** Enables adding portals without code changes. Prerequisite for discovery cron and nationwide expansion.
+
+### Phase 3: PostGIS Query Optimization
+
+**Files to modify:**
+- `src/lib/scraper/pipeline.ts` -- Populate `location` column on upsert
+- `src/lib/leads/queries.ts` -- Replace Haversine WHERE with ST_DWithin, add SQL-level filters
+
+**Migration:** Backfill `location` column for existing leads: `UPDATE leads SET location = ST_SetSRID(ST_MakePoint(lng, lat), 4326) WHERE lat IS NOT NULL AND lng IS NOT NULL AND location IS NULL`
+
+**Validation:** Compare query results before/after. Same leads returned, faster execution.
+
+**Why third:** Prevents feed queries from breaking when lead count grows 10-100x. Must be done before large-scale data ingestion.
+
+### Phase 4: Batch Pipeline Execution
+
+**Files to create:**
+- `src/app/api/cron/scrape/batch/route.ts` -- Batch execution endpoint
+
+**Files to modify:**
+- `src/app/api/cron/scrape/route.ts` -- Orchestrator fans out to batch endpoint
+
+**Validation:** Run pipeline with 20+ adapters, verify all batches complete within timeout.
+
+**Why fourth:** Only needed once adapter count exceeds what fits in 300 seconds. With generic adapter + portal registry, this becomes necessary.
+
+### Phase 5: Discovery Cron + Nationwide Expansion
+
+**Files to create:**
+- `src/app/api/cron/discover/route.ts` -- Weekly discovery cron
+- `src/lib/scraper/discovery/socrata-discovery.ts` -- Socrata catalog API client
+- `src/lib/scraper/discovery/arcgis-discovery.ts` -- ArcGIS Hub API client
+
+**Files to modify:**
+- `vercel.json` -- Add discover cron schedule
+
+**Validation:** Run discovery, verify new portals appear in `data_portals`. Run pipeline, verify leads from new portals.
+
+**Why fifth:** Depends on portal registry (Phase 2), batch execution (Phase 4), and query optimization (Phase 3). This is the "go nationwide" phase.
+
+### Phase 6: New Data Source Adapters
+
+**Files to create:**
+- `src/lib/scraper/adapters/generic-arcgis-adapter.ts`
+- `src/lib/scraper/adapters/usaspending-adapter.ts`
+- `src/lib/scraper/adapters/dsire-incentive-adapter.ts`
+
+**Files to modify:**
+- `src/lib/scraper/adapters/base-adapter.ts` -- Add new source types
+- `src/lib/scraper/adapters/index.ts` -- Register new adapters
+- `src/lib/scraper/api-rate-limiter.ts` -- Add rate limiters for new APIs
+
+**Why last:** New sources add breadth but depend on scoring (Phase 1) and query optimization (Phase 3) being in place first. Adding more leads to a broken scoring engine or an unoptimized feed query makes the problems worse.
 
 ---
 
 ## Sources
 
-- Codebase analysis of 40+ source files (HIGH confidence: direct code inspection)
-- [Vercel Cron Jobs Usage & Pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) -- 100 crons per project on all plans, Hobby limited to daily (HIGH confidence: official docs, updated January 2026)
-- [Vercel Functions Limits](https://vercel.com/docs/functions/limitations) -- maxDuration 300s default, 800s with Fluid Compute on Pro (HIGH confidence: official docs)
-- [Drizzle ORM Migrations](https://orm.drizzle.team/docs/migrations) -- rename detection, custom migrations, generate workflow (HIGH confidence: official docs)
-- [Drizzle ORM Cursor-Based Pagination](https://orm.drizzle.team/docs/guides/cursor-based-pagination) -- composite cursor patterns, UUID + sequential column requirement (HIGH confidence: official docs)
-- [React Email](https://react.email) -- template library for email rendering (HIGH confidence: official docs)
-- [Resend + Next.js](https://resend.com/docs/send-with-nextjs) -- Server Actions integration pattern (HIGH confidence: official docs)
-
----
-*Architecture research for: LeadForge v3.0 Multi-Industry Platform*
-*Researched: 2026-03-16*
+- [Socrata Discovery API documentation](https://dev.socrata.com/docs/other/discovery) - HIGH confidence
+- [Socrata Discovery API Apiary docs](https://socratadiscovery.docs.apiary.io/) - HIGH confidence
+- [ArcGIS Hub v3 Search API](https://gist.github.com/jgravois/1b7ec5080e992a59f65cf7a2190e4365) - MEDIUM confidence
+- [Neon PostgreSQL pricing and limits](https://neon.com/pricing) - HIGH confidence
+- [Vercel function duration limits](https://vercel.com/docs/functions/configuring-functions/duration) - HIGH confidence
+- [Vercel cron job management](https://vercel.com/docs/cron-jobs/manage-cron-jobs) - HIGH confidence
+- [Data.gov permit datasets](https://catalog.data.gov/dataset/?tags=permits) - HIGH confidence
+- [USAspending API](https://api.usaspending.gov/) - HIGH confidence
+- [SAM.gov contracting API](https://sam.gov/contracting) - HIGH confidence
+- Codebase analysis: `src/lib/scoring/`, `src/lib/scraper/`, `src/lib/leads/queries.ts`, `src/lib/db/schema/` - PRIMARY SOURCE

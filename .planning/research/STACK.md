@@ -1,625 +1,512 @@
-# Stack Research: LeadForge v3.0 Multi-Industry Expansion
+# Stack Research: GroundPulse v4.0 Nationwide Expansion
 
-**Domain:** Multi-industry B2B lead generation platform (heavy equipment, HVAC, roofing, solar, electrical)
-**Researched:** 2026-03-16
-**Confidence:** HIGH (majority verified against official docs and existing codebase patterns)
+**Domain:** B2B SaaS lead generation -- nationwide public data aggregation, scoring engine fix, multi-source pipeline
+**Researched:** 2026-03-19
+**Confidence:** HIGH (Socrata Discovery API verified live, scoring engine code audited, all key APIs documented)
 
-## Context
-
-This is a SUBSEQUENT MILESTONE research for LeadForge v3.0. The existing validated stack (Next.js 16.1.6, Drizzle 0.45.1, Neon PostgreSQL, Better Auth 1.5.5, Stripe 20.4.1, Crawlee 3.16.0, Resend 6.9.3, @vis.gl/react-google-maps 1.7.1, Zod 4.3.6, shadcn/ui) is NOT re-researched. This document covers ONLY the new capabilities needed for the multi-industry expansion.
-
----
-
-## 1. External Data Source APIs (No New Libraries Required)
-
-All government/public APIs below are accessed via plain `fetch()` -- the same pattern used by the existing `SamGovBidsAdapter` and `AustinPermitsAdapter`. No HTTP client library is needed because the existing adapter architecture handles retries, validation, and error isolation at the pipeline level.
-
-### 1A. NOAA Weather/Storm Data
-
-**Confidence:** HIGH (verified against official NWS API docs and OpenAPI spec)
-
-There is NO dedicated Storm Events API. The Storm Events database is only available as bulk CSV downloads (updated monthly). However, the **NWS Alerts API** provides real-time active weather alerts which is more valuable for the storm alert notification feature.
-
-| Property | Value |
-|----------|-------|
-| **Endpoint** | `https://api.weather.gov/alerts/active` |
-| **Auth** | None required (free, no API key) |
-| **Rate limit** | Not formally documented; requires `User-Agent` header with app name and contact |
-| **Format** | GeoJSON (default) or JSON-LD |
-| **Key params** | `area` (state code), `event` (event type), `severity`, `urgency`, `certainty`, `zone` |
-| **Update frequency** | Real-time (alerts are live as they are issued/cancelled) |
-| **Example** | `GET https://api.weather.gov/alerts/active?area=TX&severity=Extreme,Severe` |
-
-**Storm Events historical data** (for seeding/backfill):
-
-| Property | Value |
-|----------|-------|
-| **URL** | `https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/` |
-| **Format** | Gzipped CSV files, one per year per file type |
-| **File types** | `StormEvents_details`, `StormEvents_fatalities`, `StormEvents_locations` |
-| **Auth** | None (public HTTP directory listing) |
-| **Integration** | Download CSV, parse with built-in Node.js csv parsing, no library needed |
-
-**Recommendation:** Use the NWS Alerts API for real-time storm alert notifications. Use the Storm Events CSV data for historical enrichment (e.g., "this area had 12 hail events in the past year"). Fetch CSVs via `fetch()` and parse with a lightweight CSV parser.
-
-**New env vars needed:** None (no API key required). Set `User-Agent` header to `LeadForge/1.0 (contact@leadforge.com)`.
-
-### 1B. FEMA OpenFEMA Disaster Declarations
-
-**Confidence:** HIGH (verified against official OpenFEMA API docs)
-
-| Property | Value |
-|----------|-------|
-| **Endpoint** | `https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries` |
-| **Auth** | None required (free, no API key, no subscription) |
-| **Rate limit** | Not formally documented |
-| **Default records** | 1,000 per request (max 10,000 with `$top`) |
-| **Pagination** | `$skip` + `$top` (offset-based) |
-| **Format** | JSON (default), CSV, GeoJSON, Parquet |
-| **Key params** | `$filter` (OData-style: `state eq 'Texas'`), `$select`, `$orderby`, `$count` |
-| **Geospatial** | Supports `geo.intersects()` for location-based queries |
-| **Example** | `GET /api/open/v2/DisasterDeclarationsSummaries?$filter=state eq 'Texas' and declarationType eq 'DR'&$orderby=declarationDate desc&$top=100` |
-
-**Key fields returned:** `disasterNumber`, `state`, `declarationType` (DR=major disaster, EM=emergency, FM=fire), `declarationDate`, `incidentType` (Hurricane, Severe Storm, Flood, Fire, etc.), `designatedArea`, `fipsStateCode`, `fipsCountyCode`.
-
-**Why this matters for LeadForge:** Disaster declarations create immediate demand for roofing, HVAC, and electrical contractors in affected areas. Cross-reference with user service areas to push targeted alerts.
-
-**New env vars needed:** None.
-
-### 1C. SAM.gov API Expansion (Multi-NAICS)
-
-**Confidence:** HIGH (verified against existing `SamGovBidsAdapter` code + GSA open.gsa.gov docs)
-
-The existing adapter already queries NAICS codes `236`, `237`, `238`. For multi-industry support, expand to industry-specific NAICS codes:
-
-| Industry | NAICS Codes | Description |
-|----------|-------------|-------------|
-| Heavy Equipment | `236` (Building Construction), `237` (Heavy/Civil), `238` (Specialty Trade) | Already implemented |
-| HVAC | `238220` (Plumbing/Heating/AC Contractors) | Subset of existing 238 |
-| Roofing | `238160` (Roofing Contractors) | Subset of existing 238 |
-| Solar | `238210` (Electrical/Wiring Installation), `221114` (Solar Electric Power Gen) | 238210 overlaps with Electrical |
-| Electrical | `238210` (Electrical Contractors), `238290` (Other Building Equipment) | 238210 is the primary code |
-
-**Implementation:** Modify `SamGovBidsAdapter` to accept a configurable NAICS code list per industry vertical. The API endpoint (`https://api.sam.gov/opportunities/v2/search`), authentication pattern, and response parsing remain identical. The `ncode` parameter already accepts 3-digit or 6-digit codes.
-
-**Important:** The SAM.gov API only accepts one `ncode` per request, so multi-NAICS queries require multiple sequential API calls (same pattern already used -- the existing adapter loops over `this.naicsCodes`).
-
-**New env vars needed:** None (uses existing `SAM_GOV_API_KEY`).
-
-### 1D. Socrata SODA API (Generalized Permits)
-
-**Confidence:** HIGH (verified against existing `AustinPermitsAdapter` code + Socrata dev docs)
-
-The existing Austin permits adapter uses Socrata's SODA API. The pattern generalizes to any city with a Socrata-powered open data portal.
-
-**SODA3 migration note:** Socrata released SODA3 in late 2025, changing the endpoint from `/resource/IDENTIFIER.json` to `/api/v3/views/IDENTIFIER/query.json`. SODA3 now requires either an app token or authentication. The existing Austin adapter uses the legacy `/resource/` endpoint and will need updating.
-
-| City | Portal Domain | Dataset ID | Key Fields |
-|------|---------------|-----------|------------|
-| Austin, TX | `data.austintexas.gov` | `3syk-w9eu` | Already implemented |
-| Chicago, IL | `data.cityofchicago.org` | `ydr8-5enu` | permit_number, work_description, reported_cost |
-| Houston, TX | `data.houstontx.gov` | Discoverable via SODA Discovery API | Various permit types |
-| Seattle, WA | `data.seattle.gov` | `76t5-zqzr` | permit_type, description, value |
-| San Francisco, CA | `data.sfgov.org` | `k2ra-p3nq` | permit_type, description, estimated_cost |
-| NYC | `data.cityofnewyork.us` | Multiple datasets | DOB permits, filing types |
-
-**Discovery endpoint for finding new cities:** `http://api.us.socrata.com/api/catalog/v1/domains` lists all Socrata-powered portals. Use `http://api.us.socrata.com/api/catalog/v1?q=building+permits` to search across all portals.
-
-**Implementation:** Create a `SocrataPermitsAdapter` factory that accepts `{ domain, datasetId, fieldMapping }` to generate city-specific adapters without writing new adapter classes for each city.
-
-**New env vars needed:** `SOCRATA_APP_TOKEN` -- required for SODA3 API. Free to register at dev.socrata.com.
-
-### 1E. DSIRE Incentive Database
-
-**Confidence:** LOW (API is behind a paid subscription; could not verify endpoints)
-
-The DSIRE API (dsireusa.org/dsire-api) provides real-time access to 2,500+ renewable energy and efficiency incentive programs across 124 energy technologies. However, it is a **paid subscription API** -- not freely available.
-
-| Property | Value |
-|----------|-------|
-| **API docs** | `https://docs.dsireusa.org/` (requires subscription login) |
-| **Auth** | Subscription-based (contact dsire-admin@ncsu.edu for pricing) |
-| **Data** | State/local incentives, rebates, tax credits, loan programs for solar, wind, EV, efficiency |
-| **Relevance** | Solar and HVAC verticals (IRA tax credits, state rebates, utility incentives) |
-
-**Alternative approach (no subscription needed):** The NREL Energy Incentives API v2 was deprecated but provided similar data. The DSIRE public website (`programs.dsireusa.org/system/program`) can be scraped with Crawlee (already in stack) for public program listings. Each program page has structured data (state, technology, program type, implementing sector).
-
-**Recommendation:** Start with Crawlee-based scraping of the public DSIRE program listings. If the product gains traction in the solar/HVAC verticals, evaluate the paid DSIRE API subscription for real-time data. The public listings are sufficient for MVP.
-
-**New env vars needed:** None for scraping approach. `DSIRE_API_KEY` if paid subscription is pursued later.
-
-### 1F. NEVI Program / EV Charging Station Data
-
-**Confidence:** HIGH (verified against NREL AFDC API docs)
-
-NEVI program data is available through the **NREL Alternative Fuel Station Locator API**, which includes a `funding_sources` field identifying NEVI-funded stations.
-
-| Property | Value |
-|----------|-------|
-| **Endpoint** | `https://developer.nrel.gov/api/alt-fuel-stations/v1.json` |
-| **Auth** | API key required (free, register at developer.nrel.gov) |
-| **Rate limit** | 1,000 requests/hour |
-| **Key params** | `fuel_type=ELEC`, `ev_network`, `state`, `zip`, `radius`, `latitude`, `longitude` |
-| **NEVI filter** | Filter response by `funding_sources` containing "NEVI" |
-| **Relevance** | Electrical contractors vertical -- EV charging station installation opportunities |
-
-**Note on domain migration:** NREL is migrating from `developer.nrel.gov` to `developer.nlr.gov` by April 30, 2026. Use the new domain from the start.
-
-**New env vars needed:** `NREL_API_KEY`.
-
-### 1G. EIA Electricity Rate Data
-
-**Confidence:** HIGH (verified against official EIA API v2 docs)
-
-The EIA API v2 provides current utility rate data (updated monthly). This replaces the NREL Utility Rates API v3 which contains **data from 2012 only** and will not be updated.
-
-| Property | Value |
-|----------|-------|
-| **Endpoint** | `https://api.eia.gov/v2/electricity/retail-sales/data` |
-| **Auth** | API key required (free, register at eia.gov/opendata) |
-| **Rate limit** | Dynamic per key; throttle to ~1 req/sec to be safe |
-| **Max records** | 5,000 per request (JSON) |
-| **Pagination** | `offset` + `length` params |
-| **Key params** | `data[]=price`, `facets[stateid][]=TX`, `facets[sectorid][]=RES`, `frequency=monthly` |
-| **Sectors** | `RES` (residential), `COM` (commercial), `IND` (industrial) |
-| **Data fields** | `price` (cents/kWh), `revenue` ($M), `sales` (M kWh), `customers` (count) |
-| **Frequency** | `monthly`, `quarterly`, `annual` |
-
-**Why this matters for LeadForge:** Electricity rates drive solar installation ROI calculations. Higher rates = stronger solar lead signals. Show users "average residential rate in [service area]: $X.XX/kWh" to contextualize solar leads.
-
-**New env vars needed:** `EIA_API_KEY`.
+> This file covers ONLY new additions/changes needed for v4.0. The existing validated stack
+> (Next.js 16, React 19, Drizzle ORM, Neon PostgreSQL, Better Auth, Stripe, Tailwind CSS 4,
+> shadcn/ui, Resend, Crawlee, RSS Parser, react-leaflet, p-queue ^9.1.0, string-similarity,
+> Zod v4) is NOT re-documented here.
 
 ---
 
-## 2. PostGIS for Geospatial Queries
+## 1. Socrata Discovery API (Dynamic Nationwide Dataset Discovery)
 
-**Confidence:** HIGH (verified against Neon PostGIS docs + Drizzle ORM PostGIS guide)
+**The single most important new capability.** Instead of hardcoding 3 city adapters (Austin, Dallas, Atlanta),
+discover permit and violation datasets dynamically across all Socrata-powered government portals nationwide.
 
-### Why PostGIS Now
+### How It Works
 
-The existing codebase uses raw `real` columns for `lat`/`lng` with Haversine SQL expressions inlined into queries. The schema comment in `leads.ts` already notes: "PostGIS upgrade path: Once Neon serverless driver compatibility with PostGIS geometry types is verified, add a `geometry(Point, 4326)` column."
+The Socrata Catalog API at `https://api.us.socrata.com/api/catalog/v1` returns a searchable
+index of every public dataset across all Socrata domains. **Verified live** -- a query for
+`?q=building+permits&only=datasets` returns **486 datasets** with full column metadata.
 
-Neon now fully supports PostGIS. The multi-industry expansion will increase lead volume (5x more verticals, more cities), making the bounding-box + Haversine approach increasingly expensive. PostGIS with GiST spatial indexes provides:
-
-- `ST_DWithin()` for radius queries (uses spatial index, dramatically faster than Haversine on `real` columns)
-- `ST_Distance()` for distance calculation
-- `ST_MakePoint()` for point creation
-- `ST_Within()` / `ST_MakeEnvelope()` for bounding box queries
-- `ST_Intersects()` for polygon-based service area matching
-
-### Drizzle ORM Native Support
-
-Drizzle ORM now has a built-in `geometry` column type with PostGIS support:
-
-```typescript
-import { geometry, index, pgTable, serial, text } from 'drizzle-orm/pg-core';
-
-export const leads = pgTable('leads', {
-  // ... existing columns ...
-  location: geometry('location', { type: 'point', mode: 'xy', srid: 4326 }),
-}, (t) => [
-  index('leads_location_gist_idx').using('gist', t.location),
-]);
+**Response structure per result (verified):**
+```
+resource.id          -> "ydr8-5enu" (the datasetId for SODA queries)
+resource.name        -> "Building Permits"
+resource.columns_field_name -> ["permit_number", "issue_date", "address", ...]
+resource.columns_datatype   -> ["Text", "Calendar date", "Text", ...]
+resource.data_updated_at    -> timestamp
+metadata.domain      -> "data.cityofchicago.org"
+classification.categories   -> ["Permits & Licenses"]
+classification.domain_tags  -> ["building", "permits", "construction"]
 ```
 
-**Insert pattern:**
+**Key API parameters:**
+| Parameter | Purpose | Example |
+|-----------|---------|---------|
+| `q=` | Keyword search | `q=building+permits` |
+| `domains=` | Limit to specific domain | `domains=data.austintexas.gov` |
+| `only=` | Filter asset type | `only=datasets` (exclude charts/maps/stories) |
+| `categories=` | Filter by category | `categories=Permits` |
+| `tags=` | Filter by tags | `tags=construction` |
+| `limit=` / `offset=` | Pagination | `limit=100&offset=0` |
+
+**No authentication required** for discovery. A SOCRATA_APP_TOKEN is only needed for high-volume
+SODA data queries (already have this env var optional in codebase).
+
+### Architecture: Discovery + Heuristic Field Mapping
+
+The current `SocrataPermitAdapter` base class already handles SODA3/SODA2 queries with configurable
+`SocrataConfig` objects. The missing piece is discovering those configs at runtime instead of
+hardcoding them.
+
+**What to build (no new packages):**
+
+A `SocrataDiscoveryService` that:
+1. Queries `api.us.socrata.com/api/catalog/v1` for permit/violation/inspection datasets
+2. Inspects `columns_field_name` arrays to identify datasets with permit-like schemas
+   (look for fields like `permit_number`, `permit_no`, `address`, `issue_date`, `estimated_cost`)
+3. Stores discovered datasets in a new `data_sources` table with cached field mappings
+4. Dynamically instantiates `SocrataPermitAdapter` from stored configs (the adapter already
+   accepts `SocrataConfig` objects -- no code changes to the adapter itself)
+5. Runs weekly via Vercel cron to refresh the discovery cache
+
+**Why this works:** The existing `SocrataPermitAdapter.scrape()` method already accepts any
+`{domain, datasetId, fieldMap}` configuration. Discovery just automates finding those configs.
+
+**Confidence: HIGH** -- API verified live, response schema documented, existing adapter supports dynamic config.
+
+---
+
+## 2. ArcGIS Hub Search API (Non-Socrata Municipal Data)
+
+Many cities publish permits through ArcGIS Hub instead of Socrata (e.g., Atlanta, Raleigh,
+Charlotte, San Diego). The existing `AtlantaPermitsAdapter` already consumes ArcGIS GeoJSON.
+
+### API Details
+
+| Aspect | Detail |
+|--------|--------|
+| Search endpoint | `https://hub.arcgis.com/api/v3/datasets` (JSON:API standard) |
+| Data download | `https://[hub-domain]/api/v3/datasets/[id]/downloads/data?format=geojson` |
+| Authentication | None required for public datasets |
+| Advantage | GeoJSON responses include coordinates in geometry -- skip geocoding |
+
+### What to Build
+
+An `ArcGISDiscoveryService` similar to the Socrata one:
+1. Search Hub for building permit datasets by keyword
+2. Cache discovered datasets in the same `data_sources` table
+3. Dynamically create adapters using the pattern from `AtlantaPermitsAdapter`
+
+**No new npm packages needed.** Native `fetch` + JSON parsing.
+
+**Confidence: HIGH** -- Atlanta adapter proves the pattern; Hub search API documented.
+
+---
+
+## 3. New Federal/National Data Source APIs
+
+### 3a. USAspending API (Federal Contract Awards)
+
+Complements the existing SAM.gov adapter. SAM.gov shows **open opportunities**; USAspending shows
+**awarded contracts** -- meaning confirmed construction activity with known contractors and locations.
+
+| Aspect | Detail |
+|--------|--------|
+| Endpoint | `POST https://api.usaspending.gov/api/v2/search/spending_by_award/` |
+| Auth | **None required** -- explicitly documented as no authorization needed |
+| NAICS filter | Construction sector codes 236xxx, 237xxx, 238xxx |
+| Data returned | Award amount, recipient name/location, agency, dates, PSC codes |
+| Rate limit | Not documented; use conservative 30 req/min |
+| New source type | `"contract-award"` |
+
+**No new npm packages needed.** Plain `fetch` POST with JSON body.
+
+**Confidence: HIGH** -- API verified via official docs, open source on GitHub.
+
+### 3b. DOL OSHA Enforcement API (Construction Safety Inspections)
+
+Construction inspections indicate active worksites. Violations indicate contractors who may need
+equipment/services for remediation.
+
+| Aspect | Detail |
+|--------|--------|
+| Endpoint | `GET https://data.dol.gov/get/inspection` |
+| Auth | API key required (`X-API-KEY` header) -- **free** registration at dataportal.dol.gov |
+| Filter syntax | JSON: `{"field":"naics_code","operator":"eq","value":"23"}` |
+| Data | ~90,000 inspections/year: company name, address, NAICS, violation details |
+| Rate limit | Not explicitly documented; use p-queue at 10 req/min |
+| New source type | `"inspection"` |
+| Fallback | Bulk CSV download at osha.gov/data if API is unreliable |
+
+**Confidence: MEDIUM** -- API exists but DOL portal was recently restructured/redirected. Bulk
+CSV is a reliable fallback.
+
+### 3c. HUD Residential Construction Permits (County-Level Aggregate)
+
+County-level permit volume data from the Census Bureau's Building Permits Survey.
+
+| Aspect | Detail |
+|--------|--------|
+| Endpoint | HUD ArcGIS Open Data: `hudgis-hud.opendata.arcgis.com` |
+| Auth | None |
+| Format | CSV, GeoJSON via ArcGIS API |
+| Data | County-level permit counts (total units, single-family, multi-family) by year |
+| Use case | Market intelligence signal for scoring, not individual leads |
+
+**Confidence: HIGH** -- Available via ArcGIS, same pattern as Atlanta adapter.
+
+### 3d. Existing Adapters (Expand, Don't Rebuild)
+
+These already work and just need expanded geographic coverage:
+
+| Adapter | Current Coverage | v4.0 Target | Changes Needed |
+|---------|-----------------|-------------|----------------|
+| FEMA Disasters | All states | All states | None -- already nationwide |
+| NWS Storm Alerts | All NWS zones | All NWS zones | None -- already nationwide |
+| EIA Utility Rates | All states | All states | None -- already nationwide |
+| SAM.gov Bids | All federal | All federal | None -- already nationwide |
+| News (ENR, CDive, PRNewsWire) | All | All | None -- already nationwide |
+
+The adapters that need expansion are the **permit and violation adapters**, which are currently
+limited to Austin/Dallas/Atlanta/Houston. Socrata/ArcGIS discovery solves this.
+
+---
+
+## 4. New Source Types for Schema
+
+The existing `sourceTypes` array:
 ```typescript
-await db.insert(leads).values({
-  // ... other fields ...
-  location: { x: lng, y: lat }, // x=longitude, y=latitude
+["permit", "bid", "news", "deep-web", "storm", "disaster", "violation"]
+```
+
+**Add these:**
+
+| New Type | Source | Why |
+|----------|--------|-----|
+| `"inspection"` | OSHA enforcement API | Active worksites, safety violations |
+| `"contract-award"` | USAspending API | Confirmed construction with known contractors |
+
+**Do NOT add yet (defer to v5):**
+
+| Deferred Type | Why Defer |
+|---------------|-----------|
+| `"property-transfer"` | No free nationwide API; ATTOM/ICE cost $500+/mo; county-level scraping is 3,100 different systems |
+| `"planning"` | Zoning/planning boards publish PDFs and meeting minutes; no standardized API |
+| `"court-filing"` | PACER costs $0.10/page; CourtListener (free alternative) has partial coverage; liens are county-level, not federal |
+| `"real-estate"` | MLS APIs (Zillow, ATTOM) are paid ($500+/mo) with restrictive ToS prohibiting competing products |
+| `"contractor-license"` | 50 different state systems with no unified API; high maintenance for low ROI |
+
+---
+
+## 5. Scoring Engine Fix (Algorithmic, No New Packages)
+
+### Root Cause Analysis (from code audit)
+
+The scoring engine architecture is sound (5 dimensions, query-time, per-org context). The problem
+is that most code paths converge to the same scores:
+
+| Dimension | Max | What Most Leads Get | Why |
+|-----------|-----|---------------------|-----|
+| Distance (25) | 25 | **0** | Most leads lack lat/lng; `null` distance = 0 points |
+| Relevance (30) | 30 | **5** | Low-confidence enrichment tags all 5 industries; gives 5 pts for "uncertain match" |
+| Value (20) | 20 | **10** | `estimatedValue` is null for most leads; null = 10 pts. No target range = 10 pts |
+| Freshness (15) | 15 | **12-15** | Leads scraped in same batch get identical freshness |
+| Urgency (10) | 10 | **5** | Every permit gets 5 pts for "Active building permit" |
+
+**Result: Most leads score 32-35 out of 100. No differentiation.**
+
+### Fixes (Pure TypeScript, No Dependencies)
+
+| Fix | What Changes | Score Impact |
+|-----|--------------|-------------|
+| **Geocoding coverage** | Ensure more leads get coordinates; fallback to city centroid | Distance dimension activates (0-25 range instead of flat 0) |
+| **Keyword-count relevance** | Count matching industry keywords in description; scale 0-15 bonus | Relevance spreads from 5-30 instead of clustering at 5 |
+| **Value estimation heuristics** | Infer value from project type ("new commercial" > "residential repair") when estimatedValue is null | Value dimension spreads across 0-20 |
+| **Source-type freshness curves** | Storms decay in hours, bids in days, permits in weeks | Freshness differentiates within same batch |
+| **Graduated urgency** | Within permits: commercial > residential; high-value > low-value; inspection/violation > standard permit | Urgency spreads 0-10 instead of flat 5 |
+| **Confidence weighting** | Score enrichment confidence; penalize "all industries" tagged leads more aggressively | Forces relevance scoring to differentiate |
+
+**Add to `LeadScoringInput`:**
+```typescript
+sourceConfidence: "high" | "medium" | "low";  // from industry inference
+keywordMatchCount: number;                      // count of matching keywords
+```
+
+**No new packages needed.** All changes are to the pure TypeScript functions in `src/lib/scoring/`.
+
+---
+
+## 6. Geocoding Strategy
+
+### Problem
+
+Google Maps Geocoding API pricing changed March 1, 2025:
+- Old: $200/month free credit (~40,000 free geocodes)
+- New: 10,000 free monthly requests per SKU, then $5/1,000 requests
+
+With hundreds of Socrata datasets potentially producing thousands of leads daily, 10,000/month
+will be insufficient.
+
+### Solution: Tiered Geocoding
+
+| Tier | When | Cost |
+|------|------|------|
+| **1. Source-provided coordinates** | Socrata/ArcGIS datasets that include lat/lng | Free |
+| **2. Google Maps** | First 10,000/month for leads without coordinates | Free (within quota) |
+| **3. Nominatim (OpenStreetMap)** | Overflow beyond Google quota | Free (1 req/sec on public API) |
+
+**Nominatim is a REST API -- no npm package needed:**
+```
+GET https://nominatim.openstreetmap.org/search?q=ADDRESS&format=json&limit=1
+```
+
+**Requirements:** Set a `User-Agent` header with app name + contact email (Nominatim ToS).
+
+**Add to `api-rate-limiter.ts`:**
+```typescript
+// Nominatim: 1 req/sec on public API
+nominatimQueue = new PQueueClass({
+  concurrency: 1,
+  intervalCap: 60,
+  interval: 60_000,
 });
 ```
 
-**Query pattern (radius search):**
+**Many Socrata datasets already include coordinates.** The existing pipeline handles this:
 ```typescript
-const sqlPoint = sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)`;
-await db.select()
-  .from(leads)
-  .where(sql`ST_DWithin(${leads.location}::geography, ${sqlPoint}::geography, ${radiusMeters})`)
-  .orderBy(sql`${leads.location} <-> ${sqlPoint}`);
-```
-
-### Migration Strategy
-
-Do NOT remove the existing `lat`/`lng` real columns immediately. Add the `geometry` column alongside them, populate via migration script, then switch queries to use PostGIS. This allows rollback if issues arise.
-
-**Enable PostGIS on Neon:**
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
-
-### No New npm Dependencies
-
-PostGIS is a Postgres extension, not an npm package. Drizzle's built-in `geometry` type handles serialization/deserialization. No additional libraries needed.
-
----
-
-## 3. Rate Limiting for External APIs
-
-**Confidence:** HIGH
-
-### New Dependency: p-queue
-
-The existing rate-limit system (`src/lib/scraper/rate-limit.ts`) only limits per-org pipeline runs (1 run/hour). It does NOT rate-limit individual API calls to external services. With 7+ external APIs, each with different rate limits, a proper API-call-level rate limiter is needed.
-
-| Library | Version | Purpose | Why |
-|---------|---------|---------|-----|
-| `p-queue` | `^8.1.0` | Per-API rate limiting with concurrency control | Mature, well-maintained (sindresorhus), supports `intervalCap` + `interval` for sliding window rate limits, zero dependencies |
-
-**Why p-queue over alternatives:**
-
-| Alternative | Why Not |
-|-------------|---------|
-| `p-limit` | Concurrency only, no time-window rate limiting |
-| `p-throttle` | Rate limiting only, no queue -- requests are rejected, not queued |
-| `bottleneck` | Heavier, cluster support we don't need, last published 2019 |
-| `p-ratelimit` | Less maintained, smaller community |
-| Custom implementation | The sliding-window algorithm with queue management is non-trivial to get right |
-
-**Configuration per API:**
-
-| API | Rate Limit | p-queue Config |
-|-----|-----------|----------------|
-| NWS Alerts | ~30 req/min (undocumented, conservative) | `{ intervalCap: 30, interval: 60000, concurrency: 2 }` |
-| FEMA OpenFEMA | No documented limit (conservative: 60/min) | `{ intervalCap: 60, interval: 60000, concurrency: 3 }` |
-| SAM.gov | Undocumented (conservative: 30/min) | `{ intervalCap: 30, interval: 60000, concurrency: 1 }` |
-| Socrata SODA | 1,000/hr with app token | `{ intervalCap: 15, interval: 60000, concurrency: 2 }` |
-| NREL AFDC | 1,000/hr | `{ intervalCap: 15, interval: 60000, concurrency: 2 }` |
-| EIA | Dynamic, ~60/min safe | `{ intervalCap: 60, interval: 60000, concurrency: 2 }` |
-| Google Geocoding | 50 req/sec (paid tier) | `{ intervalCap: 40, interval: 1000, concurrency: 5 }` |
-
-**Integration pattern:**
-```typescript
-import PQueue from 'p-queue';
-
-const nwsQueue = new PQueue({ intervalCap: 30, interval: 60_000, concurrency: 2 });
-
-// In adapter:
-const response = await nwsQueue.add(() => fetch(url, { headers }));
-```
-
-### Installation
-
-```bash
-npm install p-queue
-```
-
-**Note:** p-queue v8 is ESM-only. Next.js App Router with `"type": "module"` in package.json handles this natively. Verify the project's module configuration supports ESM imports.
-
----
-
-## 4. Hash-Based Deduplication
-
-**Confidence:** HIGH (verified -- Node.js built-in `crypto` module)
-
-### No New Dependencies Required
-
-The existing dedup system uses `string-similarity` (Dice coefficient) + geographic proximity. For the multi-industry expansion, add hash-based dedup as a **fast pre-filter** before the expensive similarity comparison.
-
-**Node.js built-in crypto:**
-```typescript
-import { createHash } from 'node:crypto';
-
-function computeContentHash(record: RawLeadData): string {
-  const canonical = [
-    record.sourceId,
-    record.sourceUrl ?? '',
-    record.externalId ?? '',
-    record.permitNumber ?? '',
-    (record.title ?? '').toLowerCase().trim(),
-  ].join('|');
-
-  return createHash('sha256').update(canonical).digest('hex');
+if (record.lat != null && record.lng != null) {
+  results.push({ ...record }); // Skip geocoding
 }
 ```
 
-**How it integrates with existing dedup:**
-1. **Hash check (fast, O(1))**: Before inserting, check if `content_hash` already exists in the DB. If exact match, skip entirely.
-2. **Similarity check (expensive, existing)**: If no hash match, proceed with geographic + text similarity dedup for fuzzy/near-duplicate detection.
+This means the geocoding load may be lower than expected once discovery is working.
 
-**Schema addition:**
-```typescript
-// Add to leads table:
-contentHash: text("content_hash"),
-// Add index:
-index("leads_content_hash_idx").on(table.contentHash),
-```
-
-This is a pure performance optimization -- the existing dedup logic remains for fuzzy matching. The hash is for exact-match fast-path.
+**Confidence: HIGH** -- Nominatim is the standard free geocoding alternative; well-documented.
 
 ---
 
-## 5. Interactive Map for Service Area Selection
+## 7. HTML Parsing for Non-API Sources
 
-**Confidence:** MEDIUM (DrawingManager integration with @vis.gl/react-google-maps requires custom component wiring)
+### Why Add cheerio
 
-### No New Dependencies Required
+Some valuable data sources don't have APIs but publish data as HTML pages (OSHA inspection
+search results, state contractor license boards, some planning board agendas). The existing
+`Crawlee` dependency handles browser-based scraping but is too heavy for simple HTML parsing
+on serverless:
 
-The existing `@vis.gl/react-google-maps@^1.7.1` supports the Google Maps Drawing Library via the `useMapsLibrary` hook. The Drawing Library allows users to draw circles, polygons, and rectangles on the map.
+- Crawlee launches Playwright/Puppeteer = too much memory for Vercel functions
+- Static HTML pages don't need JavaScript rendering
+- cheerio is 40x faster than jsdom for static HTML parsing
 
-**Implementation approach:**
+### Recommendation
 
-```typescript
-import { useMap, useMapsLibrary } from '@vis.gl/react-google-maps';
+| Technology | Version | Purpose | Why |
+|------------|---------|---------|-----|
+| `cheerio` | `^1.2.0` | Lightweight static HTML parsing | Fast (40x jsdom); built-in TypeScript types; jQuery-familiar API; dual ESM/CJS |
 
-function ServiceAreaDrawer() {
-  const map = useMap();
-  const drawing = useMapsLibrary('drawing');
+**Use cheerio for:** Parsing HTML search results, extracting structured data from static pages.
+**Keep Crawlee for:** Pages that require JavaScript rendering (SPAs, dynamic content).
 
-  useEffect(() => {
-    if (!map || !drawing) return;
-
-    const drawingManager = new drawing.DrawingManager({
-      drawingMode: drawing.OverlayType.CIRCLE,
-      drawingControl: true,
-      drawingControlOptions: {
-        drawingModes: [
-          drawing.OverlayType.CIRCLE,
-          drawing.OverlayType.POLYGON,
-        ],
-      },
-      circleOptions: {
-        editable: true,
-        draggable: true,
-      },
-    });
-
-    drawingManager.setMap(map);
-    // Handle overlay complete events to extract coordinates
-  }, [map, drawing]);
-}
-```
-
-**For the onboarding wizard MVP:** Use a simple radius-based approach (already in the schema as `serviceRadiusMiles`). The circle drawing tool on the map provides a visual way to set this. Polygon-based service areas can be a Phase 2 enhancement.
-
-**Storing polygon service areas (future):** When polygon support is needed, store as PostGIS `geometry(Polygon, 4326)` in the `company_profiles` table and use `ST_Intersects()` to check if leads fall within the service area.
-
-**Required Google Maps API library:** `drawing` (loaded dynamically via `useMapsLibrary('drawing')`, no additional npm package needed).
+**Confidence: HIGH** -- cheerio 1.2.0 is current stable; ported entirely to TypeScript; no
+`@types/cheerio` package needed.
 
 ---
 
-## 6. Query-Time Scoring Engine
+## 8. New Database Table: `data_sources`
 
-**Confidence:** HIGH (this is architecture, not a library decision)
-
-### No New Dependencies Required
-
-The existing scoring function (`src/lib/leads/scoring.ts`) computes scores in-memory with three dimensions: equipment match (50pts), geographic proximity (30pts), and project value (20pts). For the multi-industry expansion, the scoring engine needs to become:
-
-1. **Industry-aware:** Different scoring weights per industry vertical
-2. **Signal-aware:** New data sources (storms, disasters, incentives, utility rates) become scoring signals
-3. **Query-time computed:** Continue computing at query time (not pre-computed), because scores depend on the querying user's profile (location, industry, equipment types)
-
-**Implementation:** Replace the current hardcoded weights with a configurable scoring profile per industry:
-
-```typescript
-interface ScoringProfile {
-  industry: string;
-  weights: {
-    serviceMatch: number;     // equipment/service type overlap
-    proximity: number;         // geographic distance
-    projectValue: number;      // estimated project value
-    recency: number;           // how recently scraped
-    disasterSignal: number;    // active disaster declaration in area
-    stormSignal: number;       // recent severe weather events
-    incentiveSignal: number;   // active incentive programs (solar/HVAC)
-    utilityRate: number;       // high utility rates (solar)
-  };
-}
-```
-
-This is a pure code architecture change -- no new libraries needed. The scoring function already runs in the `enrichLead()` pipeline.
-
----
-
-## 7. Cursor-Based Pagination
-
-**Confidence:** HIGH (verified against Drizzle ORM official docs)
-
-### No New Dependencies Required
-
-The v2.1 research already documented the cursor-based pagination pattern (see previous STACK.md). The implementation approach remains the same for v3.0:
-
-- **Cursor shape:** `{ score: number, scrapedAt: string, id: string }`
-- **Pattern:** Application-level cursor after in-memory scoring (not SQL-level)
-- **Drizzle operators:** `gt`, `lt`, `desc`, `asc` (already imported in queries.ts)
-
-**One refinement for v3.0:** With PostGIS, the SQL-level query becomes faster (GiST index instead of Haversine full-scan), which means the `FETCH_MULTIPLIER = 4` over-fetch pattern can potentially be reduced. However, the cursor logic remains application-level because scoring is still computed in-memory.
-
----
-
-## 8. React Email Template Expansion
-
-**Confidence:** HIGH (verified against existing email implementation)
-
-### No New Dependencies Required
-
-The existing setup (`resend@^6.9.3` + `@react-email/components@^1.0.9`) already supports all needed capabilities. The existing `DailyDigestEmail` component and `sendDigest()` function demonstrate the complete pattern.
-
-**New email templates needed:**
-
-| Template | Purpose | Trigger |
-|----------|---------|---------|
-| `StormAlertEmail` | "Severe weather in [area] -- [X] potential leads" | NWS alert detected in user's service area |
-| `DisasterAlertEmail` | "FEMA disaster declared in [area]" | New FEMA declaration in user's service area |
-| `WeeklyIndustryDigest` | Weekly summary per industry vertical | Cron job (weekly) |
-| `OnboardingWelcomeEmail` | Welcome + getting started after onboarding | Onboarding completion |
-| `IncentiveAlertEmail` | "New incentive program in [state] for [industry]" | New DSIRE program detected |
-
-**Pattern reuse:** All templates follow the same pattern as `DailyDigestEmail`:
-1. React component in `src/components/emails/` using `@react-email/components`
-2. Send function in `src/lib/email/` using `Resend` client
-3. Render via `react: TemplateComponent({ props })` in `resend.emails.send()`
-
----
-
-## 9. CSV Parsing (for NOAA Storm Events bulk data)
-
-**Confidence:** MEDIUM (need to verify best option for streaming large CSVs)
-
-### Option A: Built-in (Recommended)
-
-For simple CSV parsing, Node.js can handle it without a library using string splitting. However, the NOAA storm events files are gzipped and large (50MB+ uncompressed). Two lightweight options:
-
-| Library | Version | Size | Why |
-|---------|---------|------|-----|
-| `papaparse` | `^5.5.2` | 30KB | Streaming CSV parser, handles large files, well-tested, works in Node.js |
-
-**Why papaparse over alternatives:**
-
-| Alternative | Why Not |
-|-------------|---------|
-| `csv-parse` | Heavier (part of csv package ecosystem), more API surface than needed |
-| `fast-csv` | Good but less popular, API is more complex |
-| `d3-dsv` | Designed for browser, not ideal for streaming large files in Node.js |
-| Manual string splitting | Fragile with quoted fields, embedded commas, multiline values |
-
-**For decompression (gzipped CSVs):** Node.js built-in `zlib.createGunzip()` handles `.csv.gz` files natively. No additional package needed.
-
-```typescript
-import { createGunzip } from 'node:zlib';
-import { Readable } from 'node:stream';
-import Papa from 'papaparse';
-
-async function parseStormEvents(gzippedBuffer: Buffer) {
-  const decompressed = await new Promise<Buffer>((resolve, reject) => {
-    zlib.gunzip(gzippedBuffer, (err, result) => err ? reject(err) : resolve(result));
-  });
-  const { data } = Papa.parse(decompressed.toString('utf-8'), { header: true });
-  return data;
-}
-```
-
-### Installation
-
-```bash
-npm install papaparse
-npm install -D @types/papaparse
-```
-
----
-
-## Complete Stack Changes Summary
-
-### New Dependencies to Add
-
-| Package | Version | Purpose | Category |
-|---------|---------|---------|----------|
-| `p-queue` | `^8.1.0` | Per-API rate limiting with sliding window + concurrency | Production |
-| `papaparse` | `^5.5.2` | CSV parsing for NOAA Storm Events bulk data | Production |
-| `@types/papaparse` | `^5.3.15` | TypeScript types for papaparse | Dev |
-
-### Installation
-
-```bash
-# Production dependencies
-npm install p-queue papaparse
-
-# Dev dependencies
-npm install -D @types/papaparse
-```
-
-### What NOT to Add
-
-| Library | Why Not | Use Instead |
-|---------|---------|-------------|
-| `axios` | Existing `fetch()` works fine; adding HTTP clients is complexity without benefit | Built-in `fetch()` |
-| `node-fetch` | Next.js polyfills `fetch` globally | Built-in `fetch()` |
-| `bottleneck` | Last published 2019, heavier than p-queue | `p-queue` |
-| `drizzle-cursor` / `drizzle-pagination` | Official Drizzle pattern is 5 lines; wrapper adds dependency for trivial logic | Manual cursor pattern |
-| `@googlemaps/js-api-loader` | `@vis.gl/react-google-maps` handles map library loading via `useMapsLibrary()` | Existing library |
-| `turf.js` / `@turf/turf` | PostGIS handles geospatial operations server-side; no need for client-side geo library | PostGIS extension |
-| `soda-js` | Unmaintained Socrata client; plain `fetch()` with SODA query params is simpler | Built-in `fetch()` |
-| `csv-parse` | Heavier than papaparse for our use case | `papaparse` |
-| Any DSIRE-specific client | No public npm package exists; scrape with Crawlee (already installed) | `crawlee` (existing) |
-| `wkx` | Drizzle ORM's built-in geometry type handles PostGIS serialization natively now | Drizzle `geometry()` type |
-
-### New Environment Variables
-
-| Variable | Source | Required | Free |
-|----------|--------|----------|------|
-| `EIA_API_KEY` | eia.gov/opendata | Yes (for utility rate data) | Yes |
-| `NREL_API_KEY` | developer.nlr.gov | Yes (for NEVI/AFDC station data) | Yes |
-| `SOCRATA_APP_TOKEN` | dev.socrata.com | Yes (for SODA3 API) | Yes |
-| `SAM_GOV_API_KEY` | Already exists (not configured) | Yes | Yes |
-| `DSIRE_API_KEY` | dsireusa.org | No (future, paid subscription) | No |
-
-**Existing env vars that now need to be configured:**
-- `SAM_GOV_API_KEY` -- listed as "not configured" in known issues; required for multi-industry SAM.gov queries
-- `GOOGLE_MAPS_API_KEY` -- already exists; ensure Drawing Library is enabled in Google Cloud Console
-
-### PostGIS Database Extension
+For caching discovered Socrata/ArcGIS datasets. This is a schema change, not a new package.
 
 ```sql
--- Run once on Neon:
-CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE TABLE data_sources (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  platform TEXT NOT NULL,            -- 'socrata' | 'arcgis'
+  domain TEXT NOT NULL,              -- 'data.austintexas.gov'
+  dataset_id TEXT NOT NULL,          -- '3syk-w9eu'
+  name TEXT NOT NULL,                -- 'Building Permits'
+  source_type TEXT NOT NULL,         -- 'permit' | 'violation' | 'inspection'
+  jurisdiction TEXT,                 -- 'Austin, TX'
+  state_code TEXT,                   -- 'TX' (for geographic routing)
+  field_mapping JSONB NOT NULL,      -- {"permitNumber":"permit_num","address":"addr",...}
+  columns_available TEXT[],          -- all available column names
+  last_discovered_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  last_scraped_at TIMESTAMP,
+  last_record_count INTEGER,
+  is_active BOOLEAN DEFAULT TRUE,
+  quality_score REAL,                -- heuristic: how well fields map
+  UNIQUE(platform, domain, dataset_id)
+);
 ```
 
-### Schema Changes Required
-
-| Table | Change | Purpose |
-|-------|--------|---------|
-| `leads` | Add `location geometry(Point, 4326)` column | PostGIS spatial queries |
-| `leads` | Add `content_hash text` column | Fast dedup pre-filter |
-| `leads` | Add GiST index on `location` | Spatial query performance |
-| `leads` | Add index on `content_hash` | Hash lookup performance |
-| `leads` | Add `industry text` column | Multi-industry classification |
-| `company_profiles` | Add `industry text` column | User's industry vertical |
-| `company_profiles` | Add `location geometry(Point, 4326)` column | PostGIS-based proximity |
-| `company_profiles` | Add `service_area geometry(Polygon, 4326)` (future) | Polygon service areas |
+**Uses Drizzle's existing JSONB support** -- no new packages. The `field_mapping` column stores
+the mapping from generic field names to dataset-specific column names.
 
 ---
 
-## API Endpoint Reference
+## 9. Rate Limiting for Nationwide Scale
 
-Quick reference for all external APIs the scraper adapters will call:
+### Existing Queues (Keep As-Is)
 
-| API | Base URL | Auth | Key Param |
-|-----|----------|------|-----------|
-| NWS Alerts | `https://api.weather.gov/alerts/active` | User-Agent header | `area`, `severity` |
-| NOAA Storm CSV | `https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/` | None | HTTP directory listing |
-| FEMA OpenFEMA | `https://www.fema.gov/api/open/v2/DisasterDeclarationsSummaries` | None | `$filter`, `$top` |
-| SAM.gov | `https://api.sam.gov/opportunities/v2/search` | `api_key` param | `ncode`, `limit` |
-| Socrata SODA | `https://{domain}/resource/{dataset_id}.json` (v2) or `/api/v3/views/{id}/query.json` (v3) | App token header | `$where`, `$limit` |
-| NREL AFDC | `https://developer.nlr.gov/api/alt-fuel-stations/v1.json` | `api_key` param | `fuel_type`, `state` |
-| EIA Electricity | `https://api.eia.gov/v2/electricity/retail-sales/data` | `api_key` param | `data[]`, `facets[]` |
-| DSIRE (scrape) | `https://programs.dsireusa.org/system/program` | None (public pages) | Crawlee browser scraping |
+| Queue | Config | API |
+|-------|--------|-----|
+| `socrataQueue` | concurrency 2, 8 req/min | Socrata SODA data queries |
+| `samGovQueue` | concurrency 1, 10 req/min | SAM.gov bids |
+| `nwsQueue` | concurrency 1, 5 req/min | NWS storm alerts |
+| `eiaQueue` | concurrency 1, 30 req/min | EIA utility rates |
+
+### New Queues to Add
+
+| Queue | Config | API |
+|-------|--------|-----|
+| `usaSpendingQueue` | concurrency 2, 30 req/min | USAspending (no documented limit) |
+| `oshaQueue` | concurrency 1, 10 req/min | DOL OSHA enforcement |
+| `nominatimQueue` | concurrency 1, 60 req/min | Nominatim geocoding (1/sec) |
+| `arcgisQueue` | concurrency 2, 15 req/min | ArcGIS Hub downloads |
+| `discoveryQueue` | concurrency 1, 5 req/min | Socrata Discovery (infrequent) |
+
+All use the existing `p-queue` package with the same lazy dynamic import pattern already in
+`api-rate-limiter.ts`. **No new packages.**
 
 ---
 
-## Version Compatibility
+## 10. Vercel Cron Strategy for Scale
 
-| Package | Compatible With | Notes |
-|---------|-----------------|-------|
-| `p-queue@^8.1.0` | Node.js 18+, ESM only | Next.js App Router supports ESM natively |
-| `papaparse@^5.5.2` | Node.js 14+, CommonJS + ESM | Wide compatibility |
-| `postgis` (extension) | Neon serverless PostgreSQL | Fully supported, enable via SQL |
-| `drizzle-orm@^0.45.1` `geometry()` type | PostGIS on Neon | Native support since Drizzle 0.31 |
-| `@vis.gl/react-google-maps@^1.7.1` | Google Maps Drawing Library | Use `useMapsLibrary('drawing')` |
+### Problem
+
+Vercel Pro serverless functions timeout at 300 seconds (5 minutes). With potentially hundreds
+of datasets, a single cron run cannot scrape everything.
+
+### Solution: Chunked Pipeline with DB-Backed Cursor
+
+| Cron Route | Schedule | Purpose |
+|------------|----------|---------|
+| `/api/cron/discover` | Weekly (Sun 2am) | Run Socrata + ArcGIS discovery; refresh `data_sources` |
+| `/api/cron/scrape-permits` | Daily 6am | Scrape batch of 50 permit datasets; track cursor in DB |
+| `/api/cron/scrape-federal` | Daily 7am | SAM.gov + USAspending + OSHA |
+| `/api/cron/scrape-weather` | Every 6h | NWS storms + FEMA disasters |
+| `/api/cron/scrape-news` | Daily 8am | RSS feeds + Google dorking |
+| `/api/cron/enrich` | Daily 9am | Enrichment on un-enriched leads |
+
+**Each cron processes a batch**, stores its cursor position in the DB, and picks up where it
+left off on the next run. A `data_sources` row's `last_scraped_at` determines which datasets
+are due for scraping.
+
+**No new packages.** This is an architectural pattern using existing tools.
+
+---
+
+## 11. Complete New Dependencies Summary
+
+### Install
+
+```bash
+npm install cheerio@^1.2.0
+```
+
+**That's it. One new production package.**
+
+### Why So Few New Packages
+
+| Capability | Why No New Package |
+|------------|-------------------|
+| Socrata Discovery | Plain HTTP GET via `fetch` |
+| ArcGIS Hub Discovery | Plain HTTP GET via `fetch` |
+| USAspending API | Plain HTTP POST via `fetch` |
+| DOL OSHA API | Plain HTTP GET via `fetch` |
+| Nominatim geocoding | Plain HTTP GET via `fetch` |
+| Scoring engine fix | Pure TypeScript functions |
+| New source types | Schema + type changes |
+| Rate limiting (new APIs) | Existing `p-queue` -- add queue instances |
+| JSONB field mappings | Existing Drizzle ORM |
+| DB-backed cron cursor | Existing Drizzle + Neon |
+
+---
+
+## 12. Alternatives Considered
+
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| Socrata Discovery API (free) | ATTOM / Shovels (paid permit APIs) | $500+/month for data we can get free from public portals |
+| Nominatim (free geocoding overflow) | HERE Maps (250k free/mo) | HERE requires account/key management; Nominatim simpler for overflow |
+| cheerio ^1.2.0 (HTML parsing) | node-html-parser | cheerio has larger ecosystem, better TypeScript, jQuery-familiar API |
+| Keep existing p-queue ^9.1.0 | bottleneck, limiter | p-queue works, tested in codebase, no reason to switch |
+| USAspending (contract awards) | FPDS (Federal Procurement) | USAspending is newer, better documented, no auth needed |
+| OSHA DOL API | Bulk CSV download only | API allows incremental daily pulls; CSV requires full re-download |
+| Keep Google Maps primary geocoder | Switch entirely to Nominatim | Google is more accurate; use as primary within free quota |
+| Rule-based scoring fix | ML/AI scoring | Explicitly out of scope per PROJECT.md; fix rules first |
+| DB-backed cron cursor | Redis / external queue | Overkill; Neon + p-queue is sufficient at this scale |
+
+---
+
+## 13. What NOT to Add
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| ATTOM / Shovels (paid permit APIs) | $500+/month for data available free from Socrata | Socrata Discovery API |
+| DSIRE paid API (solar incentives) | Subscription pricing, contact required | Keep curated `SOLAR_INCENTIVES` array; update manually quarterly |
+| Zillow / MLS real estate APIs | $500+/mo, restrictive ToS, prohibits competing products | Not needed -- leads come from permits/bids/gov data |
+| PACER / CourtListener (court filings) | PACER: $0.10/page; CourtListener: partial coverage; liens are county-level | Defer to v5 |
+| Contractor license board scrapers | 50 different state systems, no unified API | Defer to v5 |
+| ML/AI scoring models | Out of scope per PROJECT.md | Fix rule-based engine properly |
+| Redis / external queue | Overkill at current scale | DB cursor + p-queue |
+| Puppeteer/Playwright for new adapters | Too heavy for serverless; most sources have APIs or static HTML | cheerio for HTML; Crawlee only when JS rendering needed |
+| GraphQL layer | No consumer needs it | Keep server actions + API routes |
+| axios / node-fetch / got | Unnecessary HTTP client libraries | Built-in `fetch` (Next.js provides it globally) |
+| soda-js (Socrata client) | Unmaintained; plain fetch with SODA params is simpler | Built-in `fetch` |
+| turf.js / @turf/turf | PostGIS handles geospatial server-side | PostGIS (already enabled on Neon) |
+| papaparse (CSV parsing) | Not needed for v4 -- no bulk CSV imports planned | If needed later, add then |
+
+---
+
+## 14. Environment Variables
+
+### New for v4.0
+
+| Variable | Required | Source | Free? |
+|----------|----------|--------|-------|
+| `SOCRATA_APP_TOKEN` | Recommended (higher rate limits) | dev.socrata.com registration | Yes |
+| `DOL_API_KEY` | For OSHA inspection data | dataportal.dol.gov registration | Yes |
+| `NOMINATIM_USER_AGENT` | If using Nominatim overflow | Set to `GroundPulse/1.0 (contact@email)` | N/A |
+
+### Existing (No Changes Needed)
+
+| Variable | Status |
+|----------|--------|
+| `GOOGLE_MAPS_API_KEY` | Keep for primary geocoding |
+| `SAM_GOV_API_KEY` | Keep for SAM.gov bids |
+| `EIA_API_KEY` | Keep for utility rates |
+| `NREL_API_KEY` | Keep for NEVI/EV station data (note: migrate domain to nlr.gov by April 2026) |
+| All Stripe, Neon, Resend, Better Auth vars | Unchanged |
+
+---
+
+## 15. Version Compatibility
+
+| Package | Version | Compatible With | Notes |
+|---------|---------|-----------------|-------|
+| cheerio | ^1.2.0 | Node 18+, TypeScript 5.x | Built-in types; dual ESM/CJS; no @types needed |
+| p-queue | ^9.1.0 (existing) | ESM only | Already using dynamic `import()` -- no issues |
+| drizzle-orm | ^0.45.1 (existing) | Neon, JSONB type | JSONB column for field_mapping supported natively |
+| zod | ^4.3.6 (existing) | All deps | Add new source type values to sourceTypes enum |
+| PostGIS | On Neon | drizzle geometry() type | Already enabled; `location` column already exists in leads table |
 
 ---
 
 ## Sources
 
-- [NWS API Documentation](https://www.weather.gov/documentation/services-web-api) -- alerts endpoint, OpenAPI spec (HIGH confidence)
-- [NWS Alerts Web Service](https://www.weather.gov/documentation/services-web-alerts) -- alert filtering (HIGH confidence)
-- [NOAA Storm Events CSV Files](https://www.ncei.noaa.gov/pub/data/swdi/stormevents/csvfiles/) -- bulk data download (HIGH confidence)
-- [FEMA OpenFEMA API Documentation](https://www.fema.gov/about/openfema/api) -- disaster declarations, query syntax (HIGH confidence)
-- [FEMA Disaster Declarations Summaries v2](https://www.fema.gov/openfema-data-page/disaster-declarations-summaries-v2) -- dataset details (HIGH confidence)
-- [SAM.gov Get Opportunities Public API](https://open.gsa.gov/api/get-opportunities-public-api/) -- NAICS filtering, endpoint (HIGH confidence)
-- [Socrata SODA API Developer Docs](https://dev.socrata.com/docs/endpoints.html) -- endpoint structure, SODA3 changes (HIGH confidence)
-- [Socrata Discovery API](https://dev.socrata.com/docs/other/discovery) -- finding datasets across portals (MEDIUM confidence)
-- [DSIRE API Page](https://www.dsireusa.org/dsire-api/) -- paid subscription required (LOW confidence on pricing/endpoints)
-- [NREL Alternative Fuel Stations API](https://developer.nlr.gov/docs/transportation/alt-fuel-stations-v1/) -- NEVI station data (HIGH confidence)
-- [EIA API v2 Documentation](https://www.eia.gov/opendata/documentation.php) -- electricity retail sales endpoint (HIGH confidence)
-- [NREL Utility Rates API v3](https://developer.nlr.gov/docs/electricity/utility-rates-v3/) -- DATA FROM 2012 ONLY, DO NOT USE (HIGH confidence it's outdated)
-- [Neon PostGIS Extension](https://neon.com/docs/extensions/postgis) -- enabling PostGIS on Neon (HIGH confidence)
-- [Drizzle ORM PostGIS Geometry Point](https://orm.drizzle.team/docs/guides/postgis-geometry-point) -- native geometry type, insert/query patterns (HIGH confidence)
-- [Drizzle ORM Cursor-Based Pagination](https://orm.drizzle.team/docs/guides/cursor-based-pagination) -- official guide (HIGH confidence)
-- [p-queue GitHub](https://github.com/sindresorhus/p-queue) -- rate limiting library (HIGH confidence)
-- [vis.gl/react-google-maps Drawing Tools](https://sudolabs.com/insights/react-google-maps-drawing-tools) -- DrawingManager integration (MEDIUM confidence)
-- [Node.js Crypto Documentation](https://nodejs.org/api/crypto.html) -- built-in SHA-256 hashing (HIGH confidence)
+- [Socrata Discovery API](https://api.us.socrata.com/api/catalog/v1) -- **Verified live**: 486 permit datasets found, response schema documented (HIGH)
+- [Socrata Developer Docs](https://dev.socrata.com/docs/other/discovery) -- Discovery API documentation (HIGH)
+- [Socrata Discovery Apiary Docs](https://socratadiscovery.docs.apiary.io/) -- API specification (HIGH)
+- [ArcGIS Hub Search API](https://hub.arcgis.com/api/search/definition/) -- Dataset search endpoint (HIGH)
+- [USAspending API Docs](https://api.usaspending.gov/docs/endpoints) -- No auth, NAICS search (HIGH)
+- [USAspending GitHub](https://github.com/fedspendingtransparency/usaspending-api) -- Open source API contracts (HIGH)
+- [DOL OSHA Enforcement API](https://developer.dol.gov/health-and-safety/dol-osha-enforcement/) -- Inspection data (MEDIUM)
+- [DOL API User Guide](https://www.dataportal.dol.gov/pdf/dol-api-user-guide.pdf) -- Auth, filter syntax (MEDIUM)
+- [Nominatim](https://nominatim.org/) -- Free geocoding, 1 req/s public API (HIGH)
+- [Google Maps Geocoding Pricing](https://developers.google.com/maps/documentation/geocoding/usage-and-billing) -- 10k free/month post-March 2025 (HIGH)
+- [cheerio](https://cheerio.js.org/) -- v1.2.0, built-in TypeScript, 40x faster than jsdom (HIGH)
+- [cheerio GitHub releases](https://github.com/cheeriojs/cheerio/releases) -- Version history (HIGH)
+- [Vercel Function Limits](https://vercel.com/docs/functions/limitations) -- 300s max on Pro plan (HIGH)
+- [Vercel Cron Jobs](https://vercel.com/docs/cron-jobs) -- Timeout matches function limits (HIGH)
+- [DSIRE API](https://www.dsireusa.org/dsire-api/) -- Paid subscription, contact required (MEDIUM)
+- [NREL Developer Network](https://developer.nlr.gov/) -- Migrating domain by April 2026 (HIGH)
+- [HUD Residential Permits](https://hudgis-hud.opendata.arcgis.com/datasets/HUD::residential-construction-permits-by-county/about) -- County-level data (HIGH)
+- [p-queue npm](https://www.npmjs.com/package/p-queue) -- v9.1.0 latest, ESM only (HIGH)
 
 ---
-*Stack research for: LeadForge v3.0 multi-industry expansion*
-*Researched: 2026-03-16*
+*Stack research for: GroundPulse v4.0 Nationwide Expansion*
+*Researched: 2026-03-19*
