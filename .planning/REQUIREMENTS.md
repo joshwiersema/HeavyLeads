@@ -12,8 +12,8 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 - [x] **INFRA-01**: Pipeline runs in batched fan-out to stay under 300s Vercel timeout
 - [ ] **INFRA-02**: Geocoding cache prevents re-geocoding same addresses across runs
 - [ ] **INFRA-03**: Nominatim fallback activates when Google Maps 10K/month quota is exceeded
-- [ ] **INFRA-04**: Leads older than 45 days are automatically expired to stay within Neon storage limits
-- [ ] **INFRA-05**: Data portals DB table stores discovered Socrata/ArcGIS configs as rows, not code files
+- [x] **INFRA-04**: Leads older than 45 days are automatically expired to stay within Neon storage limits
+- [x] **INFRA-05**: Data portals DB table stores discovered Socrata/ArcGIS configs as rows, not code files
 
 ### Scoring
 
@@ -98,8 +98,8 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | INFRA-01 | Phase 19 | Complete |
 | INFRA-02 | Phase 19 | Pending |
 | INFRA-03 | Phase 19 | Pending |
-| INFRA-04 | Phase 19 | Pending |
-| INFRA-05 | Phase 19 | Pending |
+| INFRA-04 | Phase 19 | Complete |
+| INFRA-05 | Phase 19 | Complete |
 | SCOR-01 | Phase 20 | Pending |
 | SCOR-02 | Phase 20 | Pending |
 | SCOR-03 | Phase 20 | Pending |

@@ -207,7 +207,7 @@ Plans:
 
 **Milestone Goal:** Expand from 3-city Texas coverage to all 50 states, fix the broken scoring engine so leads actually differentiate, add every viable public lead source, rebrand to GroundPulse, and redesign the landing page.
 
-- [ ] **Phase 19: Infrastructure Hardening** - Fan-out cron batching, geocoding cache with Nominatim fallback, lead expiration, and data_portals table
+- [x] **Phase 19: Infrastructure Hardening** - Fan-out cron batching, geocoding cache with Nominatim fallback, lead expiration, and data_portals table (completed 2026-03-20)
 - [ ] **Phase 20: Scoring Engine Fix** - Score differentiation, value estimation heuristics, keyword relevance, freshness curves, legacy system removal
 - [ ] **Phase 21: Dynamic Portal Discovery & Nationwide Coverage** - Socrata/ArcGIS auto-discovery, generic adapters, heuristic field mapping, 50-state permit coverage
 - [ ] **Phase 22: Federal & Specialty Data Sources** - USAspending, OSHA, EPA Brownfields, Grants.gov, FERC, FCC adapters
@@ -317,7 +317,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 16. Cron & Scraper Architecture | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 17. Storm Alerts & Weather | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
-| 19. Infrastructure Hardening | 1/3 | In Progress|  | - |
+| 19. Infrastructure Hardening | 3/3 | Complete   | 2026-03-20 | - |
 | 20. Scoring Engine Fix | v4.0 | 0/TBD | Not started | - |
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/TBD | Not started | - |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
