@@ -310,7 +310,12 @@ Plans:
   3. The landing page showcases all 5 industries (heavy equipment, HVAC, roofing, solar, electrical) with specific value propositions for each -- not generic "we help contractors" copy
   4. The landing page includes an interactive or visual element that demonstrates the product (live demo, animated dashboard preview, or interactive lead explorer) -- not just text and icons
   5. A first-time visitor would trust this landing page enough to enter their credit card -- it feels professional, specific, and handcrafted rather than AI-generated or templated
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 24-01-PLAN.md -- Global rebrand: replace HeavyLeads/LeadForge with GroundPulse across 55+ files, update GP monogram
+- [ ] 24-02-PLAN.md -- Handcrafted landing page with 5-industry showcase, interactive dashboard preview, and trade-specific copy
+- [ ] 24-03-PLAN.md -- Full verification sweep: zero old brand references, TypeScript compilation, all tests pass
 
 ## Progress
 
@@ -342,4 +347,4 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
 | 22. Federal & Specialty Data Sources | 3/3 | Complete    | 2026-03-20 | - |
 | 23. Feed Performance Optimization | 2/2 | Complete    | 2026-03-20 | - |
-| 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |
+| 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/3 | Not started | - |
