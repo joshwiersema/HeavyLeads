@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: completed
-stopped_at: Completed 23-01-PLAN.md
-last_updated: "2026-03-20T06:21:04.254Z"
-last_activity: 2026-03-20 -- Completed 23-01 Feed Performance Optimization (ST_DWithin spatial queries)
+status: in-progress
+stopped_at: Completed 24-02-PLAN.md
+last_updated: "2026-03-20T06:34:30Z"
+last_activity: 2026-03-20 -- Completed 24-02 Landing Page (5-industry showcase with interactive demo)
 progress:
   total_phases: 6
   completed_phases: 5
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Every morning, a blue-collar business owner opens GroundPulse and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** v4.0 Phase 23 -- Feed Performance Optimization
+**Current focus:** v4.0 Phase 24 -- GroundPulse Rebrand Landing Page
 
 ## Current Position
 
-Phase: 23 of 24 (Feed Performance Optimization)
-Plan: 2 of 2 complete
-Status: Phase 23 complete
-Last activity: 2026-03-20 -- Completed 23-01 Feed Performance Optimization (ST_DWithin spatial queries)
+Phase: 24 of 24 (GroundPulse Rebrand Landing Page)
+Plan: 1 of 3 complete
+Status: In progress
+Last activity: 2026-03-20 -- Completed 24-02 Landing Page (5-industry showcase with interactive demo)
 
-Progress: [██████████] 100%
+Progress: [███-------] 33%
 
 ## Performance Metrics
 
@@ -56,6 +56,7 @@ Progress: [██████████] 100%
 | Phase 22 P03 | 4min | 2 tasks | 3 files |
 | Phase 23 P02 | 4min | 1 tasks | 2 files |
 | Phase 23 P01 | 4min | 2 tasks | 3 files |
+| Phase 24 P02 | 3min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -111,6 +112,10 @@ Recent decisions affecting current work:
 - [Phase 23]: ST_DWithin with geography cast for spatial index-backed radius filtering, miles * 1609.344 for meter conversion (23-01)
 - [Phase 23]: Separate SQL COUNT query + SQL LIMIT/OFFSET for getFilteredLeadsWithCount pagination instead of fetch-all-then-slice (23-01)
 - [Phase 23]: getRoofingSubscribersInStormArea left as Haversine since it uses org_profiles coordinates, not leads.location (23-01)
+- [Phase 24]: Complete page.tsx rewrite replacing HeavyLeads with GroundPulse branding, GP monogram (24-02)
+- [Phase 24]: Interactive dashboard preview with 3 mock lead cards as product demo element (24-02)
+- [Phase 24]: Asymmetric industry grid: Heavy Equipment spans 2 columns, others 1 each (24-02)
+- [Phase 24]: Industry-specific accent colors: amber (heavy equip), red (roofing), blue (HVAC), yellow (solar), purple (electrical) (24-02)
 
 ### Pending Todos
 
@@ -126,6 +131,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T06:14:26Z
-Stopped at: Completed 23-01-PLAN.md
+Last session: 2026-03-20T06:34:30Z
+Stopped at: Completed 24-02-PLAN.md
 Resume file: None
