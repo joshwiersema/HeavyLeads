@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: in-progress
-stopped_at: Completed 20-02-PLAN.md
-last_updated: "2026-03-20T04:43:09Z"
-last_activity: 2026-03-20 -- Completed 20-02 legacy scoring removal (scoring engine fix)
+status: executing
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-03-20T04:46:52.890Z"
+last_activity: 2026-03-20 -- Completed 20-02 legacy scoring removal
 progress:
   total_phases: 6
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 2
+  total_plans: 6
+  completed_plans: 5
   percent: 67
 ---
 
@@ -45,6 +45,7 @@ Progress: [######----] 67%
 |-------|-------|-------|----------|
 | 19 | 3/3 | 12min | 4min |
 | 20 | 2/3 | 4min | 2min |
+| Phase 20 P01 | 6min | 3 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,9 @@ Recent decisions affecting current work:
 - Nominatim free fallback with 1-req/sec rate limit per OSM policy (19-01)
 - Backward-compatible fallback in enrichLead: distance-only score when no org context (20-02)
 - Build OrgScoringContext at top of getFilteredLeads/getFilteredLeadsWithCount when organizationId present (20-02)
+- [Phase 20]: PROJECT_TYPE_VALUE_MAP with 33 entries for projectType-to-tier derivation (20-01)
+- [Phase 20]: Three freshness curve tiers: storm (hours), bid (days), default/permit (weeks) (20-01)
+- [Phase 20]: 5-industry keyword map with strong/weak categories for relevance scoring (20-01)
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:43:09Z
-Stopped at: Completed 20-02-PLAN.md
+Last session: 2026-03-20T04:46:37.933Z
+Stopped at: Completed 20-01-PLAN.md
 Resume file: None
