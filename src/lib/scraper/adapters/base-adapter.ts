@@ -9,8 +9,14 @@ import { z } from "zod";
  * - storm: NWS severe weather alerts
  * - disaster: FEMA disaster declarations
  * - violation: Code enforcement / building code violations
+ * - contract-award: Federal awarded contracts (USAspending)
+ * - inspection: OSHA construction site inspections
+ * - brownfield: EPA contaminated site cleanup opportunities
+ * - grant: Federal construction grant opportunities
+ * - energy: FERC energy infrastructure filings
+ * - telecom: FCC antenna structure registrations
  */
-export const sourceTypes = ["permit", "bid", "news", "deep-web", "storm", "disaster", "violation"] as const;
+export const sourceTypes = ["permit", "bid", "news", "deep-web", "storm", "disaster", "violation", "contract-award", "inspection", "brownfield", "grant", "energy", "telecom"] as const;
 export type SourceType = (typeof sourceTypes)[number];
 
 /**
