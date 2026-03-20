@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: completed
-stopped_at: Completed 22-03-PLAN.md
-last_updated: "2026-03-20T06:01:00.627Z"
-last_activity: 2026-03-20 -- Completed 22-03 FERC Energy & FCC Antenna Adapters
+status: executing
+stopped_at: Completed 23-01-PLAN.md
+last_updated: "2026-03-20T06:14:26.000Z"
+last_activity: 2026-03-20 -- Completed 23-01 Feed Performance Optimization (ST_DWithin spatial queries)
 progress:
   total_phases: 6
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
-  percent: 100
+  completed_phases: 5
+  total_plans: 15
+  completed_plans: 15
+  percent: 93
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Every morning, a blue-collar business owner opens GroundPulse and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** v4.0 Phase 22 -- Federal & Specialty Data Sources
+**Current focus:** v4.0 Phase 23 -- Feed Performance Optimization
 
 ## Current Position
 
-Phase: 22 of 24 (Federal & Specialty Data Sources)
-Plan: 3 of 3 complete
-Status: Phase 22 complete
-Last activity: 2026-03-20 -- Completed 22-03 FERC Energy & FCC Antenna Adapters
+Phase: 23 of 24 (Feed Performance Optimization)
+Plan: 2 of 2 complete
+Status: Phase 23 complete
+Last activity: 2026-03-20 -- Completed 23-01 Feed Performance Optimization (ST_DWithin spatial queries)
 
 Progress: [██████████] 100%
 
@@ -54,6 +54,7 @@ Progress: [██████████] 100%
 | Phase 22 P01 | 2min | 2 tasks | 4 files |
 | Phase 22 P02 | 2min | 2 tasks | 2 files |
 | Phase 22 P03 | 4min | 2 tasks | 3 files |
+| Phase 23 P02 | 4min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase 22]: Regex-based RSS/XML parsing for FERC to avoid adding XML parser dependency (22-03)
 - [Phase 22]: DMS-to-decimal coordinate conversion for FCC records with decimal format fallback (22-03)
 - [Phase 22]: All 6 federal adapters registered per industry: FERC for energy-related, FCC for tower/electrical (22-03)
+- [Phase 23]: Three-path dedup matching with geographic proximity prerequisite: permit number (>0.8), text (>0.7), date+address compound (3 days + >0.5) (23-02)
+- [Phase 23]: Permit number normalization strips common prefixes (BLDG, BLD, BP, COM, RES, PMT, PERMIT) with longer-first regex ordering (23-02)
 
 ### Pending Todos
 
@@ -119,6 +122,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:53:00Z
-Stopped at: Completed 22-03-PLAN.md
+Last session: 2026-03-20T06:15:55.745Z
+Stopped at: Completed 23-02-PLAN.md
 Resume file: None

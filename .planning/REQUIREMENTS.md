@@ -50,7 +50,7 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 - [ ] **PERF-01**: All lead queries use SQL-level LIMIT (no fetch-all-then-slice)
 - [ ] **PERF-02**: PostGIS spatial index on leads.location column used for distance filtering
 - [ ] **PERF-03**: Dashboard loads in < 3 seconds with 50K+ leads in database
-- [ ] **PERF-04**: Cross-source deduplication catches same permit from city and county portals
+- [x] **PERF-04**: Cross-source deduplication catches same permit from city and county portals
 
 ### Rebrand & Landing Page
 
@@ -124,7 +124,7 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | PERF-01 | Phase 23 | Pending |
 | PERF-02 | Phase 23 | Pending |
 | PERF-03 | Phase 23 | Pending |
-| PERF-04 | Phase 23 | Pending |
+| PERF-04 | Phase 23 | Complete |
 | BRAND-01 | Phase 24 | Pending |
 | BRAND-02 | Phase 24 | Pending |
 | BRAND-03 | Phase 24 | Pending |
