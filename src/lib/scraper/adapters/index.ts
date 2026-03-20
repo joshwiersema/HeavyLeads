@@ -17,6 +17,8 @@ import { EiaUtilityRateAdapter } from "./eia-utility-rates";
 import { UsaSpendingContractsAdapter } from "./usaspending-contracts";
 import { OshaInspectionsAdapter } from "./osha-inspections";
 import { FercEnergyAdapter } from "./ferc-energy";
+import { EpaBrownfieldsAdapter } from "./epa-brownfields";
+import { GrantsGovAdapter } from "./grants-gov";
 import { FccAntennaAdapter } from "./fcc-antenna";
 import { getPortalAdaptersForIndustry } from "./portal-adapter-factory";
 
@@ -82,6 +84,8 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new FemaDisasterAdapter(),
         new UsaSpendingContractsAdapter(),
         new OshaInspectionsAdapter(),
+        new EpaBrownfieldsAdapter(),
+        new GrantsGovAdapter(),
         new FercEnergyAdapter(),
         new FccAntennaAdapter(),
       ];
@@ -97,6 +101,7 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new HoustonViolationsAdapter(),
         new UsaSpendingContractsAdapter(),
         new OshaInspectionsAdapter(),
+        new GrantsGovAdapter(),
       ];
 
     case "roofing":
@@ -112,6 +117,8 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new HoustonViolationsAdapter(),
         new UsaSpendingContractsAdapter(),
         new OshaInspectionsAdapter(),
+        new EpaBrownfieldsAdapter(),
+        new GrantsGovAdapter(),
       ];
 
     case "solar":
@@ -120,6 +127,7 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new EnrNewsAdapter(),
         new EiaUtilityRateAdapter(),
         new UsaSpendingContractsAdapter(),
+        new GrantsGovAdapter(),
         new FercEnergyAdapter(),
       ];
 
@@ -134,6 +142,7 @@ function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
         new HoustonViolationsAdapter(),
         new UsaSpendingContractsAdapter(),
         new OshaInspectionsAdapter(),
+        new GrantsGovAdapter(),
         new FercEnergyAdapter(),
         new FccAntennaAdapter(),
       ];
