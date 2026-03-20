@@ -260,7 +260,13 @@ Plans:
   3. GenericSocrataAdapter and GenericArcGISAdapter read their config (endpoint, field mappings, filters) from data_portals rows -- zero per-city TypeScript adapter files are needed for new cities
   4. The heuristic field mapper correctly auto-maps column names for 90%+ of the top-50-city permit datasets (e.g., recognizing permit_number, permit_no, PERMIT_NUM as the same concept)
   5. A user who signs up in a state with no hardcoded adapter (e.g., Oregon, Michigan, Florida) sees local leads in their feed within 24 hours of the next pipeline run
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 21-01-PLAN.md -- Heuristic field mapper and GenericSocrataAdapter (reads config from data_portals)
+- [ ] 21-02-PLAN.md -- GenericArcGISAdapter (reads config from data_portals, GeoJSON coordinate extraction)
+- [ ] 21-03-PLAN.md -- Socrata Discovery and ArcGIS Discovery services (catalog API queries, field auto-mapping)
+- [ ] 21-04-PLAN.md -- Discovery cron route, portal adapter factory, pipeline integration, seed migration, vercel.json
 
 ### Phase 22: Federal & Specialty Data Sources
 **Goal**: The platform surfaces federal construction contracts, OSHA inspections, EPA brownfield sites, federal grants, energy infrastructure filings, and telecom tower registrations as lead types alongside municipal permits
@@ -324,7 +330,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 19. Infrastructure Hardening | 3/3 | Complete    | 2026-03-20 | - |
 | 20. Scoring Engine Fix | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
-| 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/TBD | Not started | - |
+| 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/4 | Not started | - |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
 | 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
 | 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |
