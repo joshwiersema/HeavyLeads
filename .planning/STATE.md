@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: completed
-stopped_at: Completed 19-01-PLAN.md (Phase 19 fully complete)
-last_updated: "2026-03-20T04:29:49.178Z"
-last_activity: 2026-03-20 -- Completed 19-03 expiration hardening & data portals (Phase 19 complete)
+status: in-progress
+stopped_at: Completed 20-02-PLAN.md
+last_updated: "2026-03-20T04:43:09Z"
+last_activity: 2026-03-20 -- Completed 20-02 legacy scoring removal (scoring engine fix)
 progress:
   total_phases: 6
   completed_phases: 1
   total_plans: 3
-  completed_plans: 3
-  percent: 100
+  completed_plans: 2
+  percent: 67
 ---
 
 # Project State
@@ -21,29 +21,30 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Every morning, a blue-collar business owner opens GroundPulse and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** v4.0 Phase 19 -- Infrastructure Hardening
+**Current focus:** v4.0 Phase 20 -- Scoring Engine Fix
 
 ## Current Position
 
-Phase: 19 of 24 (Infrastructure Hardening)
-Plan: 3 of 3 (all complete)
-Status: Phase 19 complete
-Last activity: 2026-03-20 -- Completed 19-03 expiration hardening & data portals (Phase 19 complete)
+Phase: 20 of 24 (Scoring Engine Fix)
+Plan: 2 of 3 (20-02 complete)
+Status: In progress
+Last activity: 2026-03-20 -- Completed 20-02 legacy scoring removal
 
-Progress: [##########] 100%
+Progress: [######----] 67%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3 (v4.0) / 41 (all milestones)
+- Total plans completed: 5 (v4.0) / 43 (all milestones)
 - Average duration: 4min (v4.0)
-- Total execution time: 12min (v4.0)
+- Total execution time: 16min (v4.0)
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 19 | 3/3 | 12min | 4min |
+| 20 | 2/3 | 4min | 2min |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - SHA-256 address hashing for geocoding cache keys with 90-day TTL (19-01)
 - Cache null coords to prevent retrying known-bad addresses (19-01)
 - Nominatim free fallback with 1-req/sec rate limit per OSM policy (19-01)
+- Backward-compatible fallback in enrichLead: distance-only score when no org context (20-02)
+- Build OrgScoringContext at top of getFilteredLeads/getFilteredLeadsWithCount when organizationId present (20-02)
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:23:00Z
-Stopped at: Completed 19-01-PLAN.md (Phase 19 fully complete)
+Last session: 2026-03-20T04:43:09Z
+Stopped at: Completed 20-02-PLAN.md
 Resume file: None

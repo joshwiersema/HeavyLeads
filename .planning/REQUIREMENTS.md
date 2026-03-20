@@ -21,7 +21,7 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 - [ ] **SCOR-02**: Value estimation heuristic assigns valueTier from projectType when estimatedValue is null
 - [ ] **SCOR-03**: Industry relevance uses keyword-to-projectType matching (0-15 range) instead of flat low-confidence fallback
 - [ ] **SCOR-04**: Freshness scoring uses source-type-specific curves (storm=hours, bid=days, permit=weeks)
-- [ ] **SCOR-05**: Legacy scoring system (src/lib/leads/scoring.ts) is removed; single scoring engine remains
+- [x] **SCOR-05**: Legacy scoring system (src/lib/leads/scoring.ts) is removed; single scoring engine remains
 - [ ] **SCOR-06**: HVAC leads score highest for HVAC accounts, solar leads for solar accounts, etc. (industry routing verified)
 
 ### Nationwide Coverage
@@ -104,7 +104,7 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | SCOR-02 | Phase 20 | Pending |
 | SCOR-03 | Phase 20 | Pending |
 | SCOR-04 | Phase 20 | Pending |
-| SCOR-05 | Phase 20 | Pending |
+| SCOR-05 | Phase 20 | Complete |
 | SCOR-06 | Phase 20 | Pending |
 | NATL-01 | Phase 21 | Pending |
 | NATL-02 | Phase 21 | Pending |
