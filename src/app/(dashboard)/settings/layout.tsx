@@ -2,7 +2,7 @@ import { Separator } from "@/components/ui/separator";
 import { SettingsNav } from "@/components/settings/settings-nav";
 
 export const metadata = {
-  title: "Settings | HeavyLeads",
+  title: "Settings | GroundPulse",
 };
 
 export default function SettingsLayout({

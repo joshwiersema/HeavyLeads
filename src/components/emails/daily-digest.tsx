@@ -23,7 +23,7 @@ interface DailyDigestEmailProps {
 const MAX_INLINE_LEADS = 10;
 
 /**
- * React Email template for the HeavyLeads daily lead digest.
+ * React Email template for the GroundPulse daily lead digest.
  *
  * Uses EmailLayout for industry-specific theming and CAN-SPAM footer.
  * Renders a summary of new leads matching the user's saved search criteria,

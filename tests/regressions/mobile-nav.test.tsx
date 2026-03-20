@@ -112,10 +112,10 @@ describe("mobile-nav regression (bug fix #8)", () => {
     expect(settingsLink).toHaveAttribute("href", "/settings");
   });
 
-  it("renders the HeavyLeads brand link", () => {
+  it("renders the GroundPulse brand link", () => {
     render(<MobileNav userName="Test User" />);
 
-    const brandLink = screen.getByText("HeavyLeads");
+    const brandLink = screen.getByText("GroundPulse");
     expect(brandLink).toBeInTheDocument();
     expect(brandLink.closest("a")).toHaveAttribute("href", "/dashboard");
   });

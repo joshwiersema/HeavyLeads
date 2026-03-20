@@ -31,7 +31,7 @@ export async function sendWeeklySummary(
 
     const fromEmail =
       (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
-      "HeavyLeads <notifications@resend.dev>";
+      "GroundPulse <notifications@resend.dev>";
 
     const subject = `Weekly Summary: ${stats.totalLeadsThisWeek} new leads this week`;
 

@@ -14,10 +14,10 @@ export default function AuthLayout({
 
         <div className="relative">
           <Link href="/" className="flex items-center gap-2 text-xl font-bold text-white">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-black text-[#1a1a1e]">
-              H
+            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black tracking-tight text-[#1a1a1e]">
+              GP
             </div>
-            HeavyLeads
+            GroundPulse
           </Link>
         </div>
 
@@ -66,7 +66,7 @@ export default function AuthLayout({
         </div>
 
         <p className="relative text-xs text-[#555560]">
-          &copy; {new Date().getFullYear()} HeavyLeads. All rights reserved.
+          &copy; {new Date().getFullYear()} GroundPulse. All rights reserved.
         </p>
       </div>
 
@@ -74,11 +74,11 @@ export default function AuthLayout({
       <div className="flex flex-1 flex-col">
         {/* Mobile header */}
         <div className="flex items-center gap-2 px-6 py-4 lg:hidden">
-          <div className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black text-[#1a1a1e]">
-            H
+          <div className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-600 text-[9px] font-black tracking-tight text-[#1a1a1e]">
+            GP
           </div>
           <Link href="/" className="text-xl font-bold">
-            HeavyLeads
+            GroundPulse
           </Link>
         </div>
 

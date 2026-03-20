@@ -86,11 +86,11 @@ export default async function DashboardLayout({
       <aside className="hidden w-64 shrink-0 bg-[#1a1a1e] md:block">
         <div className="flex h-full flex-col">
           <div className="flex h-14 items-center gap-2.5 px-5">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-black text-[#1a1a1e]">
-              H
+            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black tracking-tight text-[#1a1a1e]">
+              GP
             </div>
             <Link href="/dashboard" className="text-base font-semibold tracking-tight text-white">
-              HeavyLeads
+              GroundPulse
             </Link>
           </div>
           <div className="mx-4 h-px bg-white/8" />
@@ -105,10 +105,10 @@ export default async function DashboardLayout({
           <div className="flex items-center gap-2 md:hidden">
             <MobileNav userName={session.user.name} industry={orgIndustry} />
             <Link href="/dashboard" className="flex items-center gap-2 text-base font-semibold">
-              <div className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black text-[#1a1a1e]">
-                H
+              <div className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-600 text-[9px] font-black tracking-tight text-[#1a1a1e]">
+                GP
               </div>
-              HeavyLeads
+              GroundPulse
             </Link>
           </div>
           <div className="flex items-center gap-4 ml-auto">

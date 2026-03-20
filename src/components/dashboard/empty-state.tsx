@@ -57,7 +57,7 @@ export function DashboardEmptyState({
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Sparkles className="size-5 text-primary" />
-            Welcome to HeavyLeads!
+            Welcome to GroundPulse!
           </CardTitle>
           <CardDescription>
             Your lead pipeline is being set up. Click the button below to start

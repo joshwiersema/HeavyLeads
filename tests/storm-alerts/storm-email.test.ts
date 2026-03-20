@@ -194,7 +194,7 @@ describe("StormAlertEmail template", () => {
     expect(html).toContain("sourceTypes=storm");
   });
 
-  it("renders brand name LeadForge", async () => {
+  it("renders brand name GroundPulse", async () => {
     const { render } = await import("@react-email/components");
     const { StormAlertEmail } = await import(
       "@/components/emails/storm-alert"
@@ -209,7 +209,7 @@ describe("StormAlertEmail template", () => {
       })
     );
 
-    expect(html).toContain("LeadForge");
+    expect(html).toContain("GroundPulse");
   });
 
   it("limits displayed alerts to 5", async () => {

@@ -12,7 +12,7 @@ import {
 import { Search } from "lucide-react";
 
 export const metadata = {
-  title: "Saved Searches | HeavyLeads",
+  title: "Saved Searches | GroundPulse",
 };
 
 export default async function SavedSearchesPage({

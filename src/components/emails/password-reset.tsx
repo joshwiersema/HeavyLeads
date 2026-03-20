@@ -15,7 +15,7 @@ interface PasswordResetEmailProps {
 }
 
 /**
- * React Email template for HeavyLeads password reset.
+ * React Email template for GroundPulse password reset.
  *
  * Renders a branded email with a reset link button and expiry notice.
  * Follows the same inline-style pattern as DailyDigestEmail for consistency.
@@ -28,7 +28,7 @@ export function PasswordResetEmail({ url, userName }: PasswordResetEmailProps) {
         <Container style={containerStyle}>
           {/* Header */}
           <Section style={headerStyle}>
-            <Text style={brandStyle}>HeavyLeads</Text>
+            <Text style={brandStyle}>GroundPulse</Text>
             <Text style={headingStyle}>Reset Your Password</Text>
           </Section>
 

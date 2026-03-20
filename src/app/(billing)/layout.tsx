@@ -42,7 +42,7 @@ export default async function BillingLayout({
               &larr; Back to Dashboard
             </Link>
           ) : (
-            <span className="text-sm font-medium">HeavyLeads</span>
+            <span className="text-sm font-medium">GroundPulse</span>
           )}
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">

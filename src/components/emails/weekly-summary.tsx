@@ -19,7 +19,7 @@ interface WeeklySummaryEmailProps {
 }
 
 /**
- * React Email template for the HeavyLeads weekly summary.
+ * React Email template for the GroundPulse weekly summary.
  *
  * Uses EmailLayout for industry-specific theming and CAN-SPAM footer.
  * Shows lead volume trends, top source types, top cities, and bookmarks.

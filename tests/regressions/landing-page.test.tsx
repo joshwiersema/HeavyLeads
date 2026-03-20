@@ -147,10 +147,10 @@ describe("landing-page regression (bug fix #9)", () => {
     expect(screen.getByText("Email Digests")).toBeInTheDocument();
   });
 
-  it("renders the HeavyLeads brand name", async () => {
+  it("renders the GroundPulse brand name", async () => {
     const page = await Home();
     render(page);
 
-    expect(screen.getByText("HeavyLeads")).toBeInTheDocument();
+    expect(screen.getByText("GroundPulse")).toBeInTheDocument();
   });
 });

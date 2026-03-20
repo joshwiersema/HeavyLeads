@@ -234,7 +234,7 @@ describe("EmailLayout: shared email layout component", () => {
     );
 
     expect(html).toContain("#1e40af");
-    expect(html).toContain("LeadForge");
+    expect(html).toContain("GroundPulse");
   });
 
   it("renders industry-specific header color for heavy_equipment (blue)", async () => {
@@ -338,7 +338,7 @@ describe("EmailLayout: shared email layout component", () => {
       React.createElement(
         EmailLayout,
         {
-          unsubscribeUrl: "https://app.leadforge.com/api/unsubscribe?token=abc",
+          unsubscribeUrl: "https://app.groundpulse.com/api/unsubscribe?token=abc",
           previewText: "Test",
         },
         React.createElement("p", null, "Content")
@@ -347,11 +347,11 @@ describe("EmailLayout: shared email layout component", () => {
 
     expect(html).toContain("Unsubscribe from these emails");
     expect(html).toContain(
-      "https://app.leadforge.com/api/unsubscribe?token=abc"
+      "https://app.groundpulse.com/api/unsubscribe?token=abc"
     );
-    expect(html).toContain("LeadForge");
+    expect(html).toContain("GroundPulse");
     expect(html).toContain(
-      "You are receiving this email because you signed up for LeadForge"
+      "You are receiving this email because you signed up for GroundPulse"
     );
   });
 
@@ -371,6 +371,6 @@ describe("EmailLayout: shared email layout component", () => {
     );
 
     expect(html).not.toContain("Unsubscribe from these emails");
-    expect(html).toContain("LeadForge");
+    expect(html).toContain("GroundPulse");
   });
 });

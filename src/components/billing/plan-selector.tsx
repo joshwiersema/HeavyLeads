@@ -34,7 +34,7 @@ export function PlanSelector({
         <CardHeader>
           <CardTitle>Free Trial</CardTitle>
           <CardDescription>
-            Try HeavyLeads risk-free for 7 days
+            Try GroundPulse risk-free for 7 days
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

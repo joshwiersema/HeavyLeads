@@ -29,11 +29,11 @@ interface EmailLayoutProps {
 }
 
 /**
- * Shared React Email layout component for all HeavyLeads emails.
+ * Shared React Email layout component for all GroundPulse emails.
  *
  * Provides:
  * - Industry-specific header color
- * - HeavyLeads branding
+ * - GroundPulse branding
  * - CAN-SPAM compliant footer with unsubscribe link and physical address
  */
 export function EmailLayout({
@@ -56,7 +56,7 @@ export function EmailLayout({
           <Section
             style={{ ...headerStyle, backgroundColor: headerColor }}
           >
-            <Text style={brandStyle}>HeavyLeads</Text>
+            <Text style={brandStyle}>GroundPulse</Text>
           </Section>
 
           {/* Content */}
@@ -75,10 +75,10 @@ export function EmailLayout({
             )}
             <Text style={footerTextStyle}>
               You are receiving this email because you signed up for
-              HeavyLeads.
+              GroundPulse.
             </Text>
             <Text style={footerTextStyle}>
-              HeavyLeads | Austin, TX
+              GroundPulse | United States
             </Text>
           </Section>
         </Container>

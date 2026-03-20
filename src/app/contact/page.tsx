@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 
 export const metadata: Metadata = {
-  title: "Contact | HeavyLeads",
+  title: "Contact | GroundPulse",
 };
 
 export default function ContactPage() {
@@ -18,7 +18,7 @@ export default function ContactPage() {
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b bg-white px-6 py-4">
         <Link href="/" className="text-xl font-bold">
-          HeavyLeads
+          GroundPulse
         </Link>
         <Link
           href="/sign-in"
@@ -41,16 +41,16 @@ export default function ContactPage() {
           </CardHeader>
           <CardContent className="space-y-4 text-sm leading-relaxed text-muted-foreground">
             <p>
-              Have questions about HeavyLeads? Need help with your account? Reach
+              Have questions about GroundPulse? Need help with your account? Reach
               out to our team and we&apos;ll get back to you as soon as possible.
             </p>
             <p>
               Email us at{" "}
               <a
-                href="mailto:support@heavyleads.com"
+                href="mailto:support@groundpulse.com"
                 className="font-medium text-primary hover:underline"
               >
-                support@heavyleads.com
+                support@groundpulse.com
               </a>
             </p>
           </CardContent>
@@ -60,7 +60,7 @@ export default function ContactPage() {
       <footer className="border-t bg-white px-6 py-8">
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">HeavyLeads</span>
+            <span className="text-sm font-semibold">GroundPulse</span>
             <span className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} All rights reserved.
             </span>

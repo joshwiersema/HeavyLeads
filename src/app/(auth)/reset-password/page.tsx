@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
 export const metadata = {
-  title: "Reset Password | HeavyLeads",
+  title: "Reset Password | GroundPulse",
 };
 
 export default function ResetPasswordPage() {

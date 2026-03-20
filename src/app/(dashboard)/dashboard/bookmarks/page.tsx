@@ -14,7 +14,7 @@ import {
 import { Bookmark } from "lucide-react";
 
 export const metadata = {
-  title: "Pipeline | HeavyLeads",
+  title: "Pipeline | GroundPulse",
 };
 
 const STATUS_LABELS: Record<PipelineStatus, string> = {

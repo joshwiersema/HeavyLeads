@@ -115,7 +115,7 @@ export class FercEnergyAdapter implements ScraperAdapter {
     const response = await fetch(url, {
       headers: {
         Accept: "application/rss+xml, application/xml, text/xml",
-        "User-Agent": "HeavyLeads/1.0 (construction lead aggregator)",
+        "User-Agent": "GroundPulse/1.0 (construction lead aggregator)",
       },
     });
 

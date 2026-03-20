@@ -57,7 +57,7 @@ describe("BillingStatus", () => {
       />
     );
 
-    expect(screen.getByText("HeavyLeads Standard")).toBeInTheDocument();
+    expect(screen.getByText("GroundPulse Standard")).toBeInTheDocument();
     expect(screen.getByText("Active")).toBeInTheDocument();
     expect(screen.getByText(EXPECTED_DATE_TEXT)).toBeInTheDocument();
     expect(screen.getByText("Next renewal")).toBeInTheDocument();

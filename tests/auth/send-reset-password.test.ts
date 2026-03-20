@@ -157,7 +157,7 @@ describe("sendResetPassword callback in auth config", () => {
     expect(mockSend).toHaveBeenCalledOnce();
     const callArgs = mockSend.mock.calls[0][0];
     expect(callArgs.to).toBe("test@example.com");
-    expect(callArgs.subject).toBe("Reset your HeavyLeads password");
+    expect(callArgs.subject).toBe("Reset your GroundPulse password");
     expect(callArgs.react).toBeDefined();
   });
 

@@ -1,11 +1,11 @@
 /**
  * Stripe Product & Price Seed Script
  *
- * Creates all required Stripe objects for HeavyLeads. Idempotent — safe to
+ * Creates all required Stripe objects for GroundPulse. Idempotent — safe to
  * run multiple times. Checks for existing objects before creating.
  *
  * Creates:
- *   1. Product: "HeavyLeads Standard"
+ *   1. Product: "GroundPulse Standard"
  *   2. Price: Monthly recurring subscription (default $199/mo)
  *   3. Price: One-time setup fee (default $499)
  *
@@ -40,7 +40,7 @@ async function main() {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
   const isTestMode = process.env.STRIPE_SECRET_KEY.startsWith("sk_test_");
 
-  console.log("=== HeavyLeads Stripe Seed ===");
+  console.log("=== GroundPulse Stripe Seed ===");
   console.log(`Mode: ${isTestMode ? "TEST" : "LIVE"}\n`);
 
   // 1. Find or create product
@@ -48,14 +48,14 @@ async function main() {
 
   const existingProducts = await stripe.products.list({ limit: 100 });
   product = existingProducts.data.find(
-    (p) => p.name === "HeavyLeads Standard" && p.active
+    (p) => p.name === "GroundPulse Standard" && p.active
   ) ?? null;
 
   if (product) {
     console.log(`Product exists: ${product.id} (${product.name})`);
   } else {
     product = await stripe.products.create({
-      name: "HeavyLeads Standard",
+      name: "GroundPulse Standard",
       description:
         "Daily construction lead intelligence — multi-source scraping, equipment matching, and relevance scoring for heavy machinery sales teams.",
     });
@@ -88,7 +88,7 @@ async function main() {
       currency: "usd",
       unit_amount: monthlyAmount,
       recurring: { interval: "month" },
-      lookup_key: "heavyleads_standard_monthly",
+      lookup_key: "groundpulse_standard_monthly",
     });
     console.log(
       `Monthly price created: ${monthlyPrice.id} ($${(monthlyAmount / 100).toFixed(2)}/mo)`
@@ -114,7 +114,7 @@ async function main() {
       product: product.id,
       currency: "usd",
       unit_amount: setupAmount,
-      lookup_key: "heavyleads_setup_fee",
+      lookup_key: "groundpulse_setup_fee",
     });
     console.log(
       `Setup fee created: ${setupPrice.id} ($${(setupAmount / 100).toFixed(2)} one-time)`

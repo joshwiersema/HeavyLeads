@@ -132,7 +132,7 @@ export class NwsStormAdapter implements ScraperAdapter {
           "https://api.weather.gov/alerts/active?status=actual&message_type=alert",
           {
             headers: {
-              "User-Agent": "HeavyLeads/1.0 (heavyleads.com)",
+              "User-Agent": "GroundPulse/1.0 (groundpulse.com)",
               Accept: "application/geo+json",
             },
           }

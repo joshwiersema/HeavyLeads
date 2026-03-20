@@ -100,7 +100,7 @@ export function OnboardingWizard() {
       const result = await completeOnboarding(state);
       if (result.success) {
         clearWizardStorage();
-        toast.success("Welcome to HeavyLeads!");
+        toast.success("Welcome to GroundPulse!");
         router.push("/billing");
       } else {
         toast.error(result.error ?? "Something went wrong. Please try again.");

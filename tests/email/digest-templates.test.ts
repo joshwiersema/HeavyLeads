@@ -56,8 +56,8 @@ describe("DailyDigestEmail: renders with industry-specific styling", () => {
 
     // Should use roofing color from EmailLayout
     expect(html).toContain("#dc2626");
-    // Should have LeadForge branding
-    expect(html).toContain("LeadForge");
+    // Should have GroundPulse branding
+    expect(html).toContain("GroundPulse");
   });
 
   it("includes unsubscribe link in footer via EmailLayout", async () => {
@@ -127,7 +127,7 @@ describe("DailyDigestEmail: renders with industry-specific styling", () => {
     );
 
     expect(html).toContain(
-      "You are receiving this email because you signed up for LeadForge"
+      "You are receiving this email because you signed up for GroundPulse"
     );
   });
 });
@@ -247,7 +247,7 @@ describe("send-digest: includes List-Unsubscribe headers", () => {
     );
   });
 
-  it("uses LeadForge branding in from address", async () => {
+  it("uses GroundPulse branding in from address", async () => {
     vi.resetModules();
 
     const mockSend = vi
@@ -273,6 +273,6 @@ describe("send-digest: includes List-Unsubscribe headers", () => {
 
     expect(mockSend).toHaveBeenCalledTimes(1);
     const callArgs = mockSend.mock.calls[0][0];
-    expect(callArgs.from).toContain("LeadForge");
+    expect(callArgs.from).toContain("GroundPulse");
   });
 });

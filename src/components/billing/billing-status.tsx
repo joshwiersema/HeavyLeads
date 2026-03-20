@@ -48,7 +48,7 @@ function statusLabel(status: string) {
 
 export function BillingStatus({ subscription }: BillingStatusProps) {
   const planName =
-    subscription.plan === "standard" ? "HeavyLeads Standard" : subscription.plan;
+    subscription.plan === "standard" ? "GroundPulse Standard" : subscription.plan;
 
   return (
     <Card>

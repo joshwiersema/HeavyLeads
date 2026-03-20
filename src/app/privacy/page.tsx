@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | HeavyLeads",
+  title: "Privacy Policy | GroundPulse",
 };
 
 export default function PrivacyPage() {
@@ -10,7 +10,7 @@ export default function PrivacyPage() {
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b bg-white px-6 py-4">
         <Link href="/" className="text-xl font-bold">
-          HeavyLeads
+          GroundPulse
         </Link>
         <Link
           href="/sign-in"
@@ -29,7 +29,7 @@ export default function PrivacyPage() {
             Last updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           </p>
           <p>
-            HeavyLeads (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is
+            GroundPulse (&quot;we&quot;, &quot;our&quot;, or &quot;us&quot;) is
             committed to protecting your privacy. This Privacy Policy explains
             how we collect, use, and share information about you when you use our
             services.
@@ -64,7 +64,7 @@ export default function PrivacyPage() {
       <footer className="border-t bg-white px-6 py-8">
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">HeavyLeads</span>
+            <span className="text-sm font-semibold">GroundPulse</span>
             <span className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} All rights reserved.
             </span>

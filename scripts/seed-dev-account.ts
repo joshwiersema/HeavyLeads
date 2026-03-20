@@ -9,7 +9,7 @@
  *     --email=josh.wiersema06@gmail.com \
  *     --password='jwiers2024!' \
  *     --name='Josh Wiersema' \
- *     --company='LeadForge Dev'
+ *     --company='GroundPulse Dev'
  */
 
 import "dotenv/config";

@@ -82,7 +82,7 @@ export function SignInForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-2xl">Sign in to HeavyLeads</CardTitle>
+        <CardTitle className="text-2xl">Sign in to GroundPulse</CardTitle>
         <CardDescription>
           Enter your credentials to access your dashboard
         </CardDescription>

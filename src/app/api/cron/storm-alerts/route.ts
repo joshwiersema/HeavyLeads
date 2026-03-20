@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
 
         // Send email to each unique subscriber with their org's active storm alerts
         const dashboardUrl = (
-          process.env.NEXT_PUBLIC_APP_URL ?? "https://app.leadforge.com"
+          process.env.NEXT_PUBLIC_APP_URL ?? "https://app.groundpulse.com"
         ).trim();
 
         for (const sub of subscriberMap.values()) {

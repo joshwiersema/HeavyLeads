@@ -295,7 +295,7 @@ describe("NwsStormAdapter", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     const [, options] = fetchMock.mock.calls[0];
-    expect(options?.headers?.["User-Agent"]).toContain("LeadForge");
+    expect(options?.headers?.["User-Agent"]).toContain("GroundPulse");
   });
 
   it("truncates long descriptions to 2000 chars", async () => {

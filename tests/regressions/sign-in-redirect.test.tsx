@@ -79,7 +79,7 @@ describe("sign-in-redirect regression (bug fix #5)", () => {
 
     expect(container).toBeTruthy();
     // The form should be present, not a redirect/error page
-    expect(screen.getByText(/sign in to heavyleads/i)).toBeInTheDocument();
+    expect(screen.getByText(/sign in to groundpulse/i)).toBeInTheDocument();
   });
 
   it("shows a link to create an account (sign-up)", () => {

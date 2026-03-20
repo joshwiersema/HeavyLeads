@@ -7,7 +7,7 @@ import { eq } from "drizzle-orm";
 import { OnboardingWizard } from "@/components/onboarding/wizard-shell";
 
 export const metadata = {
-  title: "Onboarding | HeavyLeads",
+  title: "Onboarding | GroundPulse",
 };
 
 export default async function OnboardingPage() {
@@ -41,10 +41,10 @@ export default async function OnboardingPage() {
     <div className="flex min-h-screen flex-col bg-background">
       {/* Monday-inspired branded header */}
       <header className="flex items-center gap-2.5 px-6 py-5">
-        <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-black text-[#1a1a1e]">
-          H
+        <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black tracking-tight text-[#1a1a1e]">
+          GP
         </div>
-        <span className="text-base font-semibold tracking-tight">HeavyLeads</span>
+        <span className="text-base font-semibold tracking-tight">GroundPulse</span>
       </header>
       <div className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-2xl">

@@ -26,7 +26,7 @@ const INDUSTRY_LABELS: Record<string, string> = {
 };
 
 /**
- * React Email template for HeavyLeads welcome email.
+ * React Email template for GroundPulse welcome email.
  *
  * Sent after a user completes the onboarding wizard.
  * Follows the same inline-style pattern as PasswordResetEmail for brand consistency.
@@ -47,8 +47,8 @@ export function WelcomeEmail({
         <Container style={containerStyle}>
           {/* Header */}
           <Section style={headerStyle}>
-            <Text style={brandStyle}>HeavyLeads</Text>
-            <Text style={headingStyle}>Welcome to HeavyLeads!</Text>
+            <Text style={brandStyle}>GroundPulse</Text>
+            <Text style={headingStyle}>Welcome to GroundPulse!</Text>
           </Section>
 
           {/* Content */}
@@ -61,7 +61,7 @@ export function WelcomeEmail({
 
             <Text style={stepStyle}>
               <strong>1.</strong> Start your free trial -- you&apos;ll have 7
-              days to explore HeavyLeads at no cost
+              days to explore GroundPulse at no cost
             </Text>
             <Text style={stepStyle}>
               <strong>2.</strong> Fresh leads -- we&apos;ll start finding leads

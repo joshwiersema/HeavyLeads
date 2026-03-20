@@ -49,15 +49,15 @@ export function MobileNav({
           {/* Header */}
           <div className="flex h-14 items-center justify-between px-5">
             <div className="flex items-center gap-2">
-              <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
-                H
+              <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-[10px] font-bold tracking-tight text-primary-foreground">
+                GP
               </div>
               <Link
                 href="/dashboard"
                 className="text-base font-semibold tracking-tight"
                 onClick={() => setOpen(false)}
               >
-                HeavyLeads
+                GroundPulse
               </Link>
             </div>
             <button

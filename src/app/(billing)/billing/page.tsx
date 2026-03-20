@@ -12,7 +12,7 @@ import { PlanSelector } from "@/components/billing/plan-selector";
 import { DevSkipButton } from "@/components/billing/dev-skip-button";
 
 export const metadata = {
-  title: "Billing | HeavyLeads",
+  title: "Billing | GroundPulse",
 };
 
 export default async function BillingPage() {
@@ -67,7 +67,7 @@ export default async function BillingPage() {
       ) : (
         <div className="space-y-6">
           <div>
-            <h2 className="text-2xl font-bold">Get Started with HeavyLeads</h2>
+            <h2 className="text-2xl font-bold">Get Started with GroundPulse</h2>
             <p className="text-muted-foreground">
               Choose the plan that works best for you
             </p>

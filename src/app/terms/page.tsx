@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | HeavyLeads",
+  title: "Terms of Service | GroundPulse",
 };
 
 export default function TermsPage() {
@@ -10,7 +10,7 @@ export default function TermsPage() {
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between border-b bg-white px-6 py-4">
         <Link href="/" className="text-xl font-bold">
-          HeavyLeads
+          GroundPulse
         </Link>
         <Link
           href="/sign-in"
@@ -29,14 +29,14 @@ export default function TermsPage() {
             Last updated: {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           </p>
           <p>
-            Welcome to HeavyLeads. By using our services, you agree to the
+            Welcome to GroundPulse. By using our services, you agree to the
             following terms and conditions.
           </p>
           <h2 className="text-lg font-semibold text-foreground">
             Use of Service
           </h2>
           <p>
-            HeavyLeads provides construction lead intelligence services. You
+            GroundPulse provides construction lead intelligence services. You
             agree to use our platform in compliance with all applicable laws and
             regulations.
           </p>
@@ -50,7 +50,7 @@ export default function TermsPage() {
             Subscriptions &amp; Billing
           </h2>
           <p>
-            Access to HeavyLeads requires a paid subscription after the free
+            Access to GroundPulse requires a paid subscription after the free
             trial period. Billing is handled securely through Stripe.
           </p>
           <h2 className="text-lg font-semibold text-foreground">Contact</h2>
@@ -67,7 +67,7 @@ export default function TermsPage() {
       <footer className="border-t bg-white px-6 py-8">
         <div className="mx-auto flex max-w-5xl flex-col items-center gap-4 sm:flex-row sm:justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold">HeavyLeads</span>
+            <span className="text-sm font-semibold">GroundPulse</span>
             <span className="text-sm text-muted-foreground">
               &copy; {new Date().getFullYear()} All rights reserved.
             </span>

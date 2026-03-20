@@ -25,7 +25,7 @@ async function main() {
   const client = neon(process.env.DATABASE_URL);
   const db = drizzle(client);
 
-  console.log("=== HeavyLeads Database Reset ===\n");
+  console.log("=== GroundPulse Database Reset ===\n");
 
   // List actual tables
   const tablesResult = await db.execute(

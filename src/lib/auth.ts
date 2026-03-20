@@ -52,7 +52,7 @@ export const auth = betterAuth({
           const resend = new Resend(apiKey);
           const from =
             (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
-            "HeavyLeads <onboarding@resend.dev>";
+            "GroundPulse <onboarding@resend.dev>";
 
           const { VerifyEmail } = await import(
             "@/components/emails/verify-email"
@@ -61,7 +61,7 @@ export const auth = betterAuth({
           await resend.emails.send({
             from,
             to: user.email,
-            subject: "Verify your HeavyLeads email",
+            subject: "Verify your GroundPulse email",
             react: VerifyEmail({
               verificationUrl: url,
               userName: user.name,
@@ -92,12 +92,12 @@ export const auth = betterAuth({
       const resend = new Resend(apiKey);
       const from =
         (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
-        "HeavyLeads <onboarding@resend.dev>";
+        "GroundPulse <onboarding@resend.dev>";
 
       await resend.emails.send({
         from,
         to: user.email,
-        subject: "Reset your HeavyLeads password",
+        subject: "Reset your GroundPulse password",
         react: PasswordResetEmail({ url, userName: user.name }),
       });
 

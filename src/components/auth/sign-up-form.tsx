@@ -71,7 +71,7 @@ export function SignUpForm() {
       <CardHeader>
         <CardTitle className="text-2xl">Create your account</CardTitle>
         <CardDescription>
-          Get started with HeavyLeads for your team
+          Get started with GroundPulse for your team
         </CardDescription>
       </CardHeader>
       <CardContent>

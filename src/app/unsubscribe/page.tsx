@@ -45,7 +45,7 @@ export default async function UnsubscribePage({
             marginBottom: 8,
           }}
         >
-          HeavyLeads
+          GroundPulse
         </h1>
 
         {isSuccess ? (

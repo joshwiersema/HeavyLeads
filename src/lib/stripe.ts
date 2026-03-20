@@ -17,7 +17,7 @@ export const stripeClient = new Stripe(
 
 /**
  * Price IDs from Stripe Dashboard.
- * Create a "HeavyLeads Standard" product with two prices:
+ * Create a "GroundPulse Standard" product with two prices:
  * - A recurring monthly price (e.g. $199/mo)
  * - A one-time setup fee price (e.g. $499)
  */

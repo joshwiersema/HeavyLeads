@@ -26,7 +26,7 @@ export async function sendStormAlertEmail(
     const resend = new Resend((process.env.RESEND_API_KEY ?? "").trim());
 
     const fromEmail = (
-      process.env.RESEND_FROM_EMAIL ?? "HeavyLeads <onboarding@resend.dev>"
+      process.env.RESEND_FROM_EMAIL ?? "GroundPulse <onboarding@resend.dev>"
     ).trim();
 
     const subject = `Storm Alert: ${alerts.length} active storm${alerts.length !== 1 ? "s" : ""} in your service area`;

@@ -31,7 +31,7 @@ import Link from "next/link";
 import type { Industry } from "@/lib/onboarding/types";
 
 export const metadata = {
-  title: "Lead Feed | HeavyLeads",
+  title: "Lead Feed | GroundPulse",
 };
 
 export default async function DashboardPage({

@@ -1,4 +1,4 @@
-# HeavyLeads - Claude Code Guide
+# GroundPulse - Claude Code Guide
 
 ## Project
 B2B SaaS platform for construction lead intelligence. Aggregates permits, bids, and project news into scored leads for heavy equipment dealers and related trades.

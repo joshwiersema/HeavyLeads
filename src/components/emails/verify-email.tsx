@@ -15,7 +15,7 @@ interface VerifyEmailProps {
 }
 
 /**
- * React Email template for HeavyLeads email verification.
+ * React Email template for GroundPulse email verification.
  *
  * Sent after a new user signs up. Follows the same inline-style pattern
  * as WelcomeEmail and PasswordResetEmail for brand consistency.
@@ -28,7 +28,7 @@ export function VerifyEmail({ userName, verificationUrl }: VerifyEmailProps) {
         <Container style={containerStyle}>
           {/* Header */}
           <Section style={headerStyle}>
-            <Text style={brandStyle}>HeavyLeads</Text>
+            <Text style={brandStyle}>GroundPulse</Text>
             <Text style={headingStyle}>Verify Your Email</Text>
           </Section>
 
