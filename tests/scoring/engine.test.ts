@@ -182,6 +182,81 @@ describe("scoreRelevance", () => {
     expect(dim.score).toBeGreaterThanOrEqual(0);
     expect(dim.maxScore).toBe(30);
   });
+
+  // --- Low-confidence keyword matching ---
+
+  it("uses keyword matching for low-confidence leads -- strong match", () => {
+    const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+    const lead = makeLead({
+      projectType: "HVAC Installation",
+      applicableIndustries: allIndustries,
+    });
+    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const dim = scoreRelevance(lead, org);
+    // Strong keyword match = 15 from keyword scoring
+    expect(dim.score).toBeGreaterThanOrEqual(15);
+  });
+
+  it("uses keyword matching for low-confidence leads -- weak match", () => {
+    const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+    const lead = makeLead({
+      projectType: "Commercial Remodel",
+      applicableIndustries: allIndustries,
+    });
+    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const dim = scoreRelevance(lead, org);
+    // Weak keyword match = 8 from keyword scoring
+    expect(dim.score).toBeGreaterThanOrEqual(8);
+  });
+
+  it("uses keyword matching for low-confidence leads -- no match", () => {
+    const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+    const lead = makeLead({
+      projectType: "Plumbing Repair",
+      applicableIndustries: allIndustries,
+    });
+    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const dim = scoreRelevance(lead, org);
+    // No keyword match = 3 from keyword scoring
+    expect(dim.score).toBeLessThanOrEqual(5);
+  });
+
+  it("differentiates low-confidence leads by industry", () => {
+    const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+    const lead = makeLead({
+      projectType: "Roof Repair",
+      applicableIndustries: allIndustries,
+    });
+    const roofingOrg = makeOrg({ industry: "roofing", specializations: [] });
+    const hvacOrg = makeOrg({ industry: "hvac", specializations: [] });
+    const roofingDim = scoreRelevance(lead, roofingOrg);
+    const hvacDim = scoreRelevance(lead, hvacOrg);
+    expect(roofingDim.score).toBeGreaterThan(hvacDim.score);
+  });
+
+  it("high-confidence leads are unaffected by keyword matching", () => {
+    // Lead with only ["hvac"] (not all 5) should still get +10 industry match
+    const lead = makeLead({
+      projectType: "Generic Work",
+      applicableIndustries: ["hvac"],
+    });
+    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const dim = scoreRelevance(lead, org);
+    expect(dim.score).toBeGreaterThanOrEqual(10);
+    expect(dim.reasons.some((r) => r.includes("hvac"))).toBe(true);
+  });
+
+  it("low-confidence lead with null projectType gets baseline score", () => {
+    const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+    const lead = makeLead({
+      projectType: null,
+      applicableIndustries: allIndustries,
+    });
+    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const dim = scoreRelevance(lead, org);
+    // null projectType = 3 from keyword scoring
+    expect(dim.score).toBeLessThanOrEqual(5);
+  });
 });
 
 // ---------------------------------------------------------------------------
