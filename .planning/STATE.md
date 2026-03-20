@@ -62,6 +62,9 @@ Recent decisions affecting current work:
 - Raw SQL DELETE for expiration over Drizzle ORM (correlated NOT EXISTS subqueries) (19-03)
 - 45-day uniform expiration cutoff replaces per-source-type windows (19-03)
 - Batch deletion of 500 per batch for Neon serverless safety (19-03)
+- SHA-256 address hashing for geocoding cache keys with 90-day TTL (19-01)
+- Cache null coords to prevent retrying known-bad addresses (19-01)
+- Nominatim free fallback with 1-req/sec rate limit per OSM policy (19-01)
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:22:00Z
-Stopped at: Completed 19-03-PLAN.md
+Last session: 2026-03-20T04:23:00Z
+Stopped at: Completed 19-01-PLAN.md (Phase 19 fully complete)
 Resume file: None
