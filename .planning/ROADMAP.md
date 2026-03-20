@@ -313,7 +313,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 24-01-PLAN.md -- Global rebrand: replace HeavyLeads/LeadForge with GroundPulse across 55+ files, update GP monogram
+- [x] 24-01-PLAN.md -- Global rebrand: replace HeavyLeads/LeadForge with GroundPulse across 55+ files, update GP monogram
 - [ ] 24-02-PLAN.md -- Handcrafted landing page with 5-industry showcase, interactive dashboard preview, and trade-specific copy
 - [ ] 24-03-PLAN.md -- Full verification sweep: zero old brand references, TypeScript compilation, all tests pass
 
@@ -347,4 +347,4 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
 | 22. Federal & Specialty Data Sources | 3/3 | Complete    | 2026-03-20 | - |
 | 23. Feed Performance Optimization | 2/2 | Complete    | 2026-03-20 | - |
-| 24. GroundPulse Rebrand & Landing Page | 1/3 | In Progress|  | - |
+| 24. GroundPulse Rebrand & Landing Page | 2/3 | In Progress | - | - |
