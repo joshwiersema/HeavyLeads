@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
 
   try {
     const result = await expireStaleLeads();
-    return Response.json({ success: true, expired: result.expired });
+    console.log(`[cron/expire] Deleted ${result.expired} stale leads`);
+    return Response.json({ success: true, deleted: result.expired });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Expiration error";

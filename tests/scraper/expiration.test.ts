@@ -1,40 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Track update calls
-const updateResults: { id: string }[][] = [];
-let updateCallIndex = 0;
+// Track execute calls and results
+let executeResults: { rowCount: number }[] = [];
+let executeCallIndex = 0;
 
-const mockUpdate = vi.fn().mockImplementation(() => ({
-  set: vi.fn().mockImplementation(() => ({
-    where: vi.fn().mockImplementation(() => ({
-      returning: vi.fn().mockImplementation(() => {
-        const result = updateResults[updateCallIndex] ?? [];
-        updateCallIndex++;
-        return Promise.resolve(result);
-      }),
-    })),
-  })),
-}));
+const mockExecute = vi.fn().mockImplementation(() => {
+  const result = executeResults[executeCallIndex] ?? { rowCount: 0 };
+  executeCallIndex++;
+  return Promise.resolve(result);
+});
 
 vi.mock("@/lib/db", () => ({
   db: {
-    update: (...args: unknown[]) => mockUpdate(...args),
+    execute: (...args: unknown[]) => mockExecute(...args),
   },
 }));
 
 vi.mock("drizzle-orm", () => ({
-  sql: vi.fn().mockImplementation((strings: TemplateStringsArray, ...values: unknown[]) => ({
-    type: "sql",
-    strings: [...strings],
-    values,
-  })),
-  and: vi.fn().mockImplementation((...args: unknown[]) => ({ type: "and", args })),
-  or: vi.fn().mockImplementation((...args: unknown[]) => ({ type: "or", args })),
-  eq: vi.fn().mockImplementation((a: unknown, b: unknown) => ({ type: "eq", a, b })),
-  ne: vi.fn().mockImplementation((a: unknown, b: unknown) => ({ type: "ne", a, b })),
-  lt: vi.fn().mockImplementation((a: unknown, b: unknown) => ({ type: "lt", a, b })),
-  gte: vi.fn().mockImplementation((a: unknown, b: unknown) => ({ type: "gte", a, b })),
-  isNull: vi.fn().mockImplementation((a: unknown) => ({ type: "isNull", a })),
+  sql: vi.fn().mockImplementation(
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({
+      type: "sql",
+      strings: [...strings],
+      values,
+    })
+  ),
 }));
 
 import { expireStaleLeads } from "@/lib/scraper/expiration";
@@ -42,32 +31,27 @@ import { expireStaleLeads } from "@/lib/scraper/expiration";
 describe("expireStaleLeads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    updateCallIndex = 0;
-    updateResults.length = 0;
+    executeCallIndex = 0;
+    executeResults = [];
   });
 
-  it("returns total count of expired leads across all source types", async () => {
-    // permit: 2 expired, bid: 1 expired, news: 3 expired, deep-web: 0 expired
-    updateResults.push(
-      [{ id: "1" }, { id: "2" }],  // permit
-      [{ id: "3" }],                // bid
-      [{ id: "4" }, { id: "5" }, { id: "6" }],  // news
-      [],                            // deep-web
-    );
+  it("returns total count of deleted leads", async () => {
+    // Single batch deletes 6 leads (less than 500, exits loop)
+    executeResults.push({ rowCount: 6 });
 
     const result = await expireStaleLeads();
     expect(result.expired).toBe(6);
   });
 
-  it("calls db.update 4 times (once per source type)", async () => {
-    updateResults.push([], [], [], []);
+  it("calls db.execute with DELETE SQL", async () => {
+    executeResults.push({ rowCount: 0 });
 
     await expireStaleLeads();
-    expect(mockUpdate).toHaveBeenCalledTimes(4);
+    expect(mockExecute).toHaveBeenCalledTimes(1);
   });
 
   it("returns 0 when no leads are stale", async () => {
-    updateResults.push([], [], [], []);
+    executeResults.push({ rowCount: 0 });
 
     const result = await expireStaleLeads();
     expect(result.expired).toBe(0);
