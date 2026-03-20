@@ -243,7 +243,12 @@ Plans:
   3. An HVAC permit scores highest for an HVAC subscriber, a solar permit scores highest for a solar subscriber, and a roofing permit scores highest for a roofing subscriber -- industry routing is verified end-to-end
   4. Storm alerts decay in hours, bid deadlines decay in days, and permits decay in weeks -- each source type has its own freshness curve instead of a single flat decay
   5. Only one scoring engine exists in the codebase (src/lib/scoring/); the legacy src/lib/leads/scoring.ts is deleted with no remaining imports
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 20-01-PLAN.md -- Value estimation heuristic, source-type freshness curves, keyword-to-projectType relevance scoring
+- [ ] 20-02-PLAN.md -- Legacy scoring system removal and queries.ts migration to scoreLeadForOrg
+- [ ] 20-03-PLAN.md -- Industry routing verification tests and score standard deviation validation
 
 ### Phase 21: Dynamic Portal Discovery & Nationwide Coverage
 **Goal**: The platform automatically discovers and scrapes permit and violation datasets from hundreds of cities across all 50 states without per-city code deployments
@@ -318,7 +323,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 17. Storm Alerts & Weather | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 19. Infrastructure Hardening | 3/3 | Complete    | 2026-03-20 | - |
-| 20. Scoring Engine Fix | v4.0 | 0/TBD | Not started | - |
+| 20. Scoring Engine Fix | v4.0 | 0/3 | Not started | - |
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/TBD | Not started | - |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
 | 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
