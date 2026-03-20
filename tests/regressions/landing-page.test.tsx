@@ -55,11 +55,27 @@ vi.mock("drizzle-orm", () => ({
   eq: vi.fn(),
 }));
 
-// Mock lucide-react icons
+// Mock lucide-react icons used by the landing page
 vi.mock("lucide-react", () => ({
-  Search: (props: Record<string, unknown>) => <span {...props} />,
+  ArrowRight: (props: Record<string, unknown>) => <span {...props} />,
   Zap: (props: Record<string, unknown>) => <span {...props} />,
+  MapPin: (props: Record<string, unknown>) => <span {...props} />,
+  Clock: (props: Record<string, unknown>) => <span {...props} />,
+  Shield: (props: Record<string, unknown>) => <span {...props} />,
+  TrendingUp: (props: Record<string, unknown>) => <span {...props} />,
+  Flame: (props: Record<string, unknown>) => <span {...props} />,
+  Sun: (props: Record<string, unknown>) => <span {...props} />,
+  Home: (props: Record<string, unknown>) => <span {...props} />,
+  Cable: (props: Record<string, unknown>) => <span {...props} />,
+  Database: (props: Record<string, unknown>) => <span {...props} />,
+  Filter: (props: Record<string, unknown>) => <span {...props} />,
+  Bell: (props: Record<string, unknown>) => <span {...props} />,
   BarChart3: (props: Record<string, unknown>) => <span {...props} />,
+  ChevronRight: (props: Record<string, unknown>) => <span {...props} />,
+  Star: (props: Record<string, unknown>) => <span {...props} />,
+  Building2: (props: Record<string, unknown>) => <span {...props} />,
+  Truck: (props: Record<string, unknown>) => <span {...props} />,
+  Search: (props: Record<string, unknown>) => <span {...props} />,
   Mail: (props: Record<string, unknown>) => <span {...props} />,
 }));
 
@@ -99,7 +115,7 @@ describe("landing-page regression (bug fix #9)", () => {
     render(page);
 
     expect(
-      screen.getByText(/find construction leads before your competitors/i)
+      screen.getByText(/your next job is already/i)
     ).toBeInTheDocument();
   });
 
@@ -107,7 +123,7 @@ describe("landing-page regression (bug fix #9)", () => {
     const page = await Home();
     render(page);
 
-    // The header should have Sign In and Get Started links
+    // The header should have Sign In link
     const signInLinks = screen.getAllByText(/sign in/i);
     expect(signInLinks.length).toBeGreaterThanOrEqual(1);
 
@@ -115,11 +131,11 @@ describe("landing-page regression (bug fix #9)", () => {
     const signInLink = signInLinks[0].closest("a");
     expect(signInLink).toHaveAttribute("href", "/sign-in");
 
-    // Check sign-up links
-    const getStartedLinks = screen.getAllByText(/get started/i);
-    expect(getStartedLinks.length).toBeGreaterThanOrEqual(1);
-    const getStartedLink = getStartedLinks[0].closest("a");
-    expect(getStartedLink).toHaveAttribute("href", "/sign-up");
+    // Check sign-up links (now "Start Free Trial" or "Start 7-Day Free Trial")
+    const startTrialLinks = screen.getAllByText(/start.*free trial/i);
+    expect(startTrialLinks.length).toBeGreaterThanOrEqual(1);
+    const startTrialLink = startTrialLinks[0].closest("a");
+    expect(startTrialLink).toHaveAttribute("href", "/sign-up");
   });
 
   it("does not nest <a> inside <a> (no Link/Button nesting)", () => {
@@ -135,22 +151,38 @@ describe("landing-page regression (bug fix #9)", () => {
     expect(pageSource.match(linkButtonPattern)).toBeNull();
   });
 
-  it("renders marketing feature cards", async () => {
+  it("renders industry showcase sections", async () => {
     const page = await Home();
     render(page);
 
-    expect(screen.getByText("Daily Lead Feed")).toBeInTheDocument();
-    expect(
-      screen.getByText("Multi-Source Intelligence")
-    ).toBeInTheDocument();
-    expect(screen.getByText("Equipment Matching")).toBeInTheDocument();
-    expect(screen.getByText("Email Digests")).toBeInTheDocument();
+    expect(screen.getByText("Heavy Equipment")).toBeInTheDocument();
+    expect(screen.getByText("Roofing")).toBeInTheDocument();
+    expect(screen.getByText("HVAC")).toBeInTheDocument();
+    expect(screen.getByText("Solar")).toBeInTheDocument();
+    expect(screen.getByText("Electrical")).toBeInTheDocument();
   });
 
   it("renders the GroundPulse brand name", async () => {
     const page = await Home();
     render(page);
 
-    expect(screen.getByText("GroundPulse")).toBeInTheDocument();
+    const brandElements = screen.getAllByText("GroundPulse");
+    expect(brandElements.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders how-it-works and feature sections", async () => {
+    const page = await Home();
+    render(page);
+
+    // How it works section
+    expect(screen.getByText("How It Works")).toBeInTheDocument();
+    expect(screen.getByText("We scrape the sources")).toBeInTheDocument();
+    expect(screen.getByText("We score for your trade")).toBeInTheDocument();
+    expect(screen.getByText("You show up first")).toBeInTheDocument();
+
+    // Feature cards
+    expect(screen.getByText("5-Dimension Scoring")).toBeInTheDocument();
+    expect(screen.getByText("Storm Alerts")).toBeInTheDocument();
+    expect(screen.getByText("Daily Email Digest")).toBeInTheDocument();
   });
 });
