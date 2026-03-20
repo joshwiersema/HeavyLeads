@@ -22,8 +22,8 @@ describe("inferValueTier with projectType", () => {
     expect(result).toBe("medium");
   });
 
-  it("returns 'high' from estimatedValue when value is provided", () => {
-    const result = inferValueTier(500000, null);
+  it("returns 'high' from estimatedValue when value is above 500K", () => {
+    const result = inferValueTier(500001, null);
     expect(result).toBe("high");
   });
 

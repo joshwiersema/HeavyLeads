@@ -69,11 +69,65 @@ export function inferApplicableIndustriesWithConfidence(lead: {
   return { industries: [...ALL_INDUSTRIES], confidence: "low" };
 }
 
-export function inferValueTier(estimatedValue: number | null): string | null {
-  if (estimatedValue === null || estimatedValue === undefined) return null;
-  if (estimatedValue < 50000) return "low";
-  if (estimatedValue <= 500000) return "medium";
-  return "high";
+/**
+ * Maps projectType keywords (lowercase) to estimated value ranges and tiers.
+ * Used to derive valueTier when estimatedValue is null.
+ */
+export const PROJECT_TYPE_VALUE_MAP: Record<string, { min: number; max: number; tier: string }> = {
+  "new commercial": { min: 500_000, max: 5_000_000, tier: "high" },
+  "commercial construction": { min: 500_000, max: 5_000_000, tier: "high" },
+  "commercial building": { min: 500_000, max: 5_000_000, tier: "high" },
+  "new residential": { min: 150_000, max: 500_000, tier: "medium" },
+  "residential construction": { min: 150_000, max: 500_000, tier: "medium" },
+  "commercial remodel": { min: 100_000, max: 1_000_000, tier: "high" },
+  "commercial renovation": { min: 100_000, max: 1_000_000, tier: "high" },
+  "tenant improvement": { min: 50_000, max: 500_000, tier: "medium" },
+  "residential remodel": { min: 20_000, max: 100_000, tier: "low" },
+  "residential renovation": { min: 20_000, max: 100_000, tier: "low" },
+  "residential alteration": { min: 20_000, max: 100_000, tier: "low" },
+  "demolition": { min: 50_000, max: 500_000, tier: "medium" },
+  "roofing": { min: 5_000, max: 50_000, tier: "low" },
+  "roof replacement": { min: 5_000, max: 50_000, tier: "low" },
+  "re-roof": { min: 5_000, max: 50_000, tier: "low" },
+  "hvac": { min: 3_000, max: 30_000, tier: "low" },
+  "hvac installation": { min: 3_000, max: 30_000, tier: "low" },
+  "mechanical": { min: 3_000, max: 30_000, tier: "low" },
+  "electrical": { min: 2_000, max: 20_000, tier: "low" },
+  "electrical upgrade": { min: 5_000, max: 50_000, tier: "low" },
+  "panel upgrade": { min: 2_000, max: 20_000, tier: "low" },
+  "solar": { min: 10_000, max: 50_000, tier: "low" },
+  "solar installation": { min: 10_000, max: 50_000, tier: "low" },
+  "photovoltaic": { min: 10_000, max: 50_000, tier: "low" },
+  "pool": { min: 30_000, max: 100_000, tier: "medium" },
+  "pool construction": { min: 30_000, max: 100_000, tier: "medium" },
+  "foundation": { min: 10_000, max: 50_000, tier: "low" },
+  "foundation repair": { min: 10_000, max: 50_000, tier: "low" },
+  "plumbing": { min: 2_000, max: 15_000, tier: "low" },
+  "addition": { min: 50_000, max: 300_000, tier: "medium" },
+  "multi-family": { min: 500_000, max: 5_000_000, tier: "high" },
+  "mixed use": { min: 500_000, max: 5_000_000, tier: "high" },
+  "industrial": { min: 500_000, max: 10_000_000, tier: "high" },
+};
+
+export function inferValueTier(estimatedValue: number | null, projectType?: string | null): string | null {
+  // When estimatedValue is provided, use existing tier logic
+  if (estimatedValue !== null && estimatedValue !== undefined) {
+    if (estimatedValue < 50000) return "low";
+    if (estimatedValue <= 500000) return "medium";
+    return "high";
+  }
+
+  // When estimatedValue is null, try to derive tier from projectType
+  if (projectType) {
+    const pt = projectType.toLowerCase();
+    for (const [key, entry] of Object.entries(PROJECT_TYPE_VALUE_MAP)) {
+      if (pt.includes(key)) {
+        return entry.tier;
+      }
+    }
+  }
+
+  return null;
 }
 
 export async function enrichLeads(): Promise<{ enriched: number }> {
@@ -99,7 +153,7 @@ export async function enrichLeads(): Promise<{ enriched: number }> {
   let enriched = 0;
   for (const lead of unenriched) {
     const applicableIndustries = inferApplicableIndustries(lead);
-    const valueTier = inferValueTier(lead.estimatedValue);
+    const valueTier = inferValueTier(lead.estimatedValue, lead.projectType);
 
     await db
       .update(leads)

@@ -33,8 +33,19 @@ export function scoreValue(
     return dim;
   }
 
-  // Unknown value
-  if (value == null && lead.valueTier == null) {
+  // Unknown value -- use valueTier if available
+  if (value == null) {
+    if (lead.valueTier != null) {
+      const tierScores: Record<string, number> = { high: 18, medium: 12, low: 5 };
+      const tierReasons: Record<string, string> = {
+        high: "High-value project type",
+        medium: "Medium-value project type",
+        low: "Lower-value project type",
+      };
+      dim.score = tierScores[lead.valueTier] ?? 10;
+      dim.reasons.push(tierReasons[lead.valueTier] ?? "Value estimated from project type");
+      return dim;
+    }
     dim.score = 10;
     dim.reasons.push("Value unknown");
     return dim;
