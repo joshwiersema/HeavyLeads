@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: completed
-stopped_at: Completed 20-03-PLAN.md
-last_updated: "2026-03-20T04:56:37.226Z"
-last_activity: 2026-03-20 -- Completed 20-03 scoring verification tests
+status: Phase 21 in-progress
+stopped_at: Completed 21-02-PLAN.md
+last_updated: "2026-03-20T05:09:31.929Z"
+last_activity: 2026-03-20 -- Completed 21-02 GenericArcGISAdapter
 progress:
   total_phases: 6
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_plans: 10
+  completed_plans: 7
+  percent: 70
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-20)
 
 **Core value:** Every morning, a blue-collar business owner opens GroundPulse and sees fresh, high-scoring leads personalized to their industry, specializations, and service area.
-**Current focus:** v4.0 Phase 20 -- Scoring Engine Fix
+**Current focus:** v4.0 Phase 21 -- Dynamic Portal Discovery & Nationwide Coverage
 
 ## Current Position
 
-Phase: 20 of 24 (Scoring Engine Fix)
-Plan: 3 of 3 (20-03 complete)
-Status: Phase 20 complete
-Last activity: 2026-03-20 -- Completed 20-03 scoring verification tests
+Phase: 21 of 24 (Dynamic Portal Discovery & Nationwide Coverage)
+Plan: 1 of 4 (21-02 complete)
+Status: Phase 21 in-progress
+Last activity: 2026-03-20 -- Completed 21-02 GenericArcGISAdapter
 
-Progress: [##########] 100%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -47,6 +47,7 @@ Progress: [##########] 100%
 | 20 | 3/3 | 7min | 2min |
 | Phase 20 P01 | 6min | 3 tasks | 7 files |
 | Phase 20 P03 | 3min | 2 tasks | 2 files |
+| Phase 21 P02 | 2min | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 20]: 5-industry keyword map with strong/weak categories for relevance scoring (20-01)
 - [Phase 20]: Deterministic synthetic lead generation via modular arithmetic for reproducible statistical tests (20-03)
 - [Phase 20]: Fixed org geo-location in tests to isolate relevance scoring from distance effects (20-03)
+- [Phase 21]: Defined DataPortalConfig and FieldMapping interfaces locally in generic-arcgis-adapter.ts since Plan 21-01 not yet executed (21-02)
+- [Phase 21]: GeoJSON download as primary ArcGIS strategy with Feature Service query fallback (21-02)
+- [Phase 21]: 2000 feature limit per scrape to prevent memory issues with large ArcGIS datasets (21-02)
 
 ### Pending Todos
 
@@ -90,6 +94,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T04:51:00.000Z
-Stopped at: Completed 20-03-PLAN.md
+Last session: 2026-03-20T05:09:20.567Z
+Stopped at: Completed 21-02-PLAN.md
 Resume file: None

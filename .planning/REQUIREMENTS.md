@@ -29,7 +29,7 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 - [ ] **NATL-01**: Weekly discovery cron queries Socrata Discovery API and finds 100+ permit datasets
 - [ ] **NATL-02**: Weekly discovery cron queries ArcGIS Hub API and finds additional datasets
 - [ ] **NATL-03**: GenericSocrataAdapter reads config from data_portals table (no per-city TypeScript files)
-- [ ] **NATL-04**: GenericArcGISAdapter reads config from data_portals table
+- [x] **NATL-04**: GenericArcGISAdapter reads config from data_portals table
 - [ ] **NATL-05**: Heuristic field mapper auto-maps 90%+ of top-50-city permit dataset column names
 - [ ] **NATL-06**: Existing Austin/Dallas/Atlanta adapters migrated to data_portals seed rows
 - [ ] **NATL-07**: Code violation datasets discovered and scraped nationwide via same discovery mechanism
@@ -109,7 +109,7 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | NATL-01 | Phase 21 | Pending |
 | NATL-02 | Phase 21 | Pending |
 | NATL-03 | Phase 21 | Pending |
-| NATL-04 | Phase 21 | Pending |
+| NATL-04 | Phase 21 | Complete |
 | NATL-05 | Phase 21 | Pending |
 | NATL-06 | Phase 21 | Pending |
 | NATL-07 | Phase 21 | Pending |
