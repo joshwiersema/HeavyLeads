@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
 status: Phase 21 in-progress
-stopped_at: Completed 21-01-PLAN.md
-last_updated: "2026-03-20T05:10:28.607Z"
-last_activity: 2026-03-20 -- Completed 21-02 GenericArcGISAdapter
+stopped_at: Completed 21-03-PLAN.md
+last_updated: "2026-03-20T05:16:15Z"
+last_activity: 2026-03-20 -- Completed 21-03 Socrata & ArcGIS Discovery Services
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 10
-  completed_plans: 8
-  percent: 70
+  completed_plans: 9
+  percent: 80
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 21 of 24 (Dynamic Portal Discovery & Nationwide Coverage)
-Plan: 1 of 4 (21-02 complete)
+Plan: 3 of 4 (21-03 complete)
 Status: Phase 21 in-progress
-Last activity: 2026-03-20 -- Completed 21-02 GenericArcGISAdapter
+Last activity: 2026-03-20 -- Completed 21-03 Socrata & ArcGIS Discovery Services
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6 (v4.0) / 44 (all milestones)
+- Total plans completed: 7 (v4.0) / 45 (all milestones)
 - Average duration: 3min (v4.0)
-- Total execution time: 19min (v4.0)
+- Total execution time: 24min (v4.0)
 
 **By Phase:**
 
@@ -49,6 +49,7 @@ Progress: [███████░░░] 70%
 | Phase 20 P03 | 3min | 2 tasks | 2 files |
 | Phase 21 P02 | 2min | 1 tasks | 1 files |
 | Phase 21 P01 | 3min | 2 tasks | 3 files |
+| Phase 21 P03 | 5min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -83,6 +84,10 @@ Recent decisions affecting current work:
 - [Phase 21]: Priority-ordered field resolution: permitNumber > address > permitDate > description > projectType > lat/lng > estimatedValue > applicantName (21-01)
 - [Phase 21]: Deterministic sourceId format portal-{domain}-{datasetId} for GenericSocrataAdapter dedup (21-01)
 - [Phase 21]: No date field fallback: fetch latest 1000 records without time-window filter (21-01)
+- [Phase 21]: 29-city well-known domain map for reliable Socrata city/state extraction (21-03)
+- [Phase 21]: parseCityStateFromName for ArcGIS using "City of X" and "City, ST" patterns (21-03)
+- [Phase 21]: 500ms delay between page fetches and between queries for API rate-limit courtesy (21-03)
+- [Phase 21]: 5 permit industries vs 3 violation industries matching existing industry model (21-03)
 
 ### Pending Todos
 
@@ -98,6 +103,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:10:28.603Z
-Stopped at: Completed 21-01-PLAN.md
+Last session: 2026-03-20T05:16:15Z
+Stopped at: Completed 21-03-PLAN.md
 Resume file: None

@@ -330,7 +330,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 19. Infrastructure Hardening | 3/3 | Complete    | 2026-03-20 | - |
 | 20. Scoring Engine Fix | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
-| 21. Dynamic Portal Discovery & Nationwide Coverage | 2/4 | In Progress|  | - |
+| 21. Dynamic Portal Discovery & Nationwide Coverage | 3/4 | In Progress|  | - |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
 | 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
 | 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |
