@@ -31,9 +31,9 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 - [x] **NATL-03**: GenericSocrataAdapter reads config from data_portals table (no per-city TypeScript files)
 - [x] **NATL-04**: GenericArcGISAdapter reads config from data_portals table
 - [x] **NATL-05**: Heuristic field mapper auto-maps 90%+ of top-50-city permit dataset column names
-- [ ] **NATL-06**: Existing Austin/Dallas/Atlanta adapters migrated to data_portals seed rows
+- [x] **NATL-06**: Existing Austin/Dallas/Atlanta adapters migrated to data_portals seed rows
 - [x] **NATL-07**: Code violation datasets discovered and scraped nationwide via same discovery mechanism
-- [ ] **NATL-08**: User in any U.S. state sees local leads within their service radius after pipeline runs
+- [x] **NATL-08**: User in any U.S. state sees local leads within their service radius after pipeline runs
 
 ### Federal & Specialty Sources
 
@@ -111,9 +111,9 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | NATL-03 | Phase 21 | Complete |
 | NATL-04 | Phase 21 | Complete |
 | NATL-05 | Phase 21 | Complete |
-| NATL-06 | Phase 21 | Pending |
+| NATL-06 | Phase 21 | Complete |
 | NATL-07 | Phase 21 | Complete |
-| NATL-08 | Phase 21 | Pending |
+| NATL-08 | Phase 21 | Complete |
 | FED-01 | Phase 22 | Pending |
 | FED-02 | Phase 22 | Pending |
 | FED-03 | Phase 22 | Pending |

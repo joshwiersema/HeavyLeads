@@ -209,7 +209,7 @@ Plans:
 
 - [x] **Phase 19: Infrastructure Hardening** - Fan-out cron batching, geocoding cache with Nominatim fallback, lead expiration, and data_portals table (completed 2026-03-20)
 - [x] **Phase 20: Scoring Engine Fix** - Score differentiation, value estimation heuristics, keyword relevance, freshness curves, legacy system removal (completed 2026-03-20)
-- [ ] **Phase 21: Dynamic Portal Discovery & Nationwide Coverage** - Socrata/ArcGIS auto-discovery, generic adapters, heuristic field mapping, 50-state permit coverage
+- [x] **Phase 21: Dynamic Portal Discovery & Nationwide Coverage** - Socrata/ArcGIS auto-discovery, generic adapters, heuristic field mapping, 50-state permit coverage (completed 2026-03-20)
 - [ ] **Phase 22: Federal & Specialty Data Sources** - USAspending, OSHA, EPA Brownfields, Grants.gov, FERC, FCC adapters
 - [ ] **Phase 23: Feed Performance Optimization** - SQL LIMIT, PostGIS spatial index, sub-3s dashboard loads, cross-source dedup
 - [ ] **Phase 24: GroundPulse Rebrand & Landing Page** - Full rebrand from HeavyLeads, new logo, handcrafted landing page with 5-industry showcase
@@ -263,10 +263,10 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 21-01-PLAN.md -- Heuristic field mapper and GenericSocrataAdapter (reads config from data_portals)
-- [ ] 21-02-PLAN.md -- GenericArcGISAdapter (reads config from data_portals, GeoJSON coordinate extraction)
-- [ ] 21-03-PLAN.md -- Socrata Discovery and ArcGIS Discovery services (catalog API queries, field auto-mapping)
-- [ ] 21-04-PLAN.md -- Discovery cron route, portal adapter factory, pipeline integration, seed migration, vercel.json
+- [x] 21-01-PLAN.md -- Heuristic field mapper and GenericSocrataAdapter (reads config from data_portals)
+- [x] 21-02-PLAN.md -- GenericArcGISAdapter (reads config from data_portals, GeoJSON coordinate extraction)
+- [x] 21-03-PLAN.md -- Socrata Discovery and ArcGIS Discovery services (catalog API queries, field auto-mapping)
+- [x] 21-04-PLAN.md -- Discovery cron route, portal adapter factory, pipeline integration, seed migration, vercel.json
 
 ### Phase 22: Federal & Specialty Data Sources
 **Goal**: The platform surfaces federal construction contracts, OSHA inspections, EPA brownfield sites, federal grants, energy infrastructure filings, and telecom tower registrations as lead types alongside municipal permits
@@ -330,7 +330,7 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 19. Infrastructure Hardening | 3/3 | Complete    | 2026-03-20 | - |
 | 20. Scoring Engine Fix | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
-| 21. Dynamic Portal Discovery & Nationwide Coverage | 3/4 | In Progress|  | - |
+| 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 4/4 | Complete | 2026-03-20 |
 | 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
 | 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
 | 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |
