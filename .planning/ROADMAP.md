@@ -1,4 +1,4 @@
-# Roadmap: LeadForge
+# Roadmap: GroundPulse
 
 ## Milestones
 
@@ -6,6 +6,7 @@
 - [x] **v2.0 Production Rework** - Phases 7-8 (shipped 2026-03-15)
 - [x] **v2.1 Bug Fixes & Hardening** - Phases 9-12 (shipped 2026-03-16)
 - [x] **v3.0 LeadForge Multi-Industry Platform** - Phases 13-18 (shipped 2026-03-16)
+- [ ] **v4.0 GroundPulse Nationwide** - Phases 19-24 (in progress)
 
 ## Phases
 
@@ -36,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 </details>
 
 <details>
-<summary>v2.1 Phase Details (Phases 9-12) - SHIPPED 2026-03-16</summary>
+<summary>v2.1 Bug Fixes & Hardening (Phases 9-12) - SHIPPED 2026-03-16</summary>
 
 ### Phase 9: Regression Test Safety Net
 **Goal**: All 15 v2.0 post-rework bug fixes have regression test coverage, establishing a safety net before any production code changes in this milestone
@@ -97,6 +98,9 @@ Plans:
 - [x] 12-01-PLAN.md -- Shared nav config with route matching, SidebarNav client component, mobile nav fix, and active-state tests
 
 </details>
+
+<details>
+<summary>v3.0 LeadForge Multi-Industry Platform (Phases 13-18) - SHIPPED 2026-03-16</summary>
 
 ### Phase 13: Schema Foundation
 **Goal**: Database supports multi-industry organizations, enriched leads with spatial queries, and CRM-lite bookmarks -- all backward-compatible with existing heavy-equipment users
@@ -197,10 +201,96 @@ Plans:
 - [x] 18-02-PLAN.md -- CRM-lite bookmarks (pipeline status, notes, filtering) and email verification gate for new users
 - [x] 18-03-PLAN.md -- Notification system overhaul: React Email templates with industry styling, daily/weekly digest crons, notification preferences, one-click unsubscribe (CAN-SPAM)
 
+</details>
+
+## v4.0 GroundPulse Nationwide (Phases 19-24)
+
+**Milestone Goal:** Expand from 3-city Texas coverage to all 50 states, fix the broken scoring engine so leads actually differentiate, add every viable public lead source, rebrand to GroundPulse, and redesign the landing page.
+
+- [ ] **Phase 19: Infrastructure Hardening** - Fan-out cron batching, geocoding cache with Nominatim fallback, lead expiration, and data_portals table
+- [ ] **Phase 20: Scoring Engine Fix** - Score differentiation, value estimation heuristics, keyword relevance, freshness curves, legacy system removal
+- [ ] **Phase 21: Dynamic Portal Discovery & Nationwide Coverage** - Socrata/ArcGIS auto-discovery, generic adapters, heuristic field mapping, 50-state permit coverage
+- [ ] **Phase 22: Federal & Specialty Data Sources** - USAspending, OSHA, EPA Brownfields, Grants.gov, FERC, FCC adapters
+- [ ] **Phase 23: Feed Performance Optimization** - SQL LIMIT, PostGIS spatial index, sub-3s dashboard loads, cross-source dedup
+- [ ] **Phase 24: GroundPulse Rebrand & Landing Page** - Full rebrand from HeavyLeads, new logo, handcrafted landing page with 5-industry showcase
+
+## Phase Details
+
+### Phase 19: Infrastructure Hardening
+**Goal**: The pipeline can absorb 10x data volume without hitting Vercel timeouts, geocoding cost walls, or Neon storage limits -- and portal configs live in the database, not in code
+**Depends on**: Phase 18 (v3.0 complete)
+**Requirements**: INFRA-01, INFRA-02, INFRA-03, INFRA-04, INFRA-05
+**Success Criteria** (what must be TRUE):
+  1. Daily scraping cron completes successfully with 20+ adapters by running them in batched fan-out invocations that each finish under 300 seconds
+  2. A lead with an address that was geocoded yesterday does not trigger a new Google Maps or Nominatim API call today -- the cached coordinates are reused
+  3. When Google Maps free tier (10K/month) is exhausted, new geocoding requests automatically route to Nominatim and still return valid coordinates
+  4. Leads older than 45 days that the user has not bookmarked or interacted with are automatically removed, keeping database storage under control
+  5. The data_portals table exists and can store Socrata/ArcGIS portal configs as database rows with JSONB field mappings -- no new TypeScript files needed per city
+**Plans**: TBD
+
+### Phase 20: Scoring Engine Fix
+**Goal**: Leads produce meaningfully different scores that vary by industry, and the single scoring engine is the only one in the codebase
+**Depends on**: Phase 19
+**Requirements**: SCOR-01, SCOR-02, SCOR-03, SCOR-04, SCOR-05, SCOR-06
+**Success Criteria** (what must be TRUE):
+  1. Across a sample of 1,000+ leads, score standard deviation exceeds 15 -- leads are clearly differentiated, not clustered at the same value
+  2. Leads with null estimatedValue receive a valueTier derived from their projectType (e.g., "commercial_building" scores higher than "fence_repair") instead of a flat fallback
+  3. An HVAC permit scores highest for an HVAC subscriber, a solar permit scores highest for a solar subscriber, and a roofing permit scores highest for a roofing subscriber -- industry routing is verified end-to-end
+  4. Storm alerts decay in hours, bid deadlines decay in days, and permits decay in weeks -- each source type has its own freshness curve instead of a single flat decay
+  5. Only one scoring engine exists in the codebase (src/lib/scoring/); the legacy src/lib/leads/scoring.ts is deleted with no remaining imports
+**Plans**: TBD
+
+### Phase 21: Dynamic Portal Discovery & Nationwide Coverage
+**Goal**: The platform automatically discovers and scrapes permit and violation datasets from hundreds of cities across all 50 states without per-city code deployments
+**Depends on**: Phase 20
+**Requirements**: NATL-01, NATL-02, NATL-03, NATL-04, NATL-05, NATL-06, NATL-07, NATL-08
+**Success Criteria** (what must be TRUE):
+  1. A weekly discovery cron queries the Socrata Discovery API and stores 100+ permit dataset configs in the data_portals table without human intervention
+  2. The same weekly discovery cron queries the ArcGIS Hub API and discovers additional non-Socrata municipal datasets
+  3. GenericSocrataAdapter and GenericArcGISAdapter read their config (endpoint, field mappings, filters) from data_portals rows -- zero per-city TypeScript adapter files are needed for new cities
+  4. The heuristic field mapper correctly auto-maps column names for 90%+ of the top-50-city permit datasets (e.g., recognizing permit_number, permit_no, PERMIT_NUM as the same concept)
+  5. A user who signs up in a state with no hardcoded adapter (e.g., Oregon, Michigan, Florida) sees local leads in their feed within 24 hours of the next pipeline run
+**Plans**: TBD
+
+### Phase 22: Federal & Specialty Data Sources
+**Goal**: The platform surfaces federal construction contracts, OSHA inspections, EPA brownfield sites, federal grants, energy infrastructure filings, and telecom tower registrations as lead types alongside municipal permits
+**Depends on**: Phase 21
+**Requirements**: FED-01, FED-02, FED-03, FED-04, FED-05, FED-06, FED-07
+**Success Criteria** (what must be TRUE):
+  1. USAspending.gov awarded federal construction contracts appear as leads with source type "contract-award" and include contract value, agency, and location
+  2. OSHA construction site inspection records appear as leads with source type "inspection" and signal active worksites or remediation needs
+  3. EPA Brownfields/ACRES contaminated site cleanup opportunities appear as leads with source type "brownfield" and include site coordinates and cleanup status
+  4. Grants.gov federal construction grant opportunities appear as leads with source type "grant" and include funding amount and application deadline
+  5. FERC energy infrastructure filings and FCC antenna structure registrations appear as leads with source types "energy" and "telecom" respectively
+**Plans**: TBD
+
+### Phase 23: Feed Performance Optimization
+**Goal**: The dashboard loads fast with 50K+ leads in the database, distance filtering uses spatial indexes instead of per-row computation, and duplicate leads from overlapping sources are caught
+**Depends on**: Phase 22
+**Requirements**: PERF-01, PERF-02, PERF-03, PERF-04
+**Success Criteria** (what must be TRUE):
+  1. All lead feed queries use SQL-level LIMIT and OFFSET -- the server never fetches all leads and slices in memory
+  2. Distance filtering uses the PostGIS spatial index on the leads.location column instead of computing Haversine distance per row for every page load
+  3. The dashboard page (leads feed with filters, scoring, and pagination) loads in under 3 seconds with 50,000+ leads in the database
+  4. The same permit appearing on both a city Socrata portal and a county Socrata portal is detected and deduplicated so the user sees it only once
+**Plans**: TBD
+
+### Phase 24: GroundPulse Rebrand & Landing Page
+**Goal**: The product is fully rebranded from HeavyLeads to GroundPulse with a new identity, and the landing page feels handcrafted and trustworthy across all 5 industries
+**Depends on**: Phase 19 (can run in parallel with Phases 20-23 after infrastructure is stable)
+**Requirements**: BRAND-01, BRAND-02, BRAND-03, BRAND-04, LAND-01, LAND-02, LAND-03, LAND-04, LAND-05
+**Success Criteria** (what must be TRUE):
+  1. Zero references to "HeavyLeads" or "LeadForge" remain in the codebase, UI, emails, or metadata -- every user-facing surface says "GroundPulse"
+  2. A new GroundPulse logo/mark is deployed in the header, favicon, emails, and OG images
+  3. The landing page showcases all 5 industries (heavy equipment, HVAC, roofing, solar, electrical) with specific value propositions for each -- not generic "we help contractors" copy
+  4. The landing page includes an interactive or visual element that demonstrates the product (live demo, animated dashboard preview, or interactive lead explorer) -- not just text and icons
+  5. A first-time visitor would trust this landing page enough to enter their credit card -- it feels professional, specific, and handcrafted rather than AI-generated or templated
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) complete. v3.0 phases execute sequentially: 13 -> 14 -> 15 -> 16 -> 17, 18 (Phases 17 and 18 both depend on Phase 16 and can run in parallel).
+v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) complete. v3.0 phases (13-18) complete. v4.0 phases execute sequentially: 19 -> 20 -> 21 -> 22 -> 23. Phase 24 can start after Phase 19 and run in parallel with 20-23.
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -222,3 +312,9 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 16. Cron & Scraper Architecture | v3.0 | 3/3 | Complete | 2026-03-16 |
 | 17. Storm Alerts & Weather | v3.0 | 2/2 | Complete | 2026-03-16 |
 | 18. Intelligence & Polish | v3.0 | 3/3 | Complete | 2026-03-16 |
+| 19. Infrastructure Hardening | v4.0 | 0/TBD | Not started | - |
+| 20. Scoring Engine Fix | v4.0 | 0/TBD | Not started | - |
+| 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | 0/TBD | Not started | - |
+| 22. Federal & Specialty Data Sources | v4.0 | 0/TBD | Not started | - |
+| 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
+| 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |

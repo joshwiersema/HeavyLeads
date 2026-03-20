@@ -136,10 +136,10 @@ Requirements for nationwide expansion, scoring fix, rebrand to GroundPulse, and 
 | LAND-05 | Phase 24 | Pending |
 
 **Coverage:**
-- v4.0 requirements: 40 total
-- Mapped to phases: 40
-- Unmapped: 0 ✓
+- v4.0 requirements: 39 total
+- Mapped to phases: 39
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-20*
-*Last updated: 2026-03-20 after v4.0 definition*
+*Last updated: 2026-03-20 after v4.0 roadmap creation*
