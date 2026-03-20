@@ -19,7 +19,6 @@ import { leadSources } from "@/lib/db/schema/lead-sources";
 import { leadStatuses } from "@/lib/db/schema/lead-statuses";
 import { bookmarks } from "@/lib/db/schema/bookmarks";
 import { inferEquipmentNeeds } from "./equipment-inference";
-import { scoreLead } from "./scoring";
 import { getFreshnessBadge } from "./types";
 import { mapTimeline } from "./timeline";
 import type { EnrichedLead, InferredEquipment, ScoredLead } from "./types";
@@ -248,13 +247,13 @@ export interface GetLeadByIdParams {
  */
 export function enrichLead(
   row: Record<string, unknown>,
-  params?: GetLeadByIdParams
+  params?: GetLeadByIdParams,
+  orgContext?: OrgScoringContext
 ): EnrichedLead {
   const inferred = inferEquipmentNeeds(
     row.projectType as string | null,
     row.description as string | null
   );
-  const inferredTypes = inferred.map((i) => i.type);
 
   // Compute distance if HQ coordinates and lead coordinates are available
   let distance: number | null = null;
@@ -272,16 +271,16 @@ export function enrichLead(
     );
   }
 
-  const score =
-    params?.dealerEquipment && params?.serviceRadiusMiles && distance != null
-      ? scoreLead({
-          inferredEquipment: inferredTypes,
-          dealerEquipment: params.dealerEquipment,
-          distanceMiles: distance,
-          serviceRadiusMiles: params.serviceRadiusMiles,
-          estimatedValue: row.estimatedValue as number | null,
-        })
-      : 0;
+  let score = 0;
+  if (orgContext && distance != null) {
+    const leadInput = toLeadScoringInput(row);
+    const result = scoreLeadForOrg(leadInput, orgContext, distance);
+    score = result.total;
+  } else if (params?.dealerEquipment && params?.serviceRadiusMiles && distance != null) {
+    // Backward-compatible fallback: simple distance-only score
+    // This path is used by legacy code paths that don't have org context
+    score = distance <= (params.serviceRadiusMiles ?? 50) ? 50 : 10;
+  }
 
   return {
     ...row,
@@ -330,6 +329,9 @@ export async function getFilteredLeads(
     limit = 50,
     offset = 0,
   } = params;
+
+  // Build org scoring context if organizationId is available
+  const orgContext = organizationId ? await buildOrgScoringContext(organizationId) : null;
 
   // Haversine distance SQL expression with LEAST/GREATEST clamp for float safety
   const distanceExpr = sql<number>`
@@ -423,18 +425,13 @@ export async function getFilteredLeads(
       row.projectType as string | null,
       row.description as string | null
     );
-    const inferredTypes = inferred.map((i) => i.type);
 
     return {
       ...row,
       inferredEquipment: inferred,
-      score: scoreLead({
-        inferredEquipment: inferredTypes,
-        dealerEquipment,
-        distanceMiles: row.distance as number,
-        serviceRadiusMiles,
-        estimatedValue: row.estimatedValue as number | null,
-      }),
+      score: orgContext
+        ? scoreLeadForOrg(toLeadScoringInput(row as Record<string, unknown>), orgContext, row.distance as number | null).total
+        : 0,
       freshness: getFreshnessBadge(row.scrapedAt as Date),
       timeline: mapTimeline(
         row.projectType as string | null,
@@ -505,6 +502,9 @@ export async function getFilteredLeadsWithCount(
     page,
     pageSize,
   } = params;
+
+  // Build org scoring context if organizationId is available
+  const orgContext = organizationId ? await buildOrgScoringContext(organizationId) : null;
 
   // Haversine distance SQL expression with LEAST/GREATEST clamp for float safety
   const distanceExpr = sql<number>`
@@ -593,18 +593,13 @@ export async function getFilteredLeadsWithCount(
         row.projectType as string | null,
         row.description as string | null
       );
-      const inferredTypes = inferred.map((i) => i.type);
 
       return {
         ...row,
         inferredEquipment: inferred,
-        score: scoreLead({
-          inferredEquipment: inferredTypes,
-          dealerEquipment,
-          distanceMiles: row.distance as number,
-          serviceRadiusMiles,
-          estimatedValue: row.estimatedValue as number | null,
-        }),
+        score: orgContext
+          ? scoreLeadForOrg(toLeadScoringInput(row as Record<string, unknown>), orgContext, row.distance as number | null).total
+          : 0,
         freshness: getFreshnessBadge(row.scrapedAt as Date),
         timeline: mapTimeline(
           row.projectType as string | null,
