@@ -34,7 +34,7 @@ export async function sendDigest(
 
     const fromEmail =
       (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
-      "LeadForge <notifications@resend.dev>";
+      "HeavyLeads <notifications@resend.dev>";
 
     const subject = `${leads.length} new lead${leads.length !== 1 ? "s" : ""} matching your criteria`;
 

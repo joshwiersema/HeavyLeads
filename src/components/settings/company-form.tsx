@@ -9,7 +9,8 @@ import {
 } from "@/lib/validators/settings";
 import { US_STATES } from "@/lib/validators/onboarding";
 import { updateCompanyProfile } from "@/actions/settings";
-import { EQUIPMENT_TYPES } from "@/types";
+import { getEquipmentTypesForIndustry } from "@/types";
+import type { Industry } from "@/lib/onboarding/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,11 +38,15 @@ interface CompanyFormProps {
     zip: string;
     equipmentTypes: string[];
     serviceRadius: number;
+    targetProjectValueMin: number | null;
+    targetProjectValueMax: number | null;
   };
   isAdmin: boolean;
+  industry: Industry;
 }
 
-export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
+export function CompanyForm({ initialData, isAdmin, industry }: CompanyFormProps) {
+  const equipmentTypes = getEquipmentTypesForIndustry(industry);
   const {
     register,
     handleSubmit,
@@ -199,7 +204,7 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
               control={control}
               render={({ field }) => (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {EQUIPMENT_TYPES.map((type) => {
+                  {equipmentTypes.map((type) => {
                     const isChecked = field.value?.includes(type) ?? false;
                     return (
                       <label
@@ -249,6 +254,39 @@ export function CompanyForm({ initialData, isAdmin }: CompanyFormProps) {
                 {errors.serviceRadius.message}
               </p>
             )}
+          </div>
+
+          <div className="space-y-4">
+            <Label className="text-base font-medium">Target Project Value Range</Label>
+            <p className="text-sm text-muted-foreground">
+              Set the project value range you typically pursue. This improves lead scoring.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="targetProjectValueMin">Minimum ($)</Label>
+                <Input
+                  id="targetProjectValueMin"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 10000"
+                  {...register("targetProjectValueMin", {
+                    setValueAs: (v: string) => (v === "" ? null : parseInt(v, 10)),
+                  })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="targetProjectValueMax">Maximum ($)</Label>
+                <Input
+                  id="targetProjectValueMax"
+                  type="number"
+                  min={0}
+                  placeholder="e.g. 500000"
+                  {...register("targetProjectValueMax", {
+                    setValueAs: (v: string) => (v === "" ? null : parseInt(v, 10)),
+                  })}
+                />
+              </div>
+            </div>
           </div>
 
           <Button type="submit" disabled={!isDirty || isSubmitting}>

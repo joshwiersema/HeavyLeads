@@ -101,6 +101,14 @@ async function runAdapter(
 
   try {
     const rawRecords = await adapter.scrape();
+
+    // Warn when an adapter returns no results (may indicate missing API keys or config issues)
+    if (rawRecords.length === 0) {
+      console.warn(
+        `[pipeline] ${adapter.sourceId} (${adapter.sourceName}) returned 0 results — check configuration and API keys`
+      );
+    }
+
     const { valid, invalidCount } = validateRecords(rawRecords);
 
     const { storedCount, newLeadIds } = await processRecords(

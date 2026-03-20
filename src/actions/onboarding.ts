@@ -123,7 +123,7 @@ export async function completeOnboarding(
       const resend = new Resend(apiKey);
       const from =
         (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
-        "LeadForge <onboarding@resend.dev>";
+        "HeavyLeads <onboarding@resend.dev>";
       const baseUrl = (process.env.BETTER_AUTH_URL ?? "").trim();
 
       // Import at usage time to avoid module-level side effects
@@ -132,7 +132,7 @@ export async function completeOnboarding(
       await resend.emails.send({
         from,
         to: session.user.email,
-        subject: "Welcome to LeadForge!",
+        subject: "Welcome to HeavyLeads!",
         react: WelcomeEmail({
           userName: session.user.name,
           companyName: data.companyName || "your company",

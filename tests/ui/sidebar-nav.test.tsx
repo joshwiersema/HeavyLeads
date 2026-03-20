@@ -33,8 +33,8 @@ vi.mock("lucide-react", () => ({
   LayoutDashboard: (props: Record<string, unknown>) => (
     <span data-testid="icon-dashboard" {...props} />
   ),
-  Bookmark: (props: Record<string, unknown>) => (
-    <span data-testid="icon-bookmark" {...props} />
+  Kanban: (props: Record<string, unknown>) => (
+    <span data-testid="icon-kanban" {...props} />
   ),
   Search: (props: Record<string, unknown>) => (
     <span data-testid="icon-search" {...props} />
@@ -58,7 +58,7 @@ describe("SidebarNav active state", () => {
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(true);
 
-    const bookmarksLink = screen.getByText("Bookmarks").closest("a");
+    const bookmarksLink = screen.getByText("Pipeline").closest("a");
     expect(bookmarksLink?.classList.contains("bg-accent")).toBe(false);
 
     const savedSearchesLink = screen
@@ -77,7 +77,7 @@ describe("SidebarNav active state", () => {
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(true);
 
-    const bookmarksLink = screen.getByText("Bookmarks").closest("a");
+    const bookmarksLink = screen.getByText("Pipeline").closest("a");
     expect(bookmarksLink?.classList.contains("bg-accent")).toBe(false);
 
     const savedSearchesLink = screen
@@ -86,14 +86,14 @@ describe("SidebarNav active state", () => {
     expect(savedSearchesLink?.classList.contains("bg-accent")).toBe(false);
   });
 
-  it("highlights only Bookmarks when pathname is /dashboard/bookmarks", () => {
+  it("highlights only Pipeline when pathname is /dashboard/bookmarks", () => {
     mockPathname.current = "/dashboard/bookmarks";
     render(<SidebarNav industry="heavy_equipment" />);
 
     const leadsLink = screen.getByText("Leads").closest("a");
     expect(leadsLink?.classList.contains("bg-accent")).toBe(false);
 
-    const bookmarksLink = screen.getByText("Bookmarks").closest("a");
+    const bookmarksLink = screen.getByText("Pipeline").closest("a");
     expect(bookmarksLink?.classList.contains("bg-accent")).toBe(true);
 
     const savedSearchesLink = screen
@@ -114,7 +114,7 @@ describe("SidebarNav active state", () => {
       .closest("a");
     expect(savedSearchesLink?.classList.contains("bg-accent")).toBe(true);
 
-    const bookmarksLink = screen.getByText("Bookmarks").closest("a");
+    const bookmarksLink = screen.getByText("Pipeline").closest("a");
     expect(bookmarksLink?.classList.contains("bg-accent")).toBe(false);
   });
 
@@ -144,7 +144,7 @@ describe("SidebarNav active state", () => {
     mockPathname.current = "/dashboard";
     render(<SidebarNav industry="heavy_equipment" />);
 
-    const bookmarksLink = screen.getByText("Bookmarks").closest("a");
+    const bookmarksLink = screen.getByText("Pipeline").closest("a");
     expect(bookmarksLink?.classList.contains("bg-accent")).toBe(false);
     expect(
       bookmarksLink?.classList.contains("text-accent-foreground")

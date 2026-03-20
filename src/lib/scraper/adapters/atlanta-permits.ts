@@ -1,4 +1,5 @@
 import type { ScraperAdapter, RawLeadData } from "./base-adapter";
+import { buildPermitTitle, toTitleCase } from "./utils";
 
 /**
  * Atlanta GA building permits adapter.
@@ -54,18 +55,21 @@ export class AtlantaPermitsAdapter implements ScraperAdapter {
     return data.features.map((feature) => {
       const props = feature.properties;
       const coords = feature.geometry?.coordinates;
+      const description = (props.description as string) || undefined;
+      const projectType = (props.permit_type as string) || undefined;
+      const address = (props.address as string) ?? "";
 
       return {
         permitNumber: (props.permit_number as string) ?? "",
-        description: (props.description as string) || undefined,
-        address: (props.address as string) ?? "",
-        projectType: (props.permit_type as string) || undefined,
+        title: buildPermitTitle({ description, projectType, address }),
+        description,
+        address: toTitleCase(address),
+        projectType,
         permitDate: props.issue_date
           ? new Date(props.issue_date as string)
           : undefined,
         sourceUrl: this.endpoint,
         sourceType: "permit" as const,
-        // ArcGIS GeoJSON coordinates are [lng, lat] order
         lat: coords ? coords[1] : undefined,
         lng: coords ? coords[0] : undefined,
       };

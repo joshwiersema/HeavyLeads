@@ -132,7 +132,7 @@ export class NwsStormAdapter implements ScraperAdapter {
           "https://api.weather.gov/alerts/active?status=actual&message_type=alert",
           {
             headers: {
-              "User-Agent": "LeadForge/1.0 (leadforge.app)",
+              "User-Agent": "HeavyLeads/1.0 (heavyleads.com)",
               Accept: "application/geo+json",
             },
           }

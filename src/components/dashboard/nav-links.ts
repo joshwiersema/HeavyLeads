@@ -1,4 +1,4 @@
-import { LayoutDashboard, Bookmark, Search, Settings } from "lucide-react";
+import { LayoutDashboard, Kanban, Search, Settings } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 export interface NavLink {
@@ -9,7 +9,7 @@ export interface NavLink {
 
 export const navLinks: NavLink[] = [
   { href: "/dashboard", label: "Leads", icon: LayoutDashboard },
-  { href: "/dashboard/bookmarks", label: "Bookmarks", icon: Bookmark },
+  { href: "/dashboard/bookmarks", label: "Pipeline", icon: Kanban },
   {
     href: "/dashboard/saved-searches",
     label: "Saved Searches",

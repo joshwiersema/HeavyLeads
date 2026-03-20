@@ -1,5 +1,6 @@
 import type { RawLeadData } from "./base-adapter";
 import { SocrataPermitAdapter } from "./socrata-permit-adapter";
+import { buildPermitTitle, toTitleCase } from "./utils";
 
 /**
  * Austin TX building permits adapter.
@@ -34,23 +35,34 @@ export class AustinPermitsAdapter extends SocrataPermitAdapter {
   }
 
   protected mapRecords(data: Record<string, unknown>[]): RawLeadData[] {
-    return data.map((record) => ({
-      permitNumber: record.permit_number as string,
-      description: (record.description as string) || undefined,
-      address: record.permit_location as string,
-      projectType: (record.permit_type_desc as string) || undefined,
-      permitDate: record.issue_date
-        ? new Date(record.issue_date as string)
-        : undefined,
-      sourceUrl: `https://data.austintexas.gov/resource/3syk-w9eu.json?permit_number=${record.permit_number}`,
-      sourceType: "permit" as const,
-      // Austin includes coordinates from source data -- pass through for geocoding skip
-      lat: record.latitude
-        ? parseFloat(record.latitude as string)
-        : undefined,
-      lng: record.longitude
-        ? parseFloat(record.longitude as string)
-        : undefined,
-    }));
+    return data.map((record) => {
+      const description = (record.description as string) || undefined;
+      const projectType = (record.permit_type_desc as string) || undefined;
+      const address = record.permit_location as string;
+
+      // Austin dataset may include project_valuation or total_valuation
+      const rawValue = (record.project_valuation ?? record.total_valuation ?? record.valuation) as string | undefined;
+      const estimatedValue = rawValue ? parseFloat(rawValue) : undefined;
+
+      return {
+        permitNumber: record.permit_number as string,
+        title: buildPermitTitle({ description, projectType, address }),
+        description,
+        address: toTitleCase(address),
+        projectType,
+        estimatedValue: estimatedValue && !isNaN(estimatedValue) ? estimatedValue : undefined,
+        permitDate: record.issue_date
+          ? new Date(record.issue_date as string)
+          : undefined,
+        sourceUrl: `https://data.austintexas.gov/resource/3syk-w9eu.json?permit_number=${record.permit_number}`,
+        sourceType: "permit" as const,
+        lat: record.latitude
+          ? parseFloat(record.latitude as string)
+          : undefined,
+        lng: record.longitude
+          ? parseFloat(record.longitude as string)
+          : undefined,
+      };
+    });
   }
 }

@@ -19,6 +19,8 @@ export const companySettingsSchema = z.object({
     .number()
     .min(10, "Minimum 10 miles")
     .max(500, "Maximum 500 miles"),
+  targetProjectValueMin: z.number().min(0).nullable().optional(),
+  targetProjectValueMax: z.number().min(0).nullable().optional(),
 });
 
 export type CompanySettingsInput = z.infer<typeof companySettingsSchema>;

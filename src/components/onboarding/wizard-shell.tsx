@@ -100,7 +100,7 @@ export function OnboardingWizard() {
       const result = await completeOnboarding(state);
       if (result.success) {
         clearWizardStorage();
-        toast.success("Welcome to LeadForge!");
+        toast.success("Welcome to HeavyLeads!");
         router.push("/billing");
       } else {
         toast.error(result.error ?? "Something went wrong. Please try again.");

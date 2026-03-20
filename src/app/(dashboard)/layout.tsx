@@ -82,18 +82,18 @@ export default async function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="hidden w-64 shrink-0 border-r bg-sidebar md:block">
+      {/* Sidebar — Asana-inspired dark charcoal */}
+      <aside className="hidden w-64 shrink-0 bg-[#1a1a1e] md:block">
         <div className="flex h-full flex-col">
-          <div className="flex h-14 items-center gap-2 px-5">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-xs font-bold text-primary-foreground">
+          <div className="flex h-14 items-center gap-2.5 px-5">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 text-xs font-black text-[#1a1a1e]">
               H
             </div>
-            <Link href="/dashboard" className="text-base font-semibold tracking-tight">
+            <Link href="/dashboard" className="text-base font-semibold tracking-tight text-white">
               HeavyLeads
             </Link>
           </div>
-          <Separator />
+          <div className="mx-4 h-px bg-white/8" />
           <SidebarNav industry={orgIndustry} />
         </div>
       </aside>
@@ -104,12 +104,15 @@ export default async function DashboardLayout({
         <header className="flex h-14 items-center justify-between border-b bg-background/80 px-6 backdrop-blur-sm">
           <div className="flex items-center gap-2 md:hidden">
             <MobileNav userName={session.user.name} industry={orgIndustry} />
-            <Link href="/dashboard" className="text-base font-semibold">
+            <Link href="/dashboard" className="flex items-center gap-2 text-base font-semibold">
+              <div className="flex size-6 items-center justify-center rounded-md bg-gradient-to-br from-amber-400 to-amber-600 text-[10px] font-black text-[#1a1a1e]">
+                H
+              </div>
               HeavyLeads
             </Link>
           </div>
           <div className="flex items-center gap-4 ml-auto">
-            <div className="flex size-7 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+            <div className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-amber-400/20 to-amber-600/20 text-xs font-semibold text-amber-600">
               {session.user.name?.charAt(0).toUpperCase() ?? "U"}
             </div>
             <span className="hidden text-sm font-medium sm:inline">

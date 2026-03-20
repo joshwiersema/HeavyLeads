@@ -61,7 +61,7 @@ export function LeadFilters({
     const param = searchParams.get("maxDistance");
     if (param) {
       const parsed = parseInt(param, 10);
-      if (!isNaN(parsed) && parsed >= 10 && parsed <= 500) return parsed;
+      if (!isNaN(parsed) && parsed >= 10 && parsed <= 2000) return parsed;
     }
     return defaultRadius;
   }, [searchParams, defaultRadius]);
@@ -303,7 +303,7 @@ export function LeadFilters({
         </Label>
         <Slider
           min={10}
-          max={500}
+          max={2000}
           step={10}
           value={[localRadius]}
           onValueChange={(val: number | readonly number[]) => {
@@ -314,7 +314,7 @@ export function LeadFilters({
         />
         <div className="flex justify-between text-xs text-muted-foreground">
           <span>10 mi</span>
-          <span>500 mi</span>
+          <span>2000 mi</span>
         </div>
       </div>
 

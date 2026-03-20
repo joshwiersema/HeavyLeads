@@ -45,7 +45,7 @@ export default async function UnsubscribePage({
             marginBottom: 8,
           }}
         >
-          LeadForge
+          HeavyLeads
         </h1>
 
         {isSuccess ? (

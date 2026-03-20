@@ -103,3 +103,46 @@ export function isConstructionRelevant(
   const text = `${title ?? ""} ${description ?? ""}`.toLowerCase();
   return CONSTRUCTION_KEYWORDS.some((keyword) => text.includes(keyword));
 }
+
+/**
+ * Convert an ALL-CAPS or lowercase string to Title Case.
+ * Handles common street abbreviations (DR, ST, AVE, etc.)
+ */
+export function toTitleCase(text: string): string {
+  if (!text) return "";
+  return text
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .replace(/\b(Dr|St|Ave|Blvd|Ln|Rd|Ct|Pl|Cir|Pkwy|Hwy|Apt|Ste|Fl)\b/gi, (m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
+}
+
+/**
+ * Construct a meaningful lead title from permit data.
+ * Format: "{description_summary} - {address}" or "{projectType} - {address}"
+ * Falls back to just the address if nothing else is available.
+ */
+export function buildPermitTitle(opts: {
+  description?: string;
+  projectType?: string;
+  address?: string;
+}): string {
+  const addr = opts.address ? toTitleCase(opts.address) : "";
+
+  // Try description first (truncate to first meaningful phrase)
+  if (opts.description) {
+    const desc = opts.description.length > 60
+      ? opts.description.slice(0, 57) + "..."
+      : opts.description;
+    const titleCaseDesc = desc.charAt(0).toUpperCase() + desc.slice(1).toLowerCase();
+    return addr ? `${titleCaseDesc} - ${addr}` : titleCaseDesc;
+  }
+
+  // Fall back to project type
+  if (opts.projectType) {
+    const pt = toTitleCase(opts.projectType);
+    return addr ? `${pt} - ${addr}` : pt;
+  }
+
+  // Just address
+  return addr || "Untitled Permit";
+}

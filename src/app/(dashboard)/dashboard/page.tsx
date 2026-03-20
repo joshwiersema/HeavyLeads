@@ -31,7 +31,7 @@ import Link from "next/link";
 import type { Industry } from "@/lib/onboarding/types";
 
 export const metadata = {
-  title: "Lead Feed | LeadForge",
+  title: "Lead Feed | HeavyLeads",
 };
 
 export default async function DashboardPage({
@@ -111,7 +111,7 @@ export default async function DashboardPage({
       ? parseInt(params.maxDistance, 10)
       : undefined;
   const parsedMaxDistance =
-    maxDistanceParam && !isNaN(maxDistanceParam) && maxDistanceParam >= 10 && maxDistanceParam <= 500
+    maxDistanceParam && !isNaN(maxDistanceParam) && maxDistanceParam >= 10 && maxDistanceParam <= 2000
       ? maxDistanceParam
       : undefined;
 
@@ -154,9 +154,9 @@ export default async function DashboardPage({
 
   const serviceRadius = profile.serviceRadiusMiles ?? 50;
 
-  // Check for active filters early (needed for nationwide fallback)
+  // Check for active filters (excluding keyword -- keyword-only search should
+  // still trigger the nationwide fallback so users see results)
   const hasFilters = !!(
-    keyword ||
     dateFrom ||
     dateTo ||
     (minValue != null && !isNaN(minValue)) ||
@@ -183,8 +183,9 @@ export default async function DashboardPage({
     keyword,
   });
 
-  // If no leads and no filters active, expand to nationwide
+  // If no leads and no restrictive filters active, expand to nationwide
   // so new users always see something instead of an empty dashboard.
+  // Keyword searches still trigger the fallback (with keyword applied).
   let expandedNationwide = false;
   if (leads.length === 0 && !hasFilters && !cursor) {
     const nationwide = await getFilteredLeadsCursor({
@@ -192,6 +193,7 @@ export default async function DashboardPage({
       userId: session.user.id,
       maxDistanceMiles: 99999,
       limit: 50,
+      keyword,
     });
     if (nationwide.leads.length > 0) {
       leads = nationwide.leads;

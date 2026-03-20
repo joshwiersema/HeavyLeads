@@ -3,8 +3,10 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { companyProfiles } from "@/lib/db/schema/company-profiles";
+import { organization } from "@/lib/db/schema/auth";
 import { eq } from "drizzle-orm";
 import { CompanyForm } from "@/components/settings/company-form";
+import type { Industry } from "@/lib/onboarding/types";
 
 /**
  * Try to parse a Google-formatted address into structured fields.
@@ -54,6 +56,14 @@ export default async function CompanySettingsPage() {
 
   const isAdmin = member?.role === "owner" || member?.role === "admin";
 
+  // Fetch org industry
+  const orgId = session.session.activeOrganizationId;
+  const org = await db.query.organization.findFirst({
+    where: eq(organization.id, orgId),
+    columns: { industry: true },
+  });
+  const industry = (org?.industry ?? "heavy_equipment") as Industry;
+
   // Parse existing address into structured fields for the form
   const parsed = parseAddress(profile?.hqAddress ?? "");
 
@@ -66,8 +76,11 @@ export default async function CompanySettingsPage() {
         zip: parsed.zip,
         equipmentTypes: profile?.equipmentTypes ?? [],
         serviceRadius: profile?.serviceRadiusMiles ?? 50,
+        targetProjectValueMin: profile?.targetProjectValueMin ?? null,
+        targetProjectValueMax: profile?.targetProjectValueMax ?? null,
       }}
       isAdmin={isAdmin}
+      industry={industry}
     />
   );
 }

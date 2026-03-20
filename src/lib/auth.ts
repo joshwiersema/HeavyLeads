@@ -52,7 +52,7 @@ export const auth = betterAuth({
           const resend = new Resend(apiKey);
           const from =
             (process.env.RESEND_FROM_EMAIL ?? "").trim() ||
-            "LeadForge <onboarding@resend.dev>";
+            "HeavyLeads <onboarding@resend.dev>";
 
           const { VerifyEmail } = await import(
             "@/components/emails/verify-email"
@@ -61,7 +61,7 @@ export const auth = betterAuth({
           await resend.emails.send({
             from,
             to: user.email,
-            subject: "Verify your LeadForge email",
+            subject: "Verify your HeavyLeads email",
             react: VerifyEmail({
               verificationUrl: url,
               userName: user.name,

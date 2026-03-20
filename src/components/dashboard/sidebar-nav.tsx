@@ -28,11 +28,11 @@ export function SidebarNav({ industry }: SidebarNavProps) {
             className={cn(
               "flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               active
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                ? "bg-amber-400/10 text-amber-400"
+                : "text-[#8a8a95] hover:bg-white/5 hover:text-white"
             )}
           >
-            <Icon className={cn("size-4", active && "text-primary")} />
+            <Icon className={cn("size-4", active && "text-amber-400")} />
             {label}
           </Link>
         );

@@ -448,10 +448,14 @@ export async function getFilteredLeads(
   // Post-query equipment filter
   enriched = filterByEquipment(enriched, equipmentFilter);
 
-  // Sort by score DESC, then scrapedAt DESC as tiebreaker
+  // Sort by score DESC with deterministic tiebreakers
   enriched.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+    const valueDiff = (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
+    if (valueDiff !== 0) return valueDiff;
+    const dateDiff = b.scrapedAt.getTime() - a.scrapedAt.getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 
   // Slice to the caller's requested limit (we over-fetched with FETCH_MULTIPLIER)
@@ -615,10 +619,14 @@ export async function getFilteredLeadsWithCount(
   // Post-query equipment filter
   enriched = filterByEquipment(enriched, equipmentFilter);
 
-  // Sort by score DESC, then scrapedAt DESC as tiebreaker
+  // Sort by score DESC with deterministic tiebreakers
   enriched.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+    const valueDiff = (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
+    if (valueDiff !== 0) return valueDiff;
+    const dateDiff = b.scrapedAt.getTime() - a.scrapedAt.getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 
   // Compute pagination
@@ -974,21 +982,31 @@ export async function getFilteredLeadsCursor(
     }
   );
 
-  // 7. Sort by requested dimension
+  // 7. Sort by requested dimension with deterministic tiebreakers
   scored.sort((a, b) => {
+    let primary: number;
     switch (sortBy) {
       case "distance":
-        return (a.distance ?? Infinity) - (b.distance ?? Infinity);
+        primary = (a.distance ?? Infinity) - (b.distance ?? Infinity);
+        break;
       case "value":
-        return (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
+        primary = (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
+        break;
       case "date":
-        return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+        primary = b.scrapedAt.getTime() - a.scrapedAt.getTime();
+        break;
       case "score":
       default:
-        if (b.scoring.total !== a.scoring.total)
-          return b.scoring.total - a.scoring.total;
-        return b.scrapedAt.getTime() - a.scrapedAt.getTime();
+        primary = b.scoring.total - a.scoring.total;
+        break;
     }
+    if (primary !== 0) return primary;
+    // Tiebreakers: estimated value desc, scrapedAt desc, id asc (deterministic)
+    const valueDiff = (b.estimatedValue ?? 0) - (a.estimatedValue ?? 0);
+    if (valueDiff !== 0) return valueDiff;
+    const dateDiff = b.scrapedAt.getTime() - a.scrapedAt.getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
   });
 
   // 8. Take the first `limit` leads

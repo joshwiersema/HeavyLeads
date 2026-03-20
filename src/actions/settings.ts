@@ -93,6 +93,8 @@ export async function updateCompanyProfile(data: CompanySettingsInput) {
       hqLng,
       equipmentTypes: validated.equipmentTypes,
       serviceRadiusMiles: validated.serviceRadius,
+      targetProjectValueMin: validated.targetProjectValueMin ?? null,
+      targetProjectValueMax: validated.targetProjectValueMax ?? null,
       updatedAt: new Date(),
     })
     .where(

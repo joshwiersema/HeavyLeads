@@ -29,11 +29,11 @@ interface EmailLayoutProps {
 }
 
 /**
- * Shared React Email layout component for all LeadForge emails.
+ * Shared React Email layout component for all HeavyLeads emails.
  *
  * Provides:
  * - Industry-specific header color
- * - LeadForge branding
+ * - HeavyLeads branding
  * - CAN-SPAM compliant footer with unsubscribe link and physical address
  */
 export function EmailLayout({
@@ -56,7 +56,7 @@ export function EmailLayout({
           <Section
             style={{ ...headerStyle, backgroundColor: headerColor }}
           >
-            <Text style={brandStyle}>LeadForge</Text>
+            <Text style={brandStyle}>HeavyLeads</Text>
           </Section>
 
           {/* Content */}
@@ -75,10 +75,10 @@ export function EmailLayout({
             )}
             <Text style={footerTextStyle}>
               You are receiving this email because you signed up for
-              LeadForge.
+              HeavyLeads.
             </Text>
             <Text style={footerTextStyle}>
-              LeadForge | Austin, TX
+              HeavyLeads | Austin, TX
             </Text>
           </Section>
         </Container>

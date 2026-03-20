@@ -44,6 +44,11 @@ export function scoreRelevance(
   const hasIndustries = lead.applicableIndustries.length > 0;
   const industryMatch = hasIndustries && lead.applicableIndustries.includes(org.industry);
 
+  // Detect low-confidence classification: when ALL 5 industries are tagged,
+  // the enrichment had no keyword matches and defaulted to "applicable to all"
+  const ALL_INDUSTRY_COUNT = 5;
+  const isLowConfidence = lead.applicableIndustries.length >= ALL_INDUSTRY_COUNT;
+
   // +15 specialization match (case-insensitive partial -- handles plurals)
   let specMatched = false;
   for (const spec of org.specializations) {
@@ -65,14 +70,20 @@ export function scoreRelevance(
     }
   }
 
-  // +10 industry match
-  if (industryMatch) {
+  // +10 industry match (high confidence only)
+  if (industryMatch && !isLowConfidence) {
     raw += 10;
     dim.reasons.push(`Relevant to ${org.industry} industry`);
   }
 
-  // +5 cross-industry opportunity
-  if (hasIndustries && !industryMatch) {
+  // +5 low-confidence match: industry is technically included but inference was uncertain
+  if (industryMatch && isLowConfidence) {
+    raw += 5;
+    dim.reasons.push("Industry match uncertain");
+  }
+
+  // +5 cross-industry opportunity (only when high confidence and org not matched)
+  if (hasIndustries && !industryMatch && !isLowConfidence) {
     raw += 5;
     dim.reasons.push("Cross-industry opportunity");
   }
@@ -84,8 +95,9 @@ export function scoreRelevance(
     dim.reasons.push(`From your preferred ${leadTypeName} sources`);
   }
 
-  // -10 outside specializations: industries listed, org not in them, no spec match
-  if (hasIndustries && !industryMatch && !specMatched) {
+  // -10 outside specializations: only apply when high confidence that
+  // the lead belongs to OTHER industries (not low-confidence defaults)
+  if (hasIndustries && !industryMatch && !specMatched && !isLowConfidence) {
     raw -= 10;
     dim.reasons.push("Outside your specializations");
   }

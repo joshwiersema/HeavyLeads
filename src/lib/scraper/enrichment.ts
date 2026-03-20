@@ -2,21 +2,53 @@ import { db } from "@/lib/db";
 import { leads } from "@/lib/db/schema/leads";
 import { eq, sql, isNull, or } from "drizzle-orm";
 
-// Industry keyword patterns
+// Comprehensive industry keyword patterns
 const INDUSTRY_PATTERNS: Record<string, RegExp> = {
-  hvac: /hvac|heating|cooling|air.condition|mechanical/i,
-  roofing: /roof|shingle|waterproof|membrane/i,
-  solar: /solar|photovoltaic|pv.system|renewable/i,
-  electrical: /electric|wiring|panel|transformer|ev.charg/i,
-  heavy_equipment: /excavat|crane|loader|dozer|grading|demolit|heavy/i,
+  hvac: /\b(hvac|heating|cooling|air.?condition|mechanical|furnace|boiler|chiller|ductwork|thermostat|heat.?pump|refrigerant|ventilat|mini.?split|vrf|rtu|rooftop.?unit|condensing|air.?handler)\b/i,
+  roofing: /\b(roof|shingle|waterproof|membrane|tpo|pvc|epdm|standing.?seam|gutter|flashing|fascia|soffit|re.?roof|tear.?off|metal.?roof|flat.?roof|tile.?roof|slate|built.?up.?roof|roofing)\b/i,
+  solar: /\b(solar|photovoltaic|pv.?system|renewable|inverter|battery.?storage|net.?meter|micro.?inverter|solar.?panel|ev.?charg|racking|photovoltaics|green.?energy|clean.?energy)\b/i,
+  electrical: /\b(electric|wiring|panel.?upgrade|transformer|circuit.?breaker|switchgear|conduit|lighting|outlet|receptacle|generator|power.?distribution|substation|voltage|amperage|electrical.?panel|rewir|meter.?base|load.?center|service.?entrance)\b/i,
+  heavy_equipment: /\b(excavat|crane|loader|dozer|grading|demolit|heavy.?equip|bulldozer|backhoe|skid.?steer|forklift|telehandler|compactor|boom.?lift|aerial.?work|pile.?driv|earth.?mov|trenching|site.?work|land.?clear|paving|asphalt|concrete.?pour|foundation|structural.?steel|framing)\b/i,
 };
 
+/** All supported industry keys */
+const ALL_INDUSTRIES = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
+
+export interface IndustryInference {
+  industries: string[];
+  /** Whether the inference was based on keyword matches (high) or defaulted (low) */
+  confidence: "high" | "low";
+}
+
+/**
+ * Infers which industries a lead is applicable to based on keyword analysis
+ * of its title, description, and projectType.
+ *
+ * When no keywords match, returns ALL industries with low confidence
+ * (the lead could be relevant to anyone) rather than defaulting to a
+ * single industry.
+ */
 export function inferApplicableIndustries(lead: {
   title?: string | null;
   description?: string | null;
   projectType?: string | null;
   sourceType: string;
 }): string[] {
+  const result = inferApplicableIndustriesWithConfidence(lead);
+  return result.industries;
+}
+
+/**
+ * Same as inferApplicableIndustries but also returns confidence level.
+ * Used by the scoring engine to avoid penalizing leads with uncertain
+ * industry classification.
+ */
+export function inferApplicableIndustriesWithConfidence(lead: {
+  title?: string | null;
+  description?: string | null;
+  projectType?: string | null;
+  sourceType: string;
+}): IndustryInference {
   const text = [lead.title, lead.description, lead.projectType]
     .filter(Boolean)
     .join(" ")
@@ -29,12 +61,12 @@ export function inferApplicableIndustries(lead: {
     }
   }
 
-  // Default: permit sources with no keyword matches default to heavy_equipment
-  if (matches.length === 0 && lead.sourceType === "permit") {
-    return ["heavy_equipment"];
+  if (matches.length > 0) {
+    return { industries: matches, confidence: "high" };
   }
 
-  return matches;
+  // No keyword matches -- applicable to all industries with low confidence
+  return { industries: [...ALL_INDUSTRIES], confidence: "low" };
 }
 
 export function inferValueTier(estimatedValue: number | null): string | null {

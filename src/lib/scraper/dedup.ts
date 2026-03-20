@@ -159,21 +159,20 @@ export async function deduplicateNewLeads(
  * 1. Transfer all lead_sources entries from the duplicate to the canonical lead
  * 2. Delete the duplicate lead row
  *
- * Uses a database transaction for atomicity -- either both operations
- * succeed or neither does.
+ * Executed as sequential queries (neon-http driver does not support
+ * transactions). The order ensures referential integrity: sources are
+ * moved before the duplicate row is deleted.
  */
 async function mergeLeads(
   canonicalId: string,
   duplicateId: string
 ): Promise<void> {
-  await db.transaction(async (tx) => {
-    // Transfer source references to canonical lead
-    await tx
-      .update(leadSources)
-      .set({ leadId: canonicalId })
-      .where(eq(leadSources.leadId, duplicateId));
+  // Transfer source references to canonical lead
+  await db
+    .update(leadSources)
+    .set({ leadId: canonicalId })
+    .where(eq(leadSources.leadId, duplicateId));
 
-    // Delete the duplicate lead row
-    await tx.delete(leads).where(eq(leads.id, duplicateId));
-  });
+  // Delete the duplicate lead row
+  await db.delete(leads).where(eq(leads.id, duplicateId));
 }

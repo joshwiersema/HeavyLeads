@@ -1,15 +1,9 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MapPin } from "lucide-react";
-import {
-  APIProvider,
-  Map,
-  AdvancedMarker,
-  Pin,
-  useMap,
-  useMapsLibrary,
-} from "@vis.gl/react-google-maps";
+import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 
 export interface LeadMapProps {
   lat: number;
@@ -22,55 +16,24 @@ export interface LeadMapProps {
 
 const MILES_TO_METERS = 1609.34;
 
-/**
- * Circle overlay for service radius -- uses the same pattern established
- * in Phase 14 (onboarding service-area step).
- */
-function ServiceRadiusCircle({
-  lat,
-  lng,
-  radiusMiles,
-}: {
-  lat: number;
-  lng: number;
-  radiusMiles: number;
-}) {
-  const map = useMap();
-  const mapsLib = useMapsLibrary("maps");
-  const circleRef = useRef<google.maps.Circle | null>(null);
+// Custom marker icons (Leaflet default icons break with bundlers)
+const leadIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
-  useEffect(() => {
-    if (!map || !mapsLib) return;
-
-    if (!circleRef.current) {
-      circleRef.current = new mapsLib.Circle({
-        map,
-        center: { lat, lng },
-        radius: radiusMiles * MILES_TO_METERS,
-        fillColor: "#1e40af",
-        fillOpacity: 0.08,
-        strokeColor: "#1e40af",
-        strokeWeight: 1.5,
-        clickable: false,
-      });
-    }
-
-    return () => {
-      circleRef.current?.setMap(null);
-      circleRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, mapsLib]);
-
-  // Update circle when props change
-  useEffect(() => {
-    if (!circleRef.current) return;
-    circleRef.current.setCenter({ lat, lng });
-    circleRef.current.setRadius(radiusMiles * MILES_TO_METERS);
-  }, [lat, lng, radiusMiles]);
-
-  return null;
-}
+const hqIcon = new L.Icon({
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
 /**
  * Fits the map bounds to include both the lead marker and HQ marker.
@@ -87,16 +50,18 @@ function BoundsFitter({
   hqLng: number;
 }) {
   const map = useMap();
-  const mapsLib = useMapsLibrary("core");
+  const fitted = useRef(false);
 
   useEffect(() => {
-    if (!map || !mapsLib) return;
+    if (fitted.current) return;
+    fitted.current = true;
 
-    const bounds = new mapsLib.LatLngBounds();
-    bounds.extend({ lat: leadLat, lng: leadLng });
-    bounds.extend({ lat: hqLat, lng: hqLng });
-    map.fitBounds(bounds, { top: 40, right: 40, bottom: 40, left: 40 });
-  }, [map, mapsLib, leadLat, leadLng, hqLat, hqLng]);
+    const bounds = L.latLngBounds(
+      [leadLat, leadLng],
+      [hqLat, hqLng]
+    );
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }, [map, leadLat, leadLng, hqLat, hqLng]);
 
   return null;
 }
@@ -109,74 +74,55 @@ export function LeadMap({
   hqLng,
   serviceRadiusMiles,
 }: LeadMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
-  if (!apiKey) {
-    return (
-      <div className="flex h-[300px] w-full items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/50">
-        <div className="flex flex-col items-center gap-2 text-center">
-          <MapPin className="h-8 w-8 text-muted-foreground/50" />
-          <p className="text-sm font-medium text-muted-foreground">{title}</p>
-          <p className="text-xs text-muted-foreground/70">
-            Map unavailable -- configure NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   const hasHq = hqLat != null && hqLng != null;
 
   return (
-    <APIProvider apiKey={apiKey}>
-      <Map
-        defaultCenter={{ lat, lng }}
-        defaultZoom={hasHq ? 10 : 14}
-        mapId="lead-detail-map"
-        className="h-[300px] w-full rounded-lg"
-      >
-        {/* Lead marker (red) */}
-        <AdvancedMarker position={{ lat, lng }} title={title}>
-          <Pin
-            background="#dc2626"
-            glyphColor="#ffffff"
-            borderColor="#b91c1c"
-          />
-        </AdvancedMarker>
+    <MapContainer
+      center={[lat, lng]}
+      zoom={hasHq ? 10 : 14}
+      className="h-[300px] w-full rounded-lg"
+      scrollWheelZoom={false}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
 
-        {/* HQ marker (blue) -- only if HQ coords provided */}
-        {hasHq && (
-          <AdvancedMarker
-            position={{ lat: hqLat!, lng: hqLng! }}
-            title="Your HQ"
-          >
-            <Pin
-              background="#1e40af"
-              glyphColor="#ffffff"
-              borderColor="#1e3a8a"
-            />
-          </AdvancedMarker>
-        )}
+      {/* Lead marker (red) */}
+      <Marker position={[lat, lng]} icon={leadIcon}>
+        <Popup>{title}</Popup>
+      </Marker>
 
-        {/* Service radius circle overlay */}
-        {hasHq && serviceRadiusMiles != null && (
-          <ServiceRadiusCircle
-            lat={hqLat!}
-            lng={hqLng!}
-            radiusMiles={serviceRadiusMiles}
-          />
-        )}
+      {/* HQ marker (blue) -- only if HQ coords provided */}
+      {hasHq && (
+        <Marker position={[hqLat!, hqLng!]} icon={hqIcon}>
+          <Popup>Your HQ</Popup>
+        </Marker>
+      )}
 
-        {/* Fit bounds to show both markers */}
-        {hasHq && (
-          <BoundsFitter
-            leadLat={lat}
-            leadLng={lng}
-            hqLat={hqLat!}
-            hqLng={hqLng!}
-          />
-        )}
-      </Map>
-    </APIProvider>
+      {/* Service radius circle overlay */}
+      {hasHq && serviceRadiusMiles != null && (
+        <Circle
+          center={[hqLat!, hqLng!]}
+          radius={serviceRadiusMiles * MILES_TO_METERS}
+          pathOptions={{
+            fillColor: "#1e40af",
+            fillOpacity: 0.08,
+            color: "#1e40af",
+            weight: 1.5,
+          }}
+        />
+      )}
+
+      {/* Fit bounds to show both markers */}
+      {hasHq && (
+        <BoundsFitter
+          leadLat={lat}
+          leadLng={lng}
+          hqLat={hqLat!}
+          hqLng={hqLng!}
+        />
+      )}
+    </MapContainer>
   );
 }

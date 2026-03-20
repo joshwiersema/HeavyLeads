@@ -41,17 +41,17 @@ export async function generateMetadata({
   const session = await auth.api.getSession({
     headers: await headers(),
   });
-  if (!session) return { title: "Lead Not Found | LeadForge" };
+  if (!session) return { title: "Lead Not Found | HeavyLeads" };
 
   const orgId = session.session.activeOrganizationId;
-  if (!orgId) return { title: "Lead Not Found | LeadForge" };
+  if (!orgId) return { title: "Lead Not Found | HeavyLeads" };
 
   const lead = await getLeadByIdScored(id, orgId);
   if (!lead) {
-    return { title: "Lead Not Found | LeadForge" };
+    return { title: "Lead Not Found | HeavyLeads" };
   }
   return {
-    title: `${lead.title ?? lead.address ?? "Lead"} | LeadForge`,
+    title: `${lead.title ?? lead.address ?? "Lead"} | HeavyLeads`,
   };
 }
 

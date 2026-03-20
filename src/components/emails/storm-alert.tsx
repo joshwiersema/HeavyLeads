@@ -21,7 +21,7 @@ interface StormAlertEmailProps {
 const MAX_INLINE_ALERTS = 5;
 
 /**
- * React Email template for LeadForge storm alert notifications.
+ * React Email template for HeavyLeads storm alert notifications.
  *
  * Renders an amber/orange-themed email with storm alert details,
  * severity badges, and a CTA to view storm leads on the dashboard.
@@ -42,7 +42,7 @@ export function StormAlertEmail({
         <Container style={containerStyle}>
           {/* Header */}
           <Section style={headerStyle}>
-            <Text style={brandStyle}>LeadForge</Text>
+            <Text style={brandStyle}>HeavyLeads</Text>
             <Text style={headingStyle}>Storm Alert</Text>
           </Section>
 
@@ -108,7 +108,7 @@ export function StormAlertEmail({
             </Link>
             <Text style={unsubscribeStyle}>
               You are receiving this because you have a roofing profile on
-              LeadForge.{" "}
+              HeavyLeads.{" "}
               {unsubscribeUrl ? (
                 <Link href={unsubscribeUrl} style={linkStyle}>
                   Unsubscribe from storm alerts
@@ -120,7 +120,7 @@ export function StormAlertEmail({
               )}
             </Text>
             <Text style={canSpamStyle}>
-              LeadForge | United States
+              HeavyLeads | United States
             </Text>
           </Section>
         </Container>
