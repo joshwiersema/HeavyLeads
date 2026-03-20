@@ -10,3 +10,5 @@ export * from "./pipeline-runs";
 export * from "./lead-enrichments";
 export * from "./scraper-runs";
 export * from "./notification-preferences";
+export * from "./geocoding-cache";
+export * from "./data-portals";
