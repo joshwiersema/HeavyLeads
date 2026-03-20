@@ -2,6 +2,13 @@ import type { NextRequest } from "next/server";
 import { runPipeline } from "@/lib/scraper/pipeline";
 import { getAdaptersForIndustry } from "@/lib/scraper/adapters";
 import type { Industry } from "@/lib/onboarding/types";
+import type { PipelineResult } from "@/lib/scraper/types";
+import {
+  splitIntoBatches,
+  serializeBatch,
+  invokeBatch,
+  getBaseUrl,
+} from "@/lib/scraper/batch-orchestrator";
 import { db } from "@/lib/db";
 import { pipelineRuns } from "@/lib/db/schema/pipeline-runs";
 import { eq, and, gte } from "drizzle-orm";
@@ -64,16 +71,63 @@ export async function GET(
 
   try {
     const adapters = getAdaptersForIndustry(industry as Industry);
-    const result = await runPipeline(adapters, {
-      pipelineRunId: run.id,
-      industry,
-    });
+    const batches = splitIntoBatches(adapters);
 
-    const totalScraped = result.results.reduce(
+    let allResults: PipelineResult[] = [];
+
+    if (batches.length <= 1) {
+      // Small adapter set: run directly (no fan-out overhead)
+      const result = await runPipeline(adapters, {
+        pipelineRunId: run.id,
+        industry,
+      });
+      allResults = result.results;
+    } else {
+      // Fan-out: invoke each batch as a separate serverless invocation
+      const cronSecret = (process.env.CRON_SECRET ?? "").trim();
+      const baseUrl = getBaseUrl();
+
+      console.log(
+        `[cron/scrape/${industry}] Fan-out: ${adapters.length} adapters in ${batches.length} batches`
+      );
+
+      const batchPromises = batches.map((batch, index) =>
+        invokeBatch({
+          adapterIds: serializeBatch(batch),
+          industry,
+          pipelineRunId: run.id,
+          batchIndex: index,
+          cronSecret,
+          baseUrl,
+        })
+      );
+
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      for (const result of batchResults) {
+        if (
+          result.status === "fulfilled" &&
+          result.value.success &&
+          result.value.results
+        ) {
+          allResults.push(...result.value.results);
+        } else {
+          const error =
+            result.status === "rejected"
+              ? result.reason?.message ?? "Unknown error"
+              : result.value.error ?? "Batch failed";
+          console.error(
+            `[cron/scrape/${industry}] Batch failed: ${error}`
+          );
+        }
+      }
+    }
+
+    const totalScraped = allResults.reduce(
       (sum, r) => sum + r.recordsScraped,
       0
     );
-    const totalStored = result.results.reduce(
+    const totalStored = allResults.reduce(
       (sum, r) => sum + r.recordsStored,
       0
     );
@@ -94,8 +148,8 @@ export async function GET(
       industry,
       totalScraped,
       totalStored,
-      adapters: result.results.length,
-      duration: result.completedAt.getTime() - result.startedAt.getTime(),
+      adapters: allResults.length,
+      batches: batches.length,
     });
   } catch (error) {
     const message =
