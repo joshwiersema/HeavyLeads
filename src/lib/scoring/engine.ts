@@ -30,7 +30,7 @@ export function scoreLeadForOrg(
     scoreDistance(distanceMiles, org.serviceRadiusMiles),
     scoreRelevance(lead, org),
     scoreValue(lead, org),
-    scoreFreshness(lead.scrapedAt),
+    scoreFreshness(lead.scrapedAt, lead.sourceType),
     scoreUrgency(lead),
   ];
 
