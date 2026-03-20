@@ -55,6 +55,7 @@ Progress: [██████████] 100%
 | Phase 22 P02 | 2min | 2 tasks | 2 files |
 | Phase 22 P03 | 4min | 2 tasks | 3 files |
 | Phase 23 P02 | 4min | 1 tasks | 2 files |
+| Phase 23 P01 | 4min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 22]: All 6 federal adapters registered per industry: FERC for energy-related, FCC for tower/electrical (22-03)
 - [Phase 23]: Three-path dedup matching with geographic proximity prerequisite: permit number (>0.8), text (>0.7), date+address compound (3 days + >0.5) (23-02)
 - [Phase 23]: Permit number normalization strips common prefixes (BLDG, BLD, BP, COM, RES, PMT, PERMIT) with longer-first regex ordering (23-02)
+- [Phase 23]: ST_DWithin with geography cast for spatial index-backed radius filtering, miles * 1609.344 for meter conversion (23-01)
+- [Phase 23]: Separate SQL COUNT query + SQL LIMIT/OFFSET for getFilteredLeadsWithCount pagination instead of fetch-all-then-slice (23-01)
+- [Phase 23]: getRoofingSubscribersInStormArea left as Haversine since it uses org_profiles coordinates, not leads.location (23-01)
 
 ### Pending Todos
 
@@ -122,6 +126,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T06:15:55.745Z
-Stopped at: Completed 23-02-PLAN.md
+Last session: 2026-03-20T06:14:26Z
+Stopped at: Completed 23-01-PLAN.md
 Resume file: None
