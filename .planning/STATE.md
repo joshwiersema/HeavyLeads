@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
-status: completed
-stopped_at: Completed 21-04-PLAN.md
-last_updated: "2026-03-20T05:30:58.807Z"
-last_activity: 2026-03-20 -- Completed 21-04 Discovery Cron & Pipeline Integration
+status: in-progress
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-03-20T05:46:48Z"
+last_activity: 2026-03-20 -- Completed 22-01 Federal Source Types & First Adapters
 progress:
   total_phases: 6
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
-  percent: 83
+  total_plans: 13
+  completed_plans: 11
+  percent: 85
 ---
 
 # Project State
@@ -26,18 +26,18 @@ See: .planning/PROJECT.md (updated 2026-03-20)
 ## Current Position
 
 Phase: 22 of 24 (Federal & Specialty Data Sources)
-Plan: 0 of TBD (Phase 21 complete)
-Status: Phase 21 complete, Phase 22 not started
-Last activity: 2026-03-20 -- Completed 21-04 Discovery Cron & Pipeline Integration
+Plan: 1 of 3 complete
+Status: In progress -- executing Phase 22
+Last activity: 2026-03-20 -- Completed 22-01 Federal Source Types & First Adapters
 
-Progress: [████████░░] 83%
+Progress: [████████░░] 85%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8 (v4.0) / 46 (all milestones)
-- Average duration: 4min (v4.0)
-- Total execution time: 28min (v4.0)
+- Total plans completed: 9 (v4.0) / 47 (all milestones)
+- Average duration: 3min (v4.0)
+- Total execution time: 30min (v4.0)
 
 **By Phase:**
 
@@ -51,6 +51,7 @@ Progress: [████████░░] 83%
 | Phase 21 P01 | 3min | 2 tasks | 3 files |
 | Phase 21 P03 | 5min | 2 tasks | 3 files |
 | Phase 21 P04 | 4min | 2 tasks | 10 files |
+| Phase 22 P01 | 2min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 21]: Hardcoded adapters take priority over portal adapters when deduplicating by sourceId (21-04)
 - [Phase 21]: Portal adapter factory gracefully degrades -- DB failure falls back to hardcoded adapters only (21-04)
 - [Phase 21]: Discovery cron preserves enabled flag on conflict to respect manual overrides (21-04)
+- [Phase 22]: POST-based API pattern for USAspending complex filtering (NAICS codes, date ranges, award types) (22-01)
+- [Phase 22]: Manual redirect detection for OSHA adapter to handle DOL API restructuring gracefully (22-01)
+- [Phase 22]: Conservative rate limits for OSHA (5 req/min) due to API stability concerns (22-01)
 
 ### Pending Todos
 
@@ -108,6 +112,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:22:48Z
-Stopped at: Completed 21-04-PLAN.md
+Last session: 2026-03-20T05:46:48Z
+Stopped at: Completed 22-01-PLAN.md
 Resume file: None
