@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v4.0
 milestone_name: GroundPulse Nationwide
 status: Phase 21 in-progress
-stopped_at: Completed 21-02-PLAN.md
-last_updated: "2026-03-20T05:09:31.929Z"
+stopped_at: Completed 21-01-PLAN.md
+last_updated: "2026-03-20T05:10:28.607Z"
 last_activity: 2026-03-20 -- Completed 21-02 GenericArcGISAdapter
 progress:
   total_phases: 6
   completed_phases: 2
   total_plans: 10
-  completed_plans: 7
+  completed_plans: 8
   percent: 70
 ---
 
@@ -48,6 +48,7 @@ Progress: [███████░░░] 70%
 | Phase 20 P01 | 6min | 3 tasks | 7 files |
 | Phase 20 P03 | 3min | 2 tasks | 2 files |
 | Phase 21 P02 | 2min | 1 tasks | 1 files |
+| Phase 21 P01 | 3min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,9 @@ Recent decisions affecting current work:
 - [Phase 21]: Defined DataPortalConfig and FieldMapping interfaces locally in generic-arcgis-adapter.ts since Plan 21-01 not yet executed (21-02)
 - [Phase 21]: GeoJSON download as primary ArcGIS strategy with Feature Service query fallback (21-02)
 - [Phase 21]: 2000 feature limit per scrape to prevent memory issues with large ArcGIS datasets (21-02)
+- [Phase 21]: Priority-ordered field resolution: permitNumber > address > permitDate > description > projectType > lat/lng > estimatedValue > applicantName (21-01)
+- [Phase 21]: Deterministic sourceId format portal-{domain}-{datasetId} for GenericSocrataAdapter dedup (21-01)
+- [Phase 21]: No date field fallback: fetch latest 1000 records without time-window filter (21-01)
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-20T05:09:20.567Z
-Stopped at: Completed 21-02-PLAN.md
+Last session: 2026-03-20T05:10:28.603Z
+Stopped at: Completed 21-01-PLAN.md
 Resume file: None
