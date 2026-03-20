@@ -213,11 +213,12 @@ describe("scoreRelevance", () => {
     const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
     const lead = makeLead({
       projectType: "Plumbing Repair",
+      sourceType: "news", // use non-preferred source to isolate keyword scoring
       applicableIndustries: allIndustries,
     });
-    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const org = makeOrg({ industry: "hvac", specializations: [], preferredLeadTypes: [] });
     const dim = scoreRelevance(lead, org);
-    // No keyword match = 3 from keyword scoring
+    // No keyword match = 3 from keyword scoring, no preferred lead type bonus
     expect(dim.score).toBeLessThanOrEqual(5);
   });
 
@@ -250,11 +251,12 @@ describe("scoreRelevance", () => {
     const allIndustries = ["heavy_equipment", "hvac", "roofing", "solar", "electrical"];
     const lead = makeLead({
       projectType: null,
+      sourceType: "news", // use non-preferred source to isolate keyword scoring
       applicableIndustries: allIndustries,
     });
-    const org = makeOrg({ industry: "hvac", specializations: [] });
+    const org = makeOrg({ industry: "hvac", specializations: [], preferredLeadTypes: [] });
     const dim = scoreRelevance(lead, org);
-    // null projectType = 3 from keyword scoring
+    // null projectType = 3 from keyword scoring, no preferred lead type bonus
     expect(dim.score).toBeLessThanOrEqual(5);
   });
 });

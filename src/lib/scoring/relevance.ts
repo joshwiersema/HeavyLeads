@@ -76,10 +76,21 @@ export function scoreRelevance(
     dim.reasons.push(`Relevant to ${org.industry} industry`);
   }
 
-  // +5 low-confidence match: industry is technically included but inference was uncertain
+  // Low-confidence: use keyword matching instead of flat +5
   if (industryMatch && isLowConfidence) {
-    raw += 5;
-    dim.reasons.push("Industry match uncertain");
+    const keywordScore = scoreProjectTypeForIndustry(
+      lead.projectType,
+      org.industry,
+      org.specializations
+    );
+    raw += keywordScore;
+    if (keywordScore >= 12) {
+      dim.reasons.push(`Project type likely relevant to ${org.industry}`);
+    } else if (keywordScore >= 8) {
+      dim.reasons.push("Possible match for your industry");
+    } else {
+      dim.reasons.push("Industry match uncertain");
+    }
   }
 
   // +5 cross-industry opportunity (only when high confidence and org not matched)
@@ -104,4 +115,63 @@ export function scoreRelevance(
 
   dim.score = Math.max(0, Math.min(30, raw));
   return dim;
+}
+
+/**
+ * Scores how well a projectType matches an industry via keyword analysis.
+ * Used when industry classification is low-confidence (all 5 industries tagged).
+ * Returns 0-15 to replace the flat +5 fallback.
+ */
+function scoreProjectTypeForIndustry(
+  projectType: string | null,
+  industry: string,
+  specializations: string[]
+): number {
+  if (!projectType) return 3; // Unknown project type -> small baseline
+
+  const pt = projectType.toLowerCase();
+
+  const INDUSTRY_KEYWORDS: Record<string, { strong: string[]; weak: string[] }> = {
+    heavy_equipment: {
+      strong: ["demolition", "grading", "excavation", "foundation", "structural",
+               "site work", "new construction", "paving", "concrete"],
+      weak: ["commercial", "industrial", "multi-family", "renovation", "addition"],
+    },
+    hvac: {
+      strong: ["hvac", "mechanical", "heating", "cooling", "air conditioning",
+               "heat pump", "furnace", "boiler", "ductwork"],
+      weak: ["commercial", "tenant improvement", "remodel", "new construction"],
+    },
+    roofing: {
+      strong: ["roofing", "roof", "re-roof", "reroof", "shingle", "membrane",
+               "tpo", "epdm", "flat roof", "metal roof"],
+      weak: ["residential", "repair", "storm damage", "insurance", "waterproofing"],
+    },
+    solar: {
+      strong: ["solar", "photovoltaic", "pv system", "renewable", "ev charging",
+               "battery storage", "inverter"],
+      weak: ["electrical", "residential", "commercial", "energy"],
+    },
+    electrical: {
+      strong: ["electrical", "wiring", "panel upgrade", "service upgrade",
+               "transformer", "switchgear", "circuit"],
+      weak: ["commercial", "residential", "tenant improvement", "lighting"],
+    },
+  };
+
+  const keywords = INDUSTRY_KEYWORDS[industry];
+  if (!keywords) return 3;
+
+  // Strong keyword match = 15
+  if (keywords.strong.some(kw => pt.includes(kw))) return 15;
+
+  // Specialization match = 12
+  for (const spec of specializations) {
+    if (pt.includes(spec.toLowerCase())) return 12;
+  }
+
+  // Weak keyword match = 8
+  if (keywords.weak.some(kw => pt.includes(kw))) return 8;
+
+  return 3; // No match
 }
