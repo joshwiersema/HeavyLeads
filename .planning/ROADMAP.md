@@ -294,7 +294,11 @@ Plans:
   2. Distance filtering uses the PostGIS spatial index on the leads.location column instead of computing Haversine distance per row for every page load
   3. The dashboard page (leads feed with filters, scoring, and pagination) loads in under 3 seconds with 50,000+ leads in the database
   4. The same permit appearing on both a city Socrata portal and a county Socrata portal is detected and deduplicated so the user sees it only once
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 23-01-PLAN.md -- PostGIS location population in pipeline, ST_DWithin spatial queries replacing Haversine, SQL LIMIT in getFilteredLeadsWithCount
+- [ ] 23-02-PLAN.md -- Cross-source deduplication with permit number fuzzy match and date+address compound matching
 
 ### Phase 24: GroundPulse Rebrand & Landing Page
 **Goal**: The product is fully rebranded from HeavyLeads to GroundPulse with a new identity, and the landing page feels handcrafted and trustworthy across all 5 industries
@@ -337,5 +341,5 @@ v1.0 phases (1-6) complete. v2.0 phases (7-8) complete. v2.1 phases (9-12) compl
 | 20. Scoring Engine Fix | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
 | 21. Dynamic Portal Discovery & Nationwide Coverage | v4.0 | Complete    | 2026-03-20 | 2026-03-20 |
 | 22. Federal & Specialty Data Sources | 3/3 | Complete    | 2026-03-20 | - |
-| 23. Feed Performance Optimization | v4.0 | 0/TBD | Not started | - |
+| 23. Feed Performance Optimization | v4.0 | 0/2 | Not started | - |
 | 24. GroundPulse Rebrand & Landing Page | v4.0 | 0/TBD | Not started | - |
