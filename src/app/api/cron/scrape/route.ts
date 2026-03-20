@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
     .returning();
 
   try {
-    const adapters = getAllAdapters();
+    const adapters = await getAllAdapters();
     const result = await runPipeline(adapters, { pipelineRunId: run.id });
 
     // Calculate totals from adapter results

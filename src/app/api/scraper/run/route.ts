@@ -56,7 +56,7 @@ export async function POST(_request: Request) {
     .returning();
 
   try {
-    const adapters = getAllAdapters();
+    const adapters = await getAllAdapters();
     const result = await runPipeline(adapters, { pipelineRunId: run.id });
 
     // Calculate totals from adapter results

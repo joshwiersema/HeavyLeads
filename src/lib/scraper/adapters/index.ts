@@ -14,15 +14,56 @@ import { AustinViolationsAdapter } from "./austin-violations";
 import { DallasViolationsAdapter } from "./dallas-violations";
 import { HoustonViolationsAdapter } from "./houston-violations";
 import { EiaUtilityRateAdapter } from "./eia-utility-rates";
+import { getPortalAdaptersForIndustry } from "./portal-adapter-factory";
 
 /**
  * Factory function: returns fresh adapter instances for a given industry.
  *
+ * Merges hardcoded adapters (SAM.gov, news, storm, per-city) with dynamic
+ * portal adapters from the data_portals table. Hardcoded adapters take
+ * priority -- portal adapters with duplicate sourceIds are skipped.
+ *
  * Each call creates new adapter objects -- no shared mutable state between
- * invocations. This replaces the old global Map registry pattern and
- * eliminates race conditions when per-industry crons overlap.
+ * invocations. This eliminates race conditions when per-industry crons overlap.
  */
-export function getAdaptersForIndustry(industry: Industry): ScraperAdapter[] {
+export async function getAdaptersForIndustry(
+  industry: Industry
+): Promise<ScraperAdapter[]> {
+  // Hardcoded adapters (existing, for non-portal sources + legacy city adapters)
+  const hardcoded = getHardcodedAdapters(industry);
+
+  // Dynamic portal adapters from data_portals table
+  let portalAdapters: ScraperAdapter[] = [];
+  try {
+    portalAdapters = await getPortalAdaptersForIndustry(industry);
+  } catch (err) {
+    console.warn(
+      `[adapters] Failed to load portal adapters for ${industry}:`,
+      err instanceof Error ? err.message : err
+    );
+    // Continue with hardcoded adapters only
+  }
+
+  // Merge, deduplicating by sourceId (hardcoded takes priority)
+  const seen = new Set(hardcoded.map((a) => a.sourceId));
+  const merged = [...hardcoded];
+  for (const adapter of portalAdapters) {
+    if (!seen.has(adapter.sourceId)) {
+      seen.add(adapter.sourceId);
+      merged.push(adapter);
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Returns hardcoded adapter instances for a given industry.
+ *
+ * These are the original per-city adapters plus non-portal sources
+ * (SAM.gov, news scrapers, storm alerts, etc.).
+ */
+function getHardcodedAdapters(industry: Industry): ScraperAdapter[] {
   switch (industry) {
     case "heavy_equipment":
       return [
@@ -90,10 +131,11 @@ export function getAdaptersForIndustry(industry: Industry): ScraperAdapter[] {
 /**
  * Returns the superset of all unique adapters across all industries.
  *
- * Collects adapters from every industry and deduplicates by sourceId.
- * Used by admin/monitoring dashboards and the "all sources" health check.
+ * Collects adapters from every industry (hardcoded + portal) and
+ * deduplicates by sourceId. Used by admin/monitoring dashboards
+ * and the "all sources" health check.
  */
-export function getAllAdapters(): ScraperAdapter[] {
+export async function getAllAdapters(): Promise<ScraperAdapter[]> {
   const industries: Industry[] = [
     "heavy_equipment",
     "hvac",
@@ -106,7 +148,8 @@ export function getAllAdapters(): ScraperAdapter[] {
   const result: ScraperAdapter[] = [];
 
   for (const industry of industries) {
-    for (const adapter of getAdaptersForIndustry(industry)) {
+    const adapters = await getAdaptersForIndustry(industry);
+    for (const adapter of adapters) {
       if (!seen.has(adapter.sourceId)) {
         seen.add(adapter.sourceId);
         result.push(adapter);

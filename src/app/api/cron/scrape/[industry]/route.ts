@@ -70,7 +70,7 @@ export async function GET(
     .returning();
 
   try {
-    const adapters = getAdaptersForIndustry(industry as Industry);
+    const adapters = await getAdaptersForIndustry(industry as Industry);
     const batches = splitIntoBatches(adapters);
 
     let allResults: PipelineResult[] = [];

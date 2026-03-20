@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Get all adapters for the industry and filter to requested IDs
-  const allAdapters = getAdaptersForIndustry(industry as Industry);
+  const allAdapters = await getAdaptersForIndustry(industry as Industry);
   const batchAdapters = allAdapters.filter((a) =>
     adapterIds.includes(a.sourceId)
   );
