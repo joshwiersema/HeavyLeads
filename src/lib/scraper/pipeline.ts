@@ -258,6 +258,10 @@ async function processRecords(
       formattedAddress: record.formattedAddress ?? null,
       lat: record.lat ?? null,
       lng: record.lng ?? null,
+      location:
+        record.lat != null && record.lng != null
+          ? sql`ST_SetSRID(ST_MakePoint(${record.lng}, ${record.lat}), 4326)`
+          : null,
       city: record.city ?? null,
       state: record.state ?? null,
       projectType: record.projectType ?? null,
@@ -299,6 +303,7 @@ async function processRecords(
             scrapedAt: sql`excluded.scraped_at`,
             lat: sql`excluded.lat`,
             lng: sql`excluded.lng`,
+            location: sql`ST_SetSRID(ST_MakePoint(excluded.lng, excluded.lat), 4326)`,
             formattedAddress: sql`excluded.formatted_address`,
             sourceUrl: sql`excluded.source_url`,
             city: sql`excluded.city`,
@@ -451,4 +456,19 @@ async function geocodeBatch(
   }
 
   return results;
+}
+
+/**
+ * One-time backfill: populate location column for all existing leads
+ * that have lat/lng but null location. Safe to run multiple times.
+ */
+export async function backfillLeadLocations(): Promise<number> {
+  const result = await db.execute(sql`
+    UPDATE leads
+    SET location = ST_SetSRID(ST_MakePoint(lng, lat), 4326)
+    WHERE lat IS NOT NULL
+      AND lng IS NOT NULL
+      AND location IS NULL
+  `);
+  return Number(result.rowCount ?? 0);
 }
